@@ -1,0 +1,42 @@
+/* Basisstijl en ontwerptokens waar de dashboardpagina op rekent. */
+:root {
+  --color-fg: #24221f; --color-fg-muted: #6b6862; --color-border-line: #e4dfd6; --color-panel: #ffffff; --color-bg: #f5f2ec;
+  --color-ok: #3d8b2f; --color-warn: #e09a00; --color-bad: #c0392b;
+  --font-anthropic-sans: 'Poppins', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-anthropic-serif: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+  --cds-gap-xs: .5rem; --cds-gap-sm: .75rem; --cds-gap-md: 1rem; --cds-gap-xl: 2.5rem;
+  --cds-pad-xs: .25rem; --cds-pad-sm: .375rem; --cds-pad-md: .5rem; --cds-pad-lg: .75rem; --cds-radius: .25rem;
+  --cds-font-size-caption: .75rem; --cds-font-size-body: .875rem; --cds-font-size-heading: .9375rem; --cds-font-size-title: 1.375rem;
+  --cds-font-weight-medium: 500; --cds-dur-slow: .45s;
+  --cds-chart-grid: rgba(0, 0, 0, .08); --cds-chart-muted: #b9b4ab; --cds-chart-reference: #9a958c;
+  --cds-text-secondary: #6b6862; --cds-surface-popover: #ffffff; --cds-shadow-popover: 0 8px 24px #0000001f, 0 2px 6px #00000014; --cds-border: rgba(0, 0, 0, .1);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); font-family: var(--font-anthropic-sans); font-size: 16px; }
+body { min-height: 100vh; }
+#dash-root { max-width: 1880px; margin: 0 auto; padding: 0 16px 48px; }
+.dash-skeleton { position: relative; color: transparent !important; }
+.dash-skeleton::after { content: ''; position: absolute; inset: 2px; border-radius: 6px; background: linear-gradient(90deg, #ece8e0 0%, #f6f3ee 50%, #ece8e0 100%); background-size: 200% 100%; animation: lsl-sk 1.3s linear infinite; }
+@keyframes lsl-sk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+/* balk met gebruiker en beheer, boven de pagina */
+.lsl-bar { max-width: 1880px; margin: 0 auto; padding: 6px 16px; display: flex; justify-content: flex-end; gap: 14px; font-size: .78rem; color: var(--color-fg-muted); align-items: center; }
+.lsl-bar a { color: #1f4b47; text-decoration: none; } .lsl-bar a:hover { text-decoration: underline; }
+.lsl-bar .lsl-stale { color: var(--color-bad); font-weight: 600; }
+
+/* losse pagina's: inloggen, gebruikers, status */
+.lsl-plain { display: flex; justify-content: center; padding: 48px 16px; }
+.lsl-box { width: 100%; max-width: 760px; background: #fff; border: 1px solid var(--color-border-line); border-radius: 14px; padding: 28px 32px; }
+.lsl-box h1 { font-size: 1.5rem; margin: 0 0 .3rem; color: #1f4b47; } .lsl-box h2 { font-size: 1.05rem; margin: 1.6rem 0 .6rem; color: #1f4b47; }
+.lsl-sun { color: #f0b429; } .lsl-lime { color: #84bd3f; }
+.lsl-sub { color: var(--color-fg-muted); font-size: .9rem; margin: 0 0 1rem; }
+.lsl-form { display: flex; flex-direction: column; gap: .8rem; max-width: 420px; }
+.lsl-form label { display: flex; flex-direction: column; gap: .3rem; font-size: .85rem; font-weight: 600; }
+.lsl-form input, .lsl-form select { font: inherit; font-weight: 400; padding: .55rem .7rem; border: 1px solid var(--color-border-line); border-radius: 8px; }
+.lsl-form button, .lsl-btn { font: inherit; font-weight: 600; background: #1f4b47; color: #fff; border: 0; border-radius: 999px; padding: .6rem 1.2rem; cursor: pointer; width: fit-content; text-decoration: none; display: inline-block; }
+.lsl-link { background: none; border: 0; color: var(--color-bad); cursor: pointer; font: inherit; font-size: .8rem; padding: 0; }
+.lsl-err { color: var(--color-bad); font-weight: 600; } .lsl-ok { color: var(--color-ok); font-weight: 600; }
+.lsl-table { width: 100%; border-collapse: collapse; font-size: .86rem; } .lsl-table th, .lsl-table td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid var(--color-border-line); vertical-align: top; }
+.lsl-table th { color: var(--color-fg-muted); font-weight: 600; font-size: .78rem; }
+.lsl-table .bad { color: var(--color-bad); } .lsl-table .good { color: var(--color-ok); }
+.lsl-table small { color: var(--color-fg-muted); }
