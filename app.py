@@ -227,7 +227,8 @@ def status(request: Request, msg: str = ''):
     adm = u['r'] == 'beheerder'
     con = [('Shopify', shopify.configured()), ('Windsor (Meta, Google, bedrijfsprofiel, zoekwoorden)', windsor.configured()),
            ('ProfitMetrics', profitmetrics.configured()), ('Sumtracker', sumtracker.configured()),
-           ('Microsoft (OneDrive + mail)', onedrive.configured() and onedrive.connected())]
+           ('Containerplanning (deellink)' if onedrive.SHARE_URL else 'Microsoft (OneDrive + mail)', bool(onedrive.SHARE_URL) or (onedrive.configured() and onedrive.connected())),
+           ('Mail (SMTP)', bool(os.getenv('SMTP_HOST')))]
     msu = store.kv_get('ms_user') or {}
     rows = ''.join(f'<tr><td>{n}</td><td class="{"good" if ok else "bad"}">{"gekoppeld" if ok else "niet gekoppeld"}</td></tr>' for n, ok in con)
     od = ''

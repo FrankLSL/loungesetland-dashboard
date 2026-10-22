@@ -13,8 +13,30 @@ SCOPES = 'offline_access Files.Read User.Read Mail.Send'
 CONTAINER_PATH = os.getenv('CONTAINERPLANNING_PATH', 'Loungesetland/1.0 Live documenten/Containerplanning 2026.xlsx')
 
 
+SHARE_URL = os.getenv('CONTAINERPLANNING_SHARE_URL', '').strip()
+
+
 def configured():
     return bool(os.getenv('MS_CLIENT_ID') and os.getenv('MS_CLIENT_SECRET'))
+
+
+def share_download(url=SHARE_URL):
+    """Download via een deellink ('Iedereen met de link kan weergeven'); geen Microsoft-app nodig.
+    Geeft (bytes, laatst_gewijzigd_of_None). Probeert eerst ?download=1, daarna de OneDrive-shares-API."""
+    import base64, email.utils
+    sep = '&' if '?' in url else '?'
+    tries = [url + sep + 'download=1',
+             'https://api.onedrive.com/v1.0/shares/u!' + base64.urlsafe_b64encode(url.encode()).decode().rstrip('=') + '/root/content']
+    last = ''
+    for u in tries:
+        r = http('GET', u, timeout=300, allow_redirects=True)
+        ct = r.headers.get('content-type', '')
+        if r.ok and r.content[:2] == b'PK':  # xlsx = zip
+            lm = r.headers.get('last-modified')
+            dt = email.utils.parsedate_to_datetime(lm) if lm else None
+            return r.content, dt
+        last = f'{r.status_code} {ct[:40]}'
+    raise RuntimeError('deellink gaf geen Excel-bestand terug (' + last + '); controleer of de link op "Iedereen met de link" staat')
 
 
 def connected():

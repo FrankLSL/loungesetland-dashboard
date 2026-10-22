@@ -373,6 +373,28 @@ def containers():
     old_fx = (store.dataset_rows('fx') or [{}])[0]
     stand, csv_url, msg = old_fx.get('planning_stand'), old_fx.get('csv_url') or '/api/blob/containerplanning_open.csv', ''
     try:
+      if onedrive.SHARE_URL:
+        import hashlib
+        from .common import AMS
+        data, dt = onedrive.share_download()
+        h = hashlib.sha256(data).hexdigest()
+        if h == store.kv_get('cp_hash') and store.dataset_rows('cp_open') is not None and store.kv_get('cp_rate') == rate:
+            msg = 'containerplanning ongewijzigd'
+        else:
+            with tempfile.TemporaryDirectory() as td:
+                x, j, c = Path(td) / 'cp.xlsx', Path(td) / 'cp.json', Path(td) / 'cp.csv'
+                x.write_bytes(data)
+                p = subprocess.run([sys.executable, '-I', str(HERE / 'build_cp.py'), str(x), str(j), str(rate), rdate, str(c)], capture_output=True, text=True)
+                if p.returncode:
+                    raise RuntimeError('Excel inlezen mislukt: ' + (p.stderr or p.stdout)[-300:])
+                rows = json.loads(j.read_text())
+                store.save_dataset('cp_open', rows)
+                store.put_blob('containerplanning_open.csv', c.read_bytes(), 'text/csv; charset=utf-8')
+            if h != store.kv_get('cp_hash'):
+                stand = (dt.astimezone(AMS) if dt else datetime.datetime.now(AMS)).strftime('%Y-%m-%dT%H:%M')
+            store.kv_set('cp_hash', h); store.kv_set('cp_rate', rate)
+            msg = f'{len(rows)} PO\'s ingelezen'
+      else:
         info = onedrive.file_info()
         mod = info.get('lastModifiedDateTime', '')
         from .common import AMS

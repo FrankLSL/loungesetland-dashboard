@@ -53,3 +53,10 @@ gedeelde instellingen en het opschaalplan. Daarna verversen de taken zichzelf (z
 | maandag 07:30 | maandagbericht per mail |
 
 Eén replica laten staan: de planning draait in het webproces.
+
+## Containerplanning zonder Microsoft-app (deellink)
+Alternatief voor de Entra-app: maak in OneDrive een deellink van `Containerplanning 2026.xlsx` met
+"Iedereen met de link kan weergeven" en zet die in Railway als `CONTAINERPLANNING_SHARE_URL`.
+De app downloadt het bestand dan elk uur (07:37–21:37) en leest het alleen opnieuw in als het is gewijzigd.
+Let op: wie de link heeft, kan de sheet bekijken; deel hem nergens anders.
+Mail gaat dan via SMTP: `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`.
