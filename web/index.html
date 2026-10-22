@@ -576,7 +576,7 @@
 
   <section class="lw-section" id="voorraad">
     <h2>Voorraad en inkoop</h2>
-    <p class="lw-note">Bron: Sumtracker, momentopname van <span data-source="st_summary" data-field="peildatum" data-row="0">—</span> (staat los van de gekozen periode). Wordt elke maandagochtend ververst.</p>
+    <p class="lw-note">Bron: Sumtracker, momentopname van <span data-source="st_summary" data-field="peildatum" data-row="0">—</span> (staat los van de gekozen periode). Wordt elke maandagochtend ververst. ‘Aanbetaald, nog onderweg’ komt uit de containerplanning: de aanbetalingen in euro van containers die nog niet binnen zijn (ETA na vandaag); dat is voorraad die al deels betaald is.</p>
     <div class="lw-tiles" id="tiles-st"></div>
     <div class="lw-grid">
       <div class="lw-card" id="card-top15">
@@ -1351,7 +1351,7 @@ dash.calc('debit_sorted', {
   ];
   const ST = [
     ['voorraadwaarde', 'Voorraadwaarde (kostprijs)', 'eur'],
-    ['stuks', 'Stuks op voorraad', 'int'],
+    ['aanbetaald', 'Aanbetaald, nog onderweg', 'eur'],
     ['negatieve_voorraad_skus', 'SKU’s met negatieve voorraad', 'int'],
   ];
 
@@ -1381,8 +1381,8 @@ dash.calc('debit_sorted', {
     const tile = el('div', 'lw-tile'); tile.id = 'tile-st-' + f;
     tile.append(el('div', 'lw-label', label));
     const v = el('div', 'lw-value dash-skeleton', '—');
-    v.dataset.source = 'st_summary'; v.dataset.field = f; v.dataset.row = '0';
-    tile.append(v);
+    if (f === 'aanbetaald') { v.dataset.source = 'cp_open'; tile.append(v, el('div', 'lw-delta', '—')); }
+    else { v.dataset.source = 'st_summary'; v.dataset.field = f; v.dataset.row = '0'; tile.append(v); }
     stHost.append(tile);
   }
 
@@ -1688,6 +1688,19 @@ dash.calc('debit_sorted', {
     const s0 = st.status === 'ok' && st.data.length ? st.data[0] : null;
     for (const [f, , fmt] of ST) {
       const v = document.querySelector(`#tile-st-${f} .lw-value`);
+      if (f === 'aanbetaald') {
+        // aanbetalingen (Aanbetaling EURO) van containers die nog niet binnen zijn (ETA na vandaag): al betaalde voorraad
+        const co = dash.data('cp_open');
+        const sub = document.querySelector('#tile-st-aanbetaald .lw-delta');
+        if (co.status === 'ok') {
+          const td = window.lwToday();
+          const on = co.data.filter((r) => String(r.eta) > td && Number(r.aanbetaling_eur) > 0);
+          v.classList.remove('dash-skeleton');
+          v.textContent = eur0.format(on.reduce((t, r) => t + Number(r.aanbetaling_eur), 0));
+          sub.textContent = `${on.length} containers met ETA na vandaag · bron containerplanning`;
+        } else { v.textContent = '—'; sub.textContent = '—'; if (co.status !== 'loading') v.classList.remove('dash-skeleton'); }
+        continue;
+      }
       if (s0) { v.classList.remove('dash-skeleton'); v.textContent = fmtBy[fmt](Number(s0[f])); v.classList.toggle('lw-bad', (f === 'po_te_laat' || f === 'negatieve_voorraad_skus') && Number(s0[f]) > 0); }
       else { v.textContent = '—'; if (st.status !== 'loading') v.classList.remove('dash-skeleton'); }
     }
