@@ -576,7 +576,7 @@
 
   <section class="lw-section" id="voorraad">
     <h2>Voorraad en inkoop</h2>
-    <p class="lw-note">Bron: Sumtracker, momentopname van <span data-source="st_summary" data-field="peildatum" data-row="0">—</span> (staat los van de gekozen periode). Wordt elke maandagochtend ververst. ‘Aanbetaald, nog onderweg’ komt uit de containerplanning: wat al in euro betaald is (aanbetaling plus, als die is ingevuld, Euro betaling 2) voor containers die nog niet binnen zijn (ETA na vandaag); dat is voorraad die al betaald is maar nog niet in Sumtracker staat.</p>
+    <p class="lw-note">Bron: Sumtracker, momentopname van <span data-source="st_summary" data-field="peildatum" data-row="0">—</span> (staat los van de gekozen periode). Wordt elke maandagochtend ververst. ‘Aanbetaald, nog onderweg’ komt uit de containerplanning: wat al in euro betaald is (aanbetaling plus, als die is ingevuld, Euro betaling 2) voor containers die nog niet binnen zijn (ETA na vandaag); dat is voorraad die al betaald is maar nog niet in Sumtracker staat. ‘Totaal geld in goederen’ is de som van beide.</p>
     <div class="lw-tiles" id="tiles-st"></div>
     <div class="lw-grid">
       <div class="lw-card" id="card-top15">
@@ -1352,7 +1352,7 @@ dash.calc('debit_sorted', {
   const ST = [
     ['voorraadwaarde', 'Voorraadwaarde (kostprijs)', 'eur'],
     ['aanbetaald', 'Aanbetaald, nog onderweg', 'eur'],
-    ['negatieve_voorraad_skus', 'SKU’s met negatieve voorraad', 'int'],
+    ['goederen', 'Totaal geld in goederen', 'eur'],
   ];
 
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
@@ -1381,7 +1381,7 @@ dash.calc('debit_sorted', {
     const tile = el('div', 'lw-tile'); tile.id = 'tile-st-' + f;
     tile.append(el('div', 'lw-label', label));
     const v = el('div', 'lw-value dash-skeleton', '—');
-    if (f === 'aanbetaald') { v.dataset.source = 'cp_open'; tile.append(v, el('div', 'lw-delta', '—')); }
+    if (f === 'aanbetaald' || f === 'goederen') { v.dataset.source = f === 'goederen' ? 'st_summary' : 'cp_open'; tile.append(v, el('div', 'lw-delta', '—')); }
     else { v.dataset.source = 'st_summary'; v.dataset.field = f; v.dataset.row = '0'; tile.append(v); }
     stHost.append(tile);
   }
@@ -1686,8 +1686,18 @@ dash.calc('debit_sorted', {
 
     const st = dash.data('st_summary');
     const s0 = st.status === 'ok' && st.data.length ? st.data[0] : null;
+    let aanbetaaldTot = null;
     for (const [f, , fmt] of ST) {
       const v = document.querySelector(`#tile-st-${f} .lw-value`);
+      if (f === 'goederen') {
+        const sub = document.querySelector('#tile-st-goederen .lw-delta');
+        if (s0 && aanbetaaldTot != null) {
+          v.classList.remove('dash-skeleton');
+          v.textContent = eur0.format(Number(s0.voorraadwaarde) + aanbetaaldTot);
+          sub.textContent = `voorraad ${eur0.format(Number(s0.voorraadwaarde))} + aanbetaald ${eur0.format(aanbetaaldTot)}`;
+        } else { v.textContent = '—'; sub.textContent = '—'; }
+        continue;
+      }
       if (f === 'aanbetaald') {
         // Aanbetaling EURO + Euro betaling 2 van containers die nog niet binnen zijn (ETA na vandaag): al betaalde voorraad
         const co = dash.data('cp_open');
@@ -1698,7 +1708,8 @@ dash.calc('debit_sorted', {
           const on = co.data.filter((r) => String(r.eta) > td && paid(r) > 0);
           const full = on.filter((r) => Number(r.betaling2_eur) > 0);
           v.classList.remove('dash-skeleton');
-          v.textContent = eur0.format(on.reduce((t, r) => t + paid(r), 0));
+          aanbetaaldTot = on.reduce((t, r) => t + paid(r), 0);
+          v.textContent = eur0.format(aanbetaaldTot);
           sub.textContent = `${on.length} containers onderweg${full.length ? ` · waarvan ${full.length} volledig betaald (${eur0.format(full.reduce((t, r) => t + paid(r), 0))})` : ''}`;
         } else { v.textContent = '—'; sub.textContent = '—'; if (co.status !== 'loading') v.classList.remove('dash-skeleton'); }
         continue;
