@@ -31,7 +31,7 @@ for r in range(2, 200):
     rows.append({'po': str(po).strip(), 'leverancier': g('lev'), 'nummer': str(g('nr') or '').strip(), 'besteld': d(g('best')),
                  'geboekt': g('geb'), 'eta': eta.isoformat(), 'betalen_voor': (eta - datetime.timedelta(days=7)).isoformat(),
                  'inhoud': g('inh'), 'aanbetaling_usd': round(num(g('a_usd')), 2), 'aanbetaling_eur': round(num(g('a_eur')), 2),
-                 'container_betaald': betaald, 'open_usd': 0.0 if betaald else round(num(g('open')), 2),
+                 'container_betaald': betaald, 'betaling2_eur': round(num(g('eur2')), 2), 'open_usd': 0.0 if betaald else round(num(g('open')), 2),
                  'vracht_usd': round(vracht, 2), 'vracht_bron': 'daadwerkelijk' if isinstance(tr_d, (int, float)) and tr_d > 0 else 'verwacht'})
 json.dump(rows, open(out, 'w'), separators=(',', ':'), ensure_ascii=False)
 print(len(rows), 'rijen')

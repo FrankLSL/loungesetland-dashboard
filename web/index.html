@@ -576,7 +576,7 @@
 
   <section class="lw-section" id="voorraad">
     <h2>Voorraad en inkoop</h2>
-    <p class="lw-note">Bron: Sumtracker, momentopname van <span data-source="st_summary" data-field="peildatum" data-row="0">—</span> (staat los van de gekozen periode). Wordt elke maandagochtend ververst. ‘Aanbetaald, nog onderweg’ komt uit de containerplanning: de aanbetalingen in euro van containers die nog niet binnen zijn (ETA na vandaag); dat is voorraad die al deels betaald is.</p>
+    <p class="lw-note">Bron: Sumtracker, momentopname van <span data-source="st_summary" data-field="peildatum" data-row="0">—</span> (staat los van de gekozen periode). Wordt elke maandagochtend ververst. ‘Aanbetaald, nog onderweg’ komt uit de containerplanning: wat al in euro betaald is (aanbetaling plus, als die is ingevuld, Euro betaling 2) voor containers die nog niet binnen zijn (ETA na vandaag); dat is voorraad die al betaald is maar nog niet in Sumtracker staat.</p>
     <div class="lw-tiles" id="tiles-st"></div>
     <div class="lw-grid">
       <div class="lw-card" id="card-top15">
@@ -1689,15 +1689,17 @@ dash.calc('debit_sorted', {
     for (const [f, , fmt] of ST) {
       const v = document.querySelector(`#tile-st-${f} .lw-value`);
       if (f === 'aanbetaald') {
-        // aanbetalingen (Aanbetaling EURO) van containers die nog niet binnen zijn (ETA na vandaag): al betaalde voorraad
+        // Aanbetaling EURO + Euro betaling 2 van containers die nog niet binnen zijn (ETA na vandaag): al betaalde voorraad
         const co = dash.data('cp_open');
         const sub = document.querySelector('#tile-st-aanbetaald .lw-delta');
         if (co.status === 'ok') {
           const td = window.lwToday();
-          const on = co.data.filter((r) => String(r.eta) > td && Number(r.aanbetaling_eur) > 0);
+          const paid = (r) => (Number(r.aanbetaling_eur) || 0) + (Number(r.betaling2_eur) || 0);
+          const on = co.data.filter((r) => String(r.eta) > td && paid(r) > 0);
+          const full = on.filter((r) => Number(r.betaling2_eur) > 0);
           v.classList.remove('dash-skeleton');
-          v.textContent = eur0.format(on.reduce((t, r) => t + Number(r.aanbetaling_eur), 0));
-          sub.textContent = `${on.length} containers met ETA na vandaag · bron containerplanning`;
+          v.textContent = eur0.format(on.reduce((t, r) => t + paid(r), 0));
+          sub.textContent = `${on.length} containers onderweg${full.length ? ` · waarvan ${full.length} volledig betaald (${eur0.format(full.reduce((t, r) => t + paid(r), 0))})` : ''}`;
         } else { v.textContent = '—'; sub.textContent = '—'; if (co.status !== 'loading') v.classList.remove('dash-skeleton'); }
         continue;
       }
