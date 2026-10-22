@@ -1235,7 +1235,7 @@ dash.calc('cp_rows', {
     const rate = fx[0] ? Number(fx[0].usd_eur) : null;
     const today = window.lwToday();
     const days = (d) => Math.round((new Date(d + 'T00:00:00Z') - new Date(today + 'T00:00:00Z')) / 864e5);
-    return cp_open.map((r) => {
+    return cp_open.filter((r) => r.eta).map((r) => {
       const open_eur = rate ? Math.round(Number(r.open_usd) * rate * 100) / 100 : null;
       // vracht staat in de planning in dollars
       const vracht = rate ? Math.round((Number(r.vracht_usd) || 0) * rate * 100) / 100 : 0;
@@ -1705,7 +1705,7 @@ dash.calc('debit_sorted', {
         if (co.status === 'ok') {
           const td = window.lwToday();
           const paid = (r) => (Number(r.aanbetaling_eur) || 0) + (Number(r.betaling2_eur) || 0);
-          const on = co.data.filter((r) => String(r.eta) > td && paid(r) > 0);
+          const on = co.data.filter((r) => (!r.eta || String(r.eta) > td) && paid(r) > 0);
           const full = on.filter((r) => Number(r.betaling2_eur) > 0);
           v.classList.remove('dash-skeleton');
           aanbetaaldTot = on.reduce((t, r) => t + paid(r), 0);

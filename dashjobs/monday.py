@@ -85,9 +85,9 @@ def build():
     lim = (today() + datetime.timedelta(days=30)).isoformat()
     due = 0.0
     for r in store.dataset_rows('cp_open') or []:
-        if not r.get('container_betaald') and r.get('betalen_voor', '9') <= lim:
+        if not r.get('container_betaald') and (r.get('betalen_voor') or '9') <= lim:
             due += num(r.get('open_usd')) * rate
-        if r.get('eta', '9') <= lim:
+        if (r.get('eta') or '9') <= lim:
             due += num(r.get('vracht_usd')) * rate
     t += f" Containers en vracht komende 30 dagen: {E(due)}."
     parts.append(('Geld en voorraad', t))

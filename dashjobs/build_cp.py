@@ -22,7 +22,15 @@ for r in range(2, 200):
     if r in hidden: continue
     g = lambda k: ws.cell(r, C[k]).value
     po = ws.cell(r, po_col).value
-    if not po or not isinstance(g('eta'), datetime.datetime): continue
+    if not isinstance(g('eta'), datetime.datetime):
+        # rij zonder ETA (of PO) maar met een aanbetaling in euro: telt mee als aanbetaald onderweg, niet in de betaalplanning
+        if g('lev') and num(g('a_eur')) > 0:
+            rows.append({'po': str(po or g('lev')).strip(), 'leverancier': g('lev'), 'nummer': str(g('nr') or '').strip(), 'besteld': d(g('best')),
+                         'geboekt': g('geb'), 'eta': None, 'betalen_voor': None, 'inhoud': g('inh'), 'aanbetaling_usd': round(num(g('a_usd')), 2),
+                         'aanbetaling_eur': round(num(g('a_eur')), 2), 'container_betaald': num(g('eur2')) > 0, 'betaling2_eur': round(num(g('eur2')), 2),
+                         'open_usd': 0.0, 'vracht_usd': 0.0, 'vracht_bron': 'verwacht'})
+        continue
+    if not po: continue
     betaald = num(g('eur2')) > 0  # Euro betaling 2 ingevuld = container volledig betaald
     tr_d, tr_v = g('tr_d'), g('tr_v')
     vracht = num(tr_d) if isinstance(tr_d, (int, float)) and tr_d > 0 else num(tr_v)
@@ -46,7 +54,7 @@ if len(sys.argv) >= 6:
     buf = io.StringIO(); w = csv.writer(buf, delimiter=';')
     w.writerow(['PO', 'Leverancier', 'Nummer/code', 'Geboekt', 'ETA', 'Container betalen uiterlijk', 'Container betaald', 'Inhoud',
                 'Aanbetaling USD', 'Aanbetaling EUR', 'Open USD', f'Container open EUR (koers {rate} van {rdate})', 'Vracht USD', 'Vracht EUR', 'Vracht bron', 'Totaal open EUR'])
-    for r in sorted(rows, key=lambda r: r['eta' if r['container_betaald'] else 'betalen_voor']):
+    for r in sorted([r for r in rows if r['eta']], key=lambda r: r['eta' if r['container_betaald'] else 'betalen_voor']):
         ce = r['open_usd'] * rate
         ve = r['vracht_usd'] * rate
         w.writerow([r['po'], r['leverancier'], r['nummer'], r['geboekt'] or '', r['eta'], '' if r['container_betaald'] else r['betalen_voor'],
