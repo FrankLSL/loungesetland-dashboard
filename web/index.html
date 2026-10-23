@@ -311,7 +311,6 @@
 #dash-root .lq-form label { display: flex; flex-direction: column; gap: .25rem; font-size: .8rem; color: var(--ls-muted); font-weight: 500; }
 #dash-root .lq input { font: inherit; font-size: .85rem; padding: .3rem .5rem; border: 1px solid var(--ls-line); border-radius: 7px; background: #fff; color: var(--ls-ink); width: 100%; box-sizing: border-box; font-variant-numeric: tabular-nums; }
 #dash-root .lq input:focus { outline: 2px solid var(--ls-lime); border-color: var(--ls-lime); }
-#dash-root .lq input.lq-changed { background: #fff6d6; border-color: var(--ls-sun); }
 #dash-root .lq-edit td { vertical-align: middle; }
 #dash-root .lq-edit td:first-child { white-space: normal; min-width: 12rem; }
 #dash-root .lq-edit input[type=number], #dash-root .lq input.lq-eur { min-width: 6.5rem; text-align: right; }
@@ -380,7 +379,6 @@
 #dash-root #f-kosten input.lq-day { min-width: 0; width: 2.8rem; padding: .25rem .3rem; text-align: center; }
 #dash-root #f-kosten input[type=text]:not(.lq-eur) { min-width: 0; width: 100%; }
 #dash-root .lq input.lq-cb { width: 1.1rem; height: 1.1rem; min-width: 0; accent-color: var(--ls-green); }
-#dash-root .lq input.lq-cb.lq-changed { outline: 2px solid var(--ls-sun); }
 #dash-root .lq-del { font: inherit; font-size: 1rem; line-height: 1; width: 1.7rem; height: 1.7rem; border-radius: 50%; border: 1px solid var(--ls-line); background: #fff; color: var(--ls-red); cursor: pointer; }
 #dash-root .lq-del:hover { background: #fbe9e7; }
 #dash-root .lq select { font: inherit; font-size: .8rem; padding: .25rem .4rem; border: 1px solid var(--ls-line); border-radius: 7px; background: #fff; color: var(--ls-ink); margin-top: .25rem; }
@@ -692,7 +690,7 @@
   </div>
   <div class="lw-page lq" id="pg-liq" hidden>
   <header id="lq-top">
-    <h1>Liquiditeitsprognose <span class="lq-mode" id="lq-mode" hidden>aangepast</span></h1>
+    <h1>Liquiditeitsprognose <span class="lq-mode" id="lq-mode" hidden style="display:none">aangepast</span></h1>
     <p class="lq-sub" id="lq-sub">—</p>
     <p class="lq-take" id="lq-take" data-source="samenvatting">—</p>
   </header>
@@ -744,7 +742,7 @@
 
   <section id="invullen">
     <h2>Aannames invullen</h2>
-    <p class="lq-note">Vul hier saldo's, groei, advertentiekosten en kosten in; de prognose rekent direct mee. Aangepaste velden worden geel. Alles wat je invult wordt gedeeld opgeslagen, dus je ziet dezelfde cijfers op elke computer. <span class="lq-sync" id="lq-sync"></span></p>
+    <p class="lq-note">Vul hier saldo's, groei, advertentiekosten en kosten in; de prognose rekent direct mee. Alles wat je invult wordt gedeeld opgeslagen, dus je ziet dezelfde cijfers op elke computer. <span class="lq-sync" id="lq-sync"></span></p>
     <div class="lq-grid lq-grid-invul">
       <div class="lq-card">
         <h3>Startpositie en omzet</h3>
