@@ -246,6 +246,13 @@
 #dash-root .lq-kal-start td { background: #f6f3ee; font-weight: 700; }
 #dash-root .lq-kal-post.low td { background: #fdecea; font-weight: 600; }
 #dash-root .lq-dot { display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; margin-right: .45rem; vertical-align: middle; }
+#dash-root .lw-mini { display: flex; flex-wrap: wrap; gap: .4rem; margin: .2rem 0 .6rem; }
+#dash-root .lw-mini button { font: inherit; font-size: .8rem; padding: .2rem .7rem; border-radius: 999px; border: 1px solid var(--ls-line, #e4dfd6); background: #fff; cursor: pointer; color: var(--color-fg); }
+#dash-root .lw-mini button[aria-pressed="true"] { background: var(--ls-green, #1f4b47); border-color: var(--ls-green, #1f4b47); color: #fff; }
+#dash-root .lw-pill.lw-ok { border-color: #84bd3f; color: #3d6b12; }
+#dash-root .lw-pill.lw-warn { border-color: #e09a00; color: #8a5d00; }
+#dash-root .lw-mbar { display: inline-block; height: 10px; border-radius: 3px; background: #84bd3f; vertical-align: middle; }
+#dash-root td.lw-wrap { white-space: normal; min-width: 14rem; }
 </style>
 <style>
 #dash-root .lq {
@@ -607,6 +614,70 @@
               <td class="lw-num" data-source="top15_total" data-field="waarde" data-row="0">—</td>
               <td class="lw-num" data-source="top15_total" data-field="incoming" data-row="0">—</td>
             </tr></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="lw-section" id="dekking">
+    <h2>Voorraad tegenover verwachte verkoop</h2>
+    <p class="lw-note">Per product (losse onderdelen: een verkochte set telt mee voor de onderdelen waaruit hij bestaat). Verwachte verkoop per week = gemiddelde verkoop van de afgelopen 52 weken, omgezet naar het seizoenspatroon van vorig jaar (dezelfde weken, hele winkel). Voorraad = beschikbaar in Sumtracker (voorraad min al verkocht). Leveringen = open regels van inkooporders in Sumtracker op de verwachte aankomstdatum. Gesorteerd op inkoopwaarde van de verkoop in de afgelopen 52 weken, dus de echte bestsellers staan bovenaan. Stand <span id="dk-stand">—</span>.</p>
+    <div class="lw-tiles" id="tiles-dk">
+      <div class="lw-tile lw-click" role="button" tabindex="0" data-dk="voor"><div class="lw-label">Op vóór de volgende levering</div><div class="lw-value" id="dk-t-voor">—</div><div class="lw-delta" id="dk-t-voor-d">—</div></div>
+      <div class="lw-tile lw-click" role="button" tabindex="0" data-dk="geen"><div class="lw-label">Op binnen 26 weken, geen inkoop</div><div class="lw-value" id="dk-t-geen">—</div><div class="lw-delta" id="dk-t-geen-d">—</div></div>
+      <div class="lw-tile lw-click" role="button" tabindex="0" data-dk="na"><div class="lw-label">Levering te klein voor het seizoen</div><div class="lw-value" id="dk-t-na">—</div><div class="lw-delta" id="dk-t-na-d">—</div></div>
+      <div class="lw-tile"><div class="lw-label">Verwachte verkoop nu t.o.v. piek</div><div class="lw-value" id="dk-t-seiz">—</div><div class="lw-delta" id="dk-t-seiz-d">—</div></div>
+    </div>
+    <div class="lw-grid">
+      <div class="lw-card" id="card-dk">
+        <h3 id="dk-title">Top 40 bestsellers</h3>
+        <div class="lw-mini" id="dk-scope"><button type="button" data-scope="">Top 40</button><button type="button" data-scope="alles">Alle producten</button></div>
+        <p class="lw-note">Weken voorraad = hoe lang de huidige voorraad meegaat zonder nieuwe levering. ‘Op’ = de week waarin het product uitverkocht raakt, mét de geplande leveringen. Gemist = verwachte verkoop die je niet kunt leveren tot de eerste levering (zonder inkoop: in de komende 26 weken). Klik op een tegel hierboven om alleen die producten te zien.</p>
+        <div class="lw-tablebox lw-tablebox-20">
+          <table class="lw-table lw-stocktable" id="tbl-dk" data-source="st_dekking" data-row-key="sku">
+            <thead><tr>
+              <th data-field="rang" class="lw-num">#</th>
+              <th data-field="naam">Product</th>
+              <th data-field="voorraad" class="lw-num">Voorraad</th>
+              <th data-field="per_week_nu" class="lw-num">Verkoop/wk nu</th>
+              <th data-field="per_week_piek" class="lw-num">Piek/wk</th>
+              <th data-field="weken" class="lw-num">Weken voorraad</th>
+              <th data-field="op">Op</th>
+              <th data-field="volgende">Volgende levering</th>
+              <th data-field="tekort_stuks" class="lw-num">Gemist</th>
+              <th data-field="status">Status</th>
+            </tr></thead><tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="lw-section" id="marge">
+    <h2>Marge per merk en categorie</h2>
+    <p class="lw-note">Brutomarge = netto-omzet excl. btw (Shopify, na kortingen en retouren) min inkoopwaarde (aantal × gewogen landed cost uit Sumtracker; een set = de som van zijn onderdelen). Dit is de huidige kostprijs, niet die van het moment van verkoop, en zonder bezorgkosten. Omzet van producten zonder kostprijs telt niet mee in het percentage en staat apart.</p>
+    <div class="lw-mini" id="mm-per"><button type="button" data-per="jaar">Dit jaar</button><button type="button" data-per="12m">Laatste 52 weken</button><button type="button" data-per="4w">Laatste 4 weken</button></div>
+    <div class="lw-mini" id="mm-dim"><button type="button" data-dim="merk">Per merk</button><button type="button" data-dim="categorie">Per categorie</button></div>
+    <div class="lw-tiles" id="tiles-mm">
+      <div class="lw-tile"><div class="lw-label">Netto-omzet</div><div class="lw-value" id="mm-t-omzet">—</div><div class="lw-delta" id="mm-t-omzet-d">—</div></div>
+      <div class="lw-tile"><div class="lw-label">Inkoopwaarde</div><div class="lw-value" id="mm-t-kost">—</div><div class="lw-delta" id="mm-t-kost-d">—</div></div>
+      <div class="lw-tile"><div class="lw-label">Brutomarge</div><div class="lw-value" id="mm-t-marge">—</div><div class="lw-delta" id="mm-t-marge-d">—</div></div>
+    </div>
+    <div class="lw-grid">
+      <div class="lw-card" id="card-mm">
+        <h3 id="mm-title">Marge per merk</h3>
+        <div class="lw-tablebox">
+          <table class="lw-table lw-stocktable" id="tbl-mm" data-source="marge_merk" data-row-key="naam">
+            <thead><tr>
+              <th data-field="naam">Naam</th>
+              <th data-field="omzet" class="lw-num">Omzet</th>
+              <th data-field="aandeel" class="lw-num">Aandeel</th>
+              <th data-field="kosten" class="lw-num">Inkoop</th>
+              <th data-field="marge" class="lw-num">Marge €</th>
+              <th data-field="marge_pct" class="lw-num">Marge %</th>
+              <th data-field="bar"></th>
+              <th data-field="stuks" class="lw-num">Stuks</th>
+            </tr></thead><tbody></tbody>
+            <tfoot><tr><td>Totaal</td><td class="lw-num" id="mm-ft-omzet">—</td><td></td><td class="lw-num" id="mm-ft-kost">—</td><td class="lw-num" id="mm-ft-marge">—</td><td class="lw-num" id="mm-ft-pct">—</td><td></td><td class="lw-num" id="mm-ft-stuks">—</td></tr></tfoot>
           </table>
         </div>
       </div>
@@ -1008,6 +1079,19 @@
     t.addEventListener('click', go);
     t.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
   });
+  document.querySelectorAll('#tiles-dk .lw-click').forEach((t) => {
+    const go = () => {
+      const f = t.dataset.dk;
+      const cur = dash.params().dk_filter || '';
+      dash.setParams({ dk_filter: f && f !== cur ? f : null });
+      document.getElementById('card-dk').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    t.addEventListener('click', go);
+    t.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+  document.querySelectorAll('#dk-scope button').forEach((b) => b.addEventListener('click', () => dash.setParams({ dk_scope: b.dataset.scope || null })));
+  document.querySelectorAll('#mm-per button').forEach((b) => b.addEventListener('click', () => dash.setParams({ mm_per: b.dataset.per === 'jaar' ? null : b.dataset.per })));
+  document.querySelectorAll('#mm-dim button').forEach((b) => b.addEventListener('click', () => dash.setParams({ mm_dim: b.dataset.dim === 'merk' ? null : b.dataset.dim })));
   dash.onData(show);
 })();
 </script>
@@ -1739,6 +1823,104 @@ dash.calc('debit_sorted', {
     setT('stuks', tt0 ? int.format(tt0.stuks) : '—');
     setT('waarde', tt0 ? eur0.format(tt0.waarde) : '—');
     setT('incoming', tt0 ? int.format(tt0.incoming) : '—');
+
+    // ---- voorraad tegenover verwachte verkoop ----
+    {
+      const dk = dash.data('st_dekking');
+      const sz = dash.data('st_seizoen');
+      const setTxt = (id, t) => { const n = document.getElementById(id); if (n) n.textContent = t; };
+      const ok = dk.status === 'ok';
+      const all = ok ? dk.data : [];
+      const top = all.slice(0, 40);
+      const scope = P.dk_scope || '';
+      const filt = P.dk_filter || '';
+      const base = scope === 'alles' ? all : top;
+      const isVoor = (r) => r.status === 'Tekort vóór levering';
+      const isGeen = (r) => r.status === 'Geen inkoop gepland' && r.op && r.op < new Date(Date.now() + 26 * 7 * 864e5).toISOString().slice(0, 10);
+      const isNa = (r) => r.status === 'Tekort na levering';
+      const g = { voor: base.filter(isVoor), geen: base.filter(isGeen), na: base.filter(isNa) };
+      const names = (a) => a.slice(0, 3).map((r) => String(r.naam).split('|')[0].trim()).join(', ') + (a.length > 3 ? ` en ${a.length - 3} meer` : '');
+      const wie = scope === 'alles' ? 'producten' : 'van de top 40';
+      setTxt('dk-t-voor', ok ? `${g.voor.length} ${wie}` : '—');
+      setTxt('dk-t-voor-d', ok ? (g.voor.length ? names(g.voor) : 'alle leveringen komen op tijd') : '—');
+      setTxt('dk-t-geen', ok ? `${g.geen.length} ${wie}` : '—');
+      setTxt('dk-t-geen-d', ok ? (g.geen.length ? names(g.geen) : 'niets') : '—');
+      setTxt('dk-t-na', ok ? `${g.na.length} ${wie}` : '—');
+      setTxt('dk-t-na-d', ok ? (g.na.length ? names(g.na) : 'leveringen dekken het seizoen') : '—');
+      document.getElementById('dk-t-voor').classList.toggle('lw-bad', g.voor.length > 0);
+      if (sz.status === 'ok' && sz.data.length) {
+        const nu = sz.data.slice(0, 4).reduce((t, r) => t + r.index, 0) / 4;
+        const pk = sz.data.reduce((m, r) => (r.index > m.index ? r : m), sz.data[0]);
+        setTxt('dk-t-seiz', `${Math.round((nu / pk.index) * 100)}%`);
+        setTxt('dk-t-seiz-d', `piek rond week van ${dateNlY(pk.week)} (${new Intl.NumberFormat(nl, { maximumFractionDigits: 1 }).format(pk.index / nu)}× zo druk als nu)`);
+      } else { setTxt('dk-t-seiz', '—'); setTxt('dk-t-seiz-d', '—'); }
+      const stand = sz.status === 'ok' && sz.data[0] ? sz.data[0].stand : null;
+      setTxt('dk-stand', stand ? dateNlY(String(stand).slice(0, 10)) + ' ' + String(stand).slice(11, 16) : '—');
+      document.querySelectorAll('#tiles-dk .lw-click').forEach((t) => t.setAttribute('aria-pressed', String(t.dataset.dk === filt)));
+      document.querySelectorAll('#dk-scope button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.scope === scope)));
+      const shown = filt ? g[filt] || base : base;
+      setTxt('dk-title', (filt === 'voor' ? 'Op vóór de volgende levering' : filt === 'geen' ? 'Op binnen 26 weken, geen inkoop gepland' : filt === 'na' ? 'Levering te klein voor het seizoen' : scope === 'alles' ? 'Alle producten met verkoop' : 'Top 40 bestsellers') + ` (${shown.length})`);
+      const n1 = new Intl.NumberFormat(nl, { maximumFractionDigits: 1 });
+      const cls = (v) => (v.startsWith('Tekort') || v === 'Geen inkoop gepland' ? ' lw-bad' : v === 'Levering op tijd' ? ' lw-warn' : ' lw-ok');
+      const tDk = document.getElementById('tbl-dk');
+      if (ok) {
+        renderTable(tDk, shown, [
+          ['rang', (v) => String(v), 'lw-num'],
+          ['naam', (v, r) => { const sp = el('span', '', v); sp.title = `${r.sku} · ${r.merk} · ${r.categorie} · ${int.format(r.verkocht_52w)} verkocht in 52 weken`; return sp; }, 'lw-wrap'],
+          ['voorraad', (v, r) => int.format(Number(v)) + (r.onderweg ? ` (+${int.format(r.onderweg)})` : ''), 'lw-num'],
+          ['per_week_nu', (v) => n1.format(Number(v)), 'lw-num'],
+          ['per_week_piek', (v) => n1.format(Number(v)), 'lw-num'],
+          ['weken', (v) => (v == null ? '—' : Number(v) >= 40 ? '40+' : n1.format(Number(v))), 'lw-num'],
+          ['op', (v) => (v ? dateNlY(v) : 'na 40 wk')],
+          ['volgende', (v, r) => { if (!v) return '—'; const sp = el('span', '', `${dateNlY(v)} · ${int.format(r.volgende_stuks)} st`); sp.title = (r.leveringen || []).map((x) => `${x.po}: ${int.format(x.stuks)} st op ${dateNlY(x.datum)}`).join('\n'); return sp; }],
+          ['tekort_stuks', (v) => (Number(v) ? int.format(Number(v)) : '—'), 'lw-num'],
+          ['status', (v) => el('span', 'lw-pill' + cls(v), v)],
+        ]);
+      } else tDk.querySelector('tbody').replaceChildren();
+    }
+
+    // ---- marge per merk / categorie ----
+    {
+      const mm = dash.data('marge_merk');
+      const setTxt = (id, t) => { const n = document.getElementById(id); if (n) n.textContent = t; };
+      const per = P.mm_per || 'jaar';
+      const dim = P.mm_dim || 'merk';
+      document.querySelectorAll('#mm-per button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.per === per)));
+      document.querySelectorAll('#mm-dim button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.dim === dim)));
+      const ok = mm.status === 'ok';
+      const rows = ok ? mm.data.filter((r) => r.periode === per && r.dim === dim).sort((a, b) => b.omzet - a.omzet) : [];
+      const onb = ok ? mm.data.find((r) => r.periode === per && r.dim === 'onbekend') : null;
+      const sum = (k) => rows.reduce((t, r) => t + (Number(r[k]) || 0), 0);
+      const O = sum('omzet'), K = sum('kosten'), ZK = sum('omzet_zonder_kostprijs');
+      const pct = (m, o) => (o > 0 ? new Intl.NumberFormat(nl, { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format((m / o) * 100) + '%' : '—');
+      const lbl = rows[0] ? `${rows[0].periode_label} (${dateNlY(rows[0].van)} t/m ${dateNlY(new Date(new Date(rows[0].tot + 'T00:00:00Z').getTime() + 6 * 864e5).toISOString().slice(0, 10))})` : '';
+      setTxt('mm-title', (dim === 'merk' ? 'Marge per merk' : 'Marge per categorie') + (lbl ? ' · ' + lbl : ''));
+      setTxt('mm-t-omzet', ok ? eur0.format(O) : '—');
+      setTxt('mm-t-omzet-d', ok ? `met kostprijs${ZK || (onb && onb.omzet) ? ` · daarnaast ${eur0.format(ZK + (onb ? onb.omzet : 0))} zonder kostprijs of niet in Sumtracker` : ''}` : '—');
+      setTxt('mm-t-kost', ok ? eur0.format(K) : '—');
+      setTxt('mm-t-kost-d', ok ? `${pct(K, O)} van de omzet` : '—');
+      setTxt('mm-t-marge', ok ? pct(O - K, O) : '—');
+      setTxt('mm-t-marge-d', ok ? eur0.format(O - K) + ' brutomarge' : '—');
+      const max = Math.max(1, ...rows.map((r) => Number(r.marge_pct) || 0));
+      const tMm = document.getElementById('tbl-mm');
+      if (ok) {
+        renderTable(tMm, rows, [
+          ['naam', (v, r) => { const sp = el('span', '', v); if (r.omzet_zonder_kostprijs) sp.title = `${eur0.format(r.omzet_zonder_kostprijs)} omzet zonder kostprijs, niet meegeteld`; return sp; }],
+          ['omzet', (v) => eur0.format(Number(v)), 'lw-num'],
+          ['aandeel', (v, r) => pct(r.omzet, O), 'lw-num'],
+          ['kosten', (v) => eur0.format(Number(v)), 'lw-num'],
+          ['marge', (v) => eur0.format(Number(v)), 'lw-num'],
+          ['marge_pct', (v) => (v == null ? '—' : pct(Number(v), 100)), 'lw-num'],
+          ['bar', (v, r) => { const b = el('span', 'lw-mbar'); b.style.width = Math.max(0, (Number(r.marge_pct) || 0) / max * 6) + 'rem'; if ((Number(r.marge_pct) || 0) < 35) b.style.background = '#e09a00'; return b; }],
+          ['stuks', (v) => int.format(Number(v)), 'lw-num'],
+        ]);
+      } else tMm.querySelector('tbody').replaceChildren();
+      setTxt('mm-ft-omzet', ok ? eur0.format(O) : '—');
+      setTxt('mm-ft-kost', ok ? eur0.format(K) : '—');
+      setTxt('mm-ft-marge', ok ? eur0.format(O - K) : '—');
+      setTxt('mm-ft-pct', ok ? pct(O - K, O) : '—');
+      setTxt('mm-ft-stuks', ok ? int.format(sum('stuks')) : '—');
+    }
 
     // ---- containerplanning ----
     {

@@ -434,3 +434,246 @@ def containers():
     if msg.startswith('containerplanning niet'):
         raise RuntimeError(f'koers {rate} bijgewerkt, maar {msg}')
     return f'koers {rate}; {msg}'
+
+
+# =====================================================================
+# Voorraaddekking per bestseller en marge per merk/categorie
+# =====================================================================
+def shop_sku_weekly():
+    """Verkochte stuks en netto-omzet (excl. btw) per SKU per week, sinds de week van 30 sep 2024."""
+    rows = shopify.shopifyql(f'FROM sales SHOW net_items_sold, net_sales GROUP BY product_variant_sku TIMESERIES week SINCE 2024-09-30 UNTIL {yesterday()} LIMIT 100000')
+    out = [{'week': _d10(shopify.day_of(r, 'week')), 'sku': (r.get('product_variant_sku') or '').strip(), 'stuks': i0(r.get('net_items_sold')),
+            'omzet': r2(r.get('net_sales'))} for r in rows]
+    out = [r for r in out if r['stuks'] or r['omzet']]
+    store.save_dataset('shop_sku_weekly', sorted(out, key=lambda r: (r['week'], r['sku'])))
+    return f'{len(out)} rijen'
+
+
+BRANDS = [('apple bee', 'Apple Bee'), ('belito', 'Belito'), ('aerocover', 'Platinum'), ('platinum', 'Platinum'), ('4seasons', '4Seasons'),
+          ('4 seasons', '4Seasons'), ('hartman', 'Hartman'), ('tierra', 'Tierra'), ('garden impressions', 'Garden Impressions'), ('suns', 'SUNS')]
+SKU_BRANDS = [('AB-', 'Apple Bee'), ('BEL-', 'Belito'), ('PLAT', 'Platinum'), ('AERO', 'Platinum'), ('4S', '4Seasons'), ('HART', 'Hartman')]
+CATS = [('loungeset', 'Loungesets'), ('hoek', 'Loungesets'), ('tuinset', 'Tuinsets'), ('dining', 'Tuinsets'), ('hoes', 'Hoezen'), ('parasol', 'Parasols'),
+        ('tafel', 'Tafels'), ('stoel', 'Stoelen en hockers'), ('hocker', 'Stoelen en hockers'), ('chair', 'Stoelen en hockers'),
+        ('bank', 'Banken en modules'), ('module', 'Banken en modules'), ('kussen', 'Kussens en accessoires'), ('accessoire', 'Kussens en accessoires')]
+
+
+def _merk(p):
+    n = ' ' + (p.get('name') or '').lower().replace('®', '') + ' '
+    for k, v in BRANDS:
+        if (' ' + k) in n[:40]:
+            return v
+    sku = (p.get('sku') or '').upper()
+    for k, v in SKU_BRANDS:
+        if sku.startswith(k):
+            return v
+    w = (p.get('name') or '').split()
+    return w[0].replace('®', '') if w else 'Onbekend'
+
+
+def _cat(p):
+    for c in list(p.get('categories') or []) + [p.get('name') or '']:
+        c = str(c).lower()
+        for k, v in CATS:
+            if k in c:
+                return v
+    return 'Overig'
+
+
+def voorraad_analyse():
+    """Weken voorraad per bestseller (met de volgende inkooplevering) en marge per merk en categorie.
+    Leest Sumtracker (producten, bundels, voorraad, open inkooporders) en shop_sku_weekly."""
+    sales = store.dataset_rows('shop_sku_weekly')
+    if not sales:
+        shop_sku_weekly()
+        sales = store.dataset_rows('shop_sku_weekly') or []
+    prods = {p['id']: p for p in sumtracker.paged('products/')}
+    by_sku = {}
+    for p in prods.values():
+        if p.get('sku'):
+            by_sku.setdefault(p['sku'].strip().upper(), p)
+    comps = collections.defaultdict(list)
+    for l in sumtracker.paged('products/bundles/lines/'):
+        cid = l.get('component_id') or (l.get('component') or {}).get('id')
+        if cid and cid not in prods and l.get('component'):
+            prods[cid] = l['component']
+        comps[l.get('product_id')].append((cid, num(l.get('quantity')) or 1))
+    stock = {}
+    for r in sumtracker.paged('stock/levels/'):
+        s = stock.setdefault(r.get('product_id'), {'in_stock': 0, 'available': 0, 'incoming': 0})
+        for k in s:
+            s[k] += num(r.get(k))
+    cost = lambda pid: num((prods.get(pid) or {}).get('wavg_landed_cost'))
+
+    def explode(pid, q, depth=0):
+        """Bundel → componenten (stuks), anders het product zelf."""
+        if comps.get(pid) and depth < 3:
+            out = []
+            for cid, n in comps[pid]:
+                out += explode(cid, q * n, depth + 1)
+            return out
+        return [(pid, q)]
+
+    # ---- open inkooporders met regels (open = besteld − geleverd) ----
+    td = today()
+    pos = [p for p in sumtracker.paged('purchases/orders/', max_pages=3) if p.get('expected_arrival_date')
+           and str(p['expected_arrival_date']) >= (td - datetime.timedelta(days=120)).isoformat()]
+    arrivals = collections.defaultdict(list)  # product_id → [(datum, stuks, po)]
+    for p in pos:
+        for l in sumtracker.paged(f"purchases/orders/{p['id']}/lines/"):
+            q = num(l.get('quantity')) - num(l.get('delivered_quantity'))
+            if q > 0:
+                if l.get('product') and l.get('product_id') not in prods:
+                    prods[l['product_id']] = l['product']
+                arrivals[l.get('product_id')].append((max(str(p['expected_arrival_date']), td.isoformat()), q, p.get('number') or str(p['id'])))
+
+    # ---- vraag per component per week ----
+    weeks = sorted({r['week'] for r in sales})
+    vraag = collections.defaultdict(lambda: collections.defaultdict(float))  # pid → week → stuks
+    onbekend = collections.defaultdict(float)
+    for r in sales:
+        p = by_sku.get(r['sku'].upper()) if r['sku'] else None
+        if not p:
+            onbekend[r['sku'] or '(geen SKU)'] += r['omzet']
+            continue
+        for cid, q in explode(p['id'], r['stuks']):
+            vraag[cid][r['week']] += q
+    wk = lambda d: (d - datetime.timedelta(days=d.weekday()))
+    cur = wk(td)
+    last52 = [(cur - datetime.timedelta(weeks=i)).isoformat() for i in range(1, 53)]
+    # seizoenspatroon: totale stuks per week vorig jaar t.o.v. het weekgemiddelde (zelfde kalenderweek)
+    tot_w = collections.defaultdict(float)
+    for pid, ws in vraag.items():
+        for w, q in ws.items():
+            tot_w[w] += q
+    gem = sum(tot_w.get(w, 0) for w in last52) / 52 or 1
+    def seizoen(d):  # index voor de week die begint op d, op basis van dezelfde week een jaar eerder (±1 week gemiddeld)
+        b = wk(d - datetime.timedelta(weeks=52))
+        vals = [tot_w.get((b + datetime.timedelta(weeks=k)).isoformat(), 0) for k in (-1, 0, 1)]
+        return max(0.15, (sum(vals) / 3) / gem)
+    HOR = 40
+    fut = [cur + datetime.timedelta(weeks=i) for i in range(HOR)]
+    idx = [seizoen(d) for d in fut]
+
+    rows = []
+    for pid, ws in vraag.items():
+        p = prods.get(pid) or {}
+        if (p.get('bundle_type') or 'NONE') != 'NONE':
+            continue
+        first = min((w for w, q in ws.items() if q > 0), default=None)
+        if not first:
+            continue
+        n_w = sum(1 for w in last52 if w >= first)
+        verkocht52 = sum(ws.get(w, 0) for w in last52)
+        if verkocht52 <= 0 or n_w < 4:
+            continue
+        # basis: gemiddelde per week over de weken dat het product verkocht werd (max 52), gecorrigeerd voor seizoen in die weken
+        seiz_in = sum(seizoen(datetime.date.fromisoformat(w) + datetime.timedelta(weeks=52)) for w in last52 if w >= first) or n_w
+        basis = verkocht52 / seiz_in
+        st = stock.get(pid, {'in_stock': 0, 'available': 0, 'incoming': 0})
+        voorraad = st['available']
+        arr = sorted(arrivals.get(pid, []))
+        # week-voor-week doorrekenen: voorraad + leveringen − verwachte verkoop
+        lev = collections.defaultdict(float)
+        for d, q, _ in arr:
+            lev[wk(datetime.date.fromisoformat(d))] += q
+        s, s_zonder, op, op_zonder = voorraad, voorraad, None, None
+        kort = {}
+        for i, d in enumerate(fut):
+            v = basis * idx[i]
+            s += lev.get(d, 0)
+            if s >= v:
+                s -= v
+            else:
+                if op is None:
+                    op = d
+                kort[d] = v - max(s, 0)
+                s = 0
+            s_zonder -= v
+            if op_zonder is None and s_zonder < 0:
+                op_zonder = d
+        nxt = next(((d, q, n) for d, q, n in arr), None)
+        per_week_nu = basis * sum(idx[:4]) / 4
+        weken = None
+        if voorraad <= 0:
+            weken = 0.0
+        else:
+            rest, w = voorraad, 0.0
+            for i in range(HOR):
+                v = basis * idx[i]
+                if rest <= v:
+                    w += rest / v if v else 1
+                    break
+                rest -= v
+                w += 1
+            else:
+                w = float(HOR)
+            weken = round(w, 1)
+        eerste = wk(datetime.date.fromisoformat(arr[0][0])) if arr else None
+        # gemiste verkoop: tot de eerste levering, of (zonder inkoop) in de komende 26 weken
+        grens = eerste if eerste else cur + datetime.timedelta(weeks=26)
+        tekort = sum(q for d, q in kort.items() if d < grens)
+        if op_zonder is None:
+            status = 'Voldoende'
+        elif op is None:
+            status = 'Levering op tijd'
+        elif not arr:
+            status = 'Geen inkoop gepland'
+        elif op < eerste:
+            status = 'Tekort vóór levering'
+        else:
+            status = 'Tekort na levering'
+        rows.append({'sku': p.get('sku'), 'naam': p.get('name'), 'merk': _merk(p), 'categorie': _cat(p), 'voorraad': i0(voorraad),
+                     'onderweg': i0(sum(q for _, q, _ in arr)), 'verkocht_52w': i0(verkocht52), 'per_week_nu': round(per_week_nu, 1),
+                     'per_week_piek': round(basis * max(idx), 1), 'weken': weken, 'op_zonder': op_zonder.isoformat() if op_zonder else None,
+                     'op': op.isoformat() if op else None, 'tekort_stuks': i0(round(tekort)),
+                     'volgende': nxt[0] if nxt else None, 'volgende_stuks': i0(nxt[1]) if nxt else None, 'volgende_po': nxt[2] if nxt else None,
+                     'leveringen': [{'datum': d, 'stuks': i0(q), 'po': n} for d, q, n in arr][:6],
+                     'status': status, 'waarde_52w': r2(verkocht52 * cost(pid))})
+    rows.sort(key=lambda r: -r['waarde_52w'])
+    for i, r in enumerate(rows):
+        r['rang'] = i + 1
+    from .common import AMS
+    stand = datetime.datetime.now(AMS).strftime('%Y-%m-%dT%H:%M')
+    seiz = [{'week': d.isoformat(), 'index': round(x, 2), 'stand': stand} for d, x in zip(fut, idx)]
+    store.save_dataset('st_dekking', rows)
+    store.save_dataset('st_seizoen', seiz)
+
+    # ---- marge per merk en categorie ----
+    def marge(van, tot):
+        agg = {}
+        zonder = 0.0
+        for r in sales:
+            if not (van <= r['week'] <= tot):
+                continue
+            p = by_sku.get(r['sku'].upper()) if r['sku'] else None
+            if not p:
+                zonder += r['omzet']
+                continue
+            parts = explode(p['id'], r['stuks'])
+            k = sum(cost(cid) * q for cid, q in parts)
+            mist = any(cost(cid) <= 0 for cid, _ in parts) and r['stuks'] > 0
+            for dim, key in (('merk', _merk(p)), ('categorie', _cat(p))):
+                a = agg.setdefault((dim, key), {'omzet': 0.0, 'kosten': 0.0, 'stuks': 0, 'omzet_zk': 0.0})
+                if mist:
+                    a['omzet_zk'] += r['omzet']
+                else:
+                    a['omzet'] += r['omzet']; a['kosten'] += k
+                a['stuks'] += r['stuks']
+        return agg, zonder
+    out = []
+    y0 = datetime.date(td.year, 1, 1)
+    periods = [('jaar', f'{td.year} t/m vorige week', wk(y0).isoformat(), (cur - datetime.timedelta(weeks=1)).isoformat()),
+               ('12m', 'laatste 52 weken', last52[-1], last52[0]),
+               ('4w', 'laatste 4 weken', last52[3], last52[0])]
+    for pk, label, van, tot in periods:
+        agg, zonder = marge(van, tot)
+        for (dim, key), a in agg.items():
+            out.append({'periode': pk, 'periode_label': label, 'van': van, 'tot': tot, 'dim': dim, 'naam': key, 'omzet': r2(a['omzet']), 'kosten': r2(a['kosten']),
+                        'marge': r2(a['omzet'] - a['kosten']), 'marge_pct': round((a['omzet'] - a['kosten']) / a['omzet'] * 100, 1) if a['omzet'] > 0 else None,
+                        'stuks': a['stuks'], 'omzet_zonder_kostprijs': r2(a['omzet_zk'])})
+        out.append({'periode': pk, 'periode_label': label, 'van': van, 'tot': tot, 'dim': 'onbekend', 'naam': 'Niet in Sumtracker', 'omzet': r2(zonder)})
+    store.save_dataset('marge_merk', out)
+    tek = sum(1 for r in rows[:40] if r['status'].startswith('Tekort') or r['status'] == 'Geen inkoop gepland')
+    jaar = [r for r in out if r['periode'] == 'jaar' and r['dim'] == 'merk']
+    o, k = sum(r['omzet'] for r in jaar), sum(r['kosten'] for r in jaar)
+    return f'{len(rows)} producten, {tek} van top 40 met tekort; marge {td.year} {((o - k) / o * 100) if o else 0:.1f}%; {len(pos)} PO\'s'

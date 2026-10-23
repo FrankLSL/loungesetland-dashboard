@@ -25,6 +25,8 @@ JOBS = {
     'pm_daily': (jobs.pm_daily, 'ProfitMetrics per dag', profitmetrics.configured),
     'weer': (jobs.weer, 'Weerverwachting', lambda: True),
     'containers': (jobs.containers, 'Containerplanning + koers', lambda: True),
+    'shop_sku_weekly': (jobs.shop_sku_weekly, 'Verkoop per SKU per week', shopify.configured),
+    'voorraad_analyse': (jobs.voorraad_analyse, 'Voorraaddekking en marge per merk', lambda: sumtracker.configured() and shopify.configured()),
 }
 
 
@@ -49,7 +51,7 @@ SCHEDULE = [
     (['shop_sales_recent', 'shop_products_recent'], None, list(range(8, 23)), 7),
     (['shop_open'], None, [8, 10, 12, 14, 16, 18, 20], 12),
     (['ads_daily', 'ads_campaigns', 'shop_sessions_recent', 'pm_daily', 'weer', 'gbp_daily', 'shop_search_month', 'meta_ads'], None, [0, 6, 12], 8),
-    (['sumtracker_stock'], None, [0, 6, 12], 1),
+    (['sumtracker_stock', 'shop_sku_weekly', 'voorraad_analyse'], None, [0, 6, 12], 1),
     (['markt_kp'], [0], [6], 33),
     (['shop_sessions_daily', 'shop_fulfil_daily', 'shop_products_daily'], [0], [6], 41),
     (['containers'], None, list(range(7, 22)), 37),
