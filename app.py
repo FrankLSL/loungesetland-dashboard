@@ -301,6 +301,14 @@ def od_callback(request: Request, code: str = '', state: str = '', error: str = 
     return RedirectResponse('/status?msg=OneDrive gekoppeld als ' + (me.get('mail') or me.get('userPrincipalName') or ''), status_code=303)
 
 
+@app.get('/mail/voorbeeld', response_class=HTMLResponse)
+def mail_preview(request: Request):
+    _admin(request)
+    from dashjobs import monday
+    subject, page = monday.build()
+    return HTMLResponse('<title>' + html.escape(subject) + '</title>' + page)
+
+
 @app.get('/profitmetrics/login')
 def pm_login(request: Request):
     _admin(request)
