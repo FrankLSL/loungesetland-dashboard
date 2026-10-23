@@ -35,6 +35,14 @@ def _monday_mail():
 
 JOBS['maandagmail'] = (_monday_mail, 'Maandagbericht per mail', lambda: True)
 
+
+def _pm_keepalive():
+    tok = profitmetrics._oauth_token()
+    return 'toegang verlengd' if tok else 'geen koppeling'
+
+
+JOBS['pm_toegang'] = (_pm_keepalive, 'ProfitMetrics-toegang verlengen', lambda: bool(os.getenv('PROFITMETRICS_CLIENT_ID')))
+
 # (taken, dagen 0=ma..6=zo of None = elke dag, uren, minuut)
 SCHEDULE = [
     (['shop_sales_daily', 'ontvangsten'], None, [6], 22),
@@ -45,6 +53,7 @@ SCHEDULE = [
     (['shop_sessions_daily', 'shop_fulfil_daily', 'shop_products_daily', 'sumtracker_stock'], [0], [6], 41),
     (['containers'], None, list(range(7, 22)), 37),
     (['maandagmail'], [0], [7], 30),
+    (['pm_toegang'], None, list(range(24)), 3),
 ]
 
 _running = threading.Lock()
@@ -101,6 +110,6 @@ def start():
     threading.Thread(target=_loop, daemon=True).start()
     # at every start: run the data tasks that never ran or failed last time (so a fix is tried right after a deploy)
     last = {r['job']: r for r in store.last_runs_per_job()}
-    todo = [n for n in JOBS if n != 'maandagmail' and (n not in last or not last[n].get('ok'))]
+    todo = [n for n in JOBS if n not in ('maandagmail', 'pm_toegang') and (n not in last or not last[n].get('ok'))]
     if todo:
         run_async(todo, by='start')
