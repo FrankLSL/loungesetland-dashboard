@@ -1839,7 +1839,7 @@ dash.calc('debit_sorted', {
       const isGeen = (r) => r.status === 'Geen inkoop gepland' && r.op && r.op < new Date(Date.now() + 26 * 7 * 864e5).toISOString().slice(0, 10);
       const isNa = (r) => r.status === 'Tekort na levering';
       const g = { voor: base.filter(isVoor), geen: base.filter(isGeen), na: base.filter(isNa) };
-      const names = (a) => a.slice(0, 3).map((r) => String(r.naam).split('|')[0].trim()).join(', ') + (a.length > 3 ? ` en ${a.length - 3} meer` : '');
+      const names = (a) => a.slice(0, 3).map((r) => String(r.naam).split('|').slice(0, 2).map((x) => x.trim()).join(' ')).join(', ') + (a.length > 3 ? ` en ${a.length - 3} meer` : '');
       const wie = scope === 'alles' ? 'producten' : 'van de top 40';
       setTxt('dk-t-voor', ok ? `${g.voor.length} ${wie}` : '—');
       setTxt('dk-t-voor-d', ok ? (g.voor.length ? names(g.voor) : 'alle leveringen komen op tijd') : '—');
