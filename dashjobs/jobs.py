@@ -458,6 +458,8 @@ CATS = [('loungeset', 'Loungesets'), ('hoek', 'Loungesets'), ('tuinset', 'Tuinse
 
 
 def _merk(p):
+    if 'montage' in (p.get('name') or '').lower():
+        return 'Montage en diensten'
     n = ' ' + (p.get('name') or '').lower().replace('®', '') + ' '
     for k, v in BRANDS:
         if (' ' + k) in n[:40]:
@@ -471,6 +473,8 @@ def _merk(p):
 
 
 def _cat(p):
+    if 'montage' in (p.get('name') or '').lower():
+        return 'Montage en diensten'
     for c in list(p.get('categories') or []) + [p.get('name') or '']:
         c = str(c).lower()
         for k, v in CATS:
