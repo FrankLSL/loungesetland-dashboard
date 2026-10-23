@@ -208,6 +208,23 @@ def send():
     if onedrive.configured() and onedrive.connected() and os.getenv('MAIL_VIA', 'microsoft') == 'microsoft':
         onedrive.send_mail(to, subject, body)
         return f'verstuurd via Microsoft naar {", ".join(to)}'
+    sender = os.getenv('MAIL_FROM') or os.getenv('SMTP_USER') or ''
+    # mail via an HTTPS API (Railway blocks outgoing SMTP on Hobby plans)
+    if os.getenv('BREVO_API_KEY'):
+        from .common import http
+        r = http('POST', 'https://api.brevo.com/v3/smtp/email', headers={'api-key': os.getenv('BREVO_API_KEY').strip(), 'Content-Type': 'application/json', 'Accept': 'application/json'},
+                 json={'sender': {'email': sender, 'name': os.getenv('MAIL_FROM_NAME', 'Loungesetland dashboard')}, 'to': [{'email': x} for x in to],
+                       'subject': subject, 'htmlContent': body}, tries=1)
+        if not r.ok:
+            raise RuntimeError(f'Brevo {r.status_code}: {r.text[:200]}')
+        return f'verstuurd via Brevo naar {", ".join(to)}'
+    if os.getenv('RESEND_API_KEY'):
+        from .common import http
+        r = http('POST', 'https://api.resend.com/emails', headers={'Authorization': 'Bearer ' + os.getenv('RESEND_API_KEY').strip(), 'Content-Type': 'application/json'},
+                 json={'from': sender, 'to': to, 'subject': subject, 'html': body}, tries=1)
+        if not r.ok:
+            raise RuntimeError(f'Resend {r.status_code}: {r.text[:200]}')
+        return f'verstuurd via Resend naar {", ".join(to)}'
     host = os.getenv('SMTP_HOST')
     if not host:
         raise RuntimeError('Geen mailroute: koppel Microsoft (OneDrive) of stel SMTP_HOST in')
@@ -232,7 +249,7 @@ def send():
         return _orig(addr, timeout, source_address)
     socket.create_connection = _v4
     try:
-        conn = smtplib.SMTP_SSL(host, port, timeout=60, context=ssl.create_default_context()) if port == 465 else smtplib.SMTP(host, port, timeout=60)
+        conn = smtplib.SMTP_SSL(host, port, timeout=20, context=ssl.create_default_context()) if port == 465 else smtplib.SMTP(host, port, timeout=20)
     finally:
         socket.create_connection = _orig
     with conn as s:
