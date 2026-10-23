@@ -78,9 +78,9 @@ def build():
     slecht = min(perdag.items(), key=lambda x: x[1]) if perdag else None
     g_ly, g_pw = _pct(om, oml), _pct(om, omp)
     if g_ly is not None and g_ly > 0.1:
-        t = f"Een goede week: we deden <b>{E(om)}</b> omzet uit {int(orders)} orders, {_trend(g_ly)}{'' if g_ly >= 1 else ' dan'} dezelfde week vorig jaar ({E(oml)})."
+        t = f"Een goede week: we deden <b>{E(om)}</b> omzet uit {int(orders)} orders, {_trend(g_ly)}{' als' if g_ly >= 1 else ' dan'} dezelfde week vorig jaar ({E(oml)})."
     elif g_ly is not None and g_ly < -0.1:
-        t = f"Een rustigere week: <b>{E(om)}</b> omzet uit {int(orders)} orders, {_trend(g_ly)}{'' if g_ly >= 1 else ' dan'} dezelfde week vorig jaar ({E(oml)})."
+        t = f"Een rustigere week: <b>{E(om)}</b> omzet uit {int(orders)} orders, {_trend(g_ly)}{' als' if g_ly >= 1 else ' dan'} dezelfde week vorig jaar ({E(oml)})."
     else:
         t = f"Vorige week deden we <b>{E(om)}</b> omzet uit {int(orders)} orders" + (f", {_trend(g_ly)} als dezelfde week vorig jaar ({E(oml)})." if g_ly is not None else '.')
     if g_pw is not None:
@@ -123,7 +123,7 @@ def build():
     cmp_, cmpl = _sum(ss, 'day', A, B, 'sessions_that_completed_checkout'), _sum(ss, 'day', lA, lB, 'sessions_that_completed_checkout')
     ful = _sum(store.dataset_rows('shop_fulfil_daily') or [], 'day', A, B, 'orders_fulfilled')
     if ses:
-        t = f"{int(ses):,} bezoekers op de website".replace(',', '.') + (f" ({_trend(_pct(ses, sesl))}{'' if _pct(ses, sesl) >= 1 else ' dan'} vorig jaar)" if sesl else '')
+        t = f"{int(ses):,} bezoekers op de website".replace(',', '.') + (f" ({_trend(_pct(ses, sesl))}{' als' if _pct(ses, sesl) >= 1 else ' dan'} vorig jaar)" if sesl else '')
         t += f", waarvan {P(cmp_ / ses)} online afrekende" + (f" (vorig jaar {P(cmpl / sesl)})" if sesl else '') + '.'
         t += f" Onze bezorgers leverden <b>{int(ful)} orders</b> af."
         blocks.append(('Website en bezorging', t))
