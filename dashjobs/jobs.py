@@ -32,8 +32,21 @@ def _d10(v):
 # =====================================================================
 # Shopify
 # =====================================================================
+def _sales_q(q):
+    """sales_reversals heet in sommige API-versies 'returns': dan die kolom gebruiken en terugzetten."""
+    try:
+        return shopify.shopifyql(q)
+    except RuntimeError as e:
+        if 'sales_reversals' not in str(e):
+            raise
+        rows = shopify.shopifyql(q.replace('sales_reversals', 'returns'))
+        for r in rows:
+            r['sales_reversals'] = r.get('returns')
+        return rows
+
+
 def shop_sales_daily():
-    rows = shopify.shopifyql(f"FROM sales SHOW orders, gross_sales, discounts, sales_reversals, net_sales, taxes, total_sales TIMESERIES day SINCE 2023-10-01 UNTIL {yesterday()} LIMIT 100000")
+    rows = _sales_q(f"FROM sales SHOW orders, gross_sales, discounts, sales_reversals, net_sales, taxes, total_sales TIMESERIES day SINCE 2023-10-01 UNTIL {yesterday()} LIMIT 100000")
     out = [{'day': _d10(shopify.day_of(r)), 'orders': i0(r.get('orders')), 'omzet': r2(num(r.get('total_sales')) - num(r.get('taxes'))),
             'omzet_incl': r2(r.get('total_sales')), 'retouren': r2(-num(r.get('sales_reversals')))} for r in rows]
     out.sort(key=lambda r: r['day'])
@@ -50,7 +63,7 @@ def ontvangsten():
 
 
 def shop_sales_recent():
-    rows = shopify.shopifyql('FROM sales SHOW orders, sales_reversals, taxes, total_sales TIMESERIES day SINCE -6d UNTIL today')
+    rows = _sales_q('FROM sales SHOW orders, sales_reversals, taxes, total_sales TIMESERIES day SINCE -6d UNTIL today')
     out = [{'day': _d10(shopify.day_of(r)), 'orders': i0(r.get('orders')), 'omzet': r2(num(r.get('total_sales')) - num(r.get('taxes'))),
             'omzet_incl': r2(r.get('total_sales')), 'retouren': r2(-num(r.get('sales_reversals')))} for r in rows]
     store.save_dataset('shop_sales_recent', sorted(out, key=lambda r: r['day']))

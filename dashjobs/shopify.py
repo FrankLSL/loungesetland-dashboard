@@ -9,7 +9,7 @@ Benodigde rechten: read_orders, read_reports (ShopifyQL).
 import os, time, json
 from .common import http
 
-API_VERSION = os.getenv('SHOPIFY_API_VERSION', '2025-10')
+API_VERSION = os.getenv('SHOPIFY_API_VERSION', '2026-07')
 _tok = {'t': None, 'x': 0}
 
 
@@ -37,16 +37,27 @@ def token():
     return _tok['t']
 
 
+_lock = __import__('threading').Lock()
+
+
 def graphql(query, variables=None):
-    r = http('POST', f'https://{shop()}/admin/api/{API_VERSION}/graphql.json',
-             headers={'X-Shopify-Access-Token': token(), 'Content-Type': 'application/json'},
-             json={'query': query, 'variables': variables or {}})
-    if not r.ok:
-        raise RuntimeError(f'Shopify HTTP {r.status_code}: {r.text[:300]}')
-    j = r.json()
-    if j.get('errors'):
-        raise RuntimeError('Shopify: ' + json.dumps(j['errors'])[:400])
-    return j['data']
+    # one call at a time, and wait when Shopify says THROTTLED
+    with _lock:
+        for attempt in range(8):
+            r = http('POST', f'https://{shop()}/admin/api/{API_VERSION}/graphql.json',
+                     headers={'X-Shopify-Access-Token': token(), 'Content-Type': 'application/json'},
+                     json={'query': query, 'variables': variables or {}})
+            if r.status_code == 429:
+                time.sleep(5 * (attempt + 1)); continue
+            if not r.ok:
+                raise RuntimeError(f'Shopify HTTP {r.status_code}: {r.text[:300]}')
+            j = r.json()
+            if j.get('errors') and 'THROTTLED' in json.dumps(j['errors']) and attempt < 7:
+                time.sleep(5 * (attempt + 1)); continue
+            if j.get('errors'):
+                raise RuntimeError('Shopify: ' + json.dumps(j['errors'])[:400])
+            time.sleep(1)
+            return j['data']
 
 
 SQL_Q = '''query($q:String!){ shopifyqlQuery(query:$q){ parseErrors tableData { columns { name dataType } rows } } }'''
