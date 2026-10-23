@@ -690,7 +690,7 @@ def voorraad_analyse():
             lev[wk(datetime.date.fromisoformat(d))] += q
         s, s_zonder, op, op_zonder = voorraad, voorraad, None, None
         kort = {}
-        for i, d in enumerate(fut):
+        for i, d in enumerate(fut[:40]):  # status over 40 weken (t/m het seizoen); vraag loopt 60 weken door
             v = basis * idx[i]
             s += lev.get(d, 0)
             if s >= v:

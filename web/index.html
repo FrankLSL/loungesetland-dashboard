@@ -1939,7 +1939,7 @@ dash.calc('debit_sorted', {
           ['per_week_nu', (v) => n1.format(Number(v)), 'lw-num'],
           ['per_week_piek', (v) => n1.format(Number(v)), 'lw-num'],
           ['weken', (v) => (v == null ? '—' : Number(v) >= 60 ? '60+' : n1.format(Number(v))), 'lw-num'],
-          ['op', (v) => (v ? dateNlY(v) : 'na 60 wk')],
+          ['op', (v) => (v ? dateNlY(v) : 'na 40 wk')],
           ['volgende', (v, r) => { if (!v) return '—'; const sp = el('span', '', `${dateNlY(v)} · ${int.format(r.volgende_stuks)} st`); sp.title = (r.leveringen || []).map((x) => `${x.po}: ${int.format(x.stuks)} st op ${dateNlY(x.datum)}`).join('\n'); return sp; }],
           ['tekort_stuks', (v) => (Number(v) ? int.format(Number(v)) : '—'), 'lw-num'],
           ['status', (v) => el('span', 'lw-pill' + cls(v), v)],
