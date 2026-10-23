@@ -81,6 +81,8 @@
     else if (orderBy <= 0) { status = 'Nu bestellen'; rank = 1; }
     else if (orderBy <= 4) { status = 'Binnen 4 weken'; rank = 2; }
     else { status = 'Later'; rank = 3; }
+    if (status === 'Te laat' && L <= 2) { status = 'Nu bestellen'; rank = 1; } // korte levertijd: gewoon nu bijbestellen
+    if (rank <= 2 && qty === 0) { status = kortVoor ? 'Tekort tot levering' : 'Voldoende'; rank = kortVoor ? 3 : 5; } // wat al besteld is dekt het
     const wkTo = (i) => addD(t0, i * 7);
     const perWk = v.slice(a, a + D).reduce((x, y) => x + y, 0) / D;
     return { kortVoor, L, opDatum: opIdx === null ? null : wkTo(opIdx), bestelDatum: orderBy === null ? null : wkTo(Math.max(0, orderBy)), orderBy, qty: rank <= 2 || P.vr_alles ? qty : 0, qtyNu: qty, status, rank, atArr, perWk, aankomst: wkTo(a) };
@@ -177,7 +179,7 @@
     document.getElementById('vr-best-t').textContent = `Bestellijst${fLev ? ' · ' + (levName.get(fLev) || '') : ''} (${list.length})`;
     document.getElementById('vr-inact').textContent = nonActief ? `${nonActief} producten zonder voorraad, zonder inkooporder en zonder verkoop in de laatste 13 weken staan niet in de lijst (waarschijnlijk uit het assortiment).` : '';
     const tb = document.querySelector('#vr-tbl tbody');
-    const stCls = (s) => (s === 'Te laat' ? ' lw-bad' : s === 'Nu bestellen' ? ' lw-warn' : s === 'Binnen 4 weken' ? ' lw-warn' : ' lw-ok');
+    const stCls = (s) => (s === 'Te laat' ? ' lw-bad' : s === 'Nu bestellen' || s === 'Binnen 4 weken' || s === 'Tekort tot levering' ? ' lw-warn' : ' lw-ok');
     tb.replaceChildren(...list.slice(0, 400).map((x) => {
       const tr = el('tr'); const r = x.r, a = x.a;
       const nm = el('td', 'lw-wrap', short(r.naam)); nm.title = `${r.sku} · ${int.format(r.verkocht_52w)} verkocht in 52 weken · verwacht ${n1.format(a.perWk)}/week na aankomst`;
