@@ -245,7 +245,35 @@ def _metric(name, cur, cmp):
     return m
 
 
+_live_cache = {}
+
+
 def export(args):
+    """Live bij ProfitMetrics (MCP, 5 minuten bewaard); lukt dat niet, dan uit de dagcijfers (pm_full)."""
+    import time
+    if _oauth_ready():
+        k = json.dumps(args, sort_keys=True)
+        hit = _live_cache.get(k)
+        if hit and hit[0] > time.time():
+            return hit[1]
+        try:
+            a = dict(args); a.setdefault('publicIds', [PUBLIC_ID]); a.setdefault('timezone', 'Europe/Amsterdam')
+            j = _mcp_call('export_dashboard_metrics', a)
+            if isinstance(j, dict) and j.get('success') is not False and j.get('data') is not None:
+                _live_cache[k] = (time.time() + 300, j)
+                if len(_live_cache) > 200:
+                    _live_cache.clear()
+                return j
+        except Exception:
+            pass
+    return export_saved(args)
+
+
+def _oauth_ready():
+    return bool(store.kv_get('pm_refresh') or (store.kv_get('pm_oauth') or {}).get('t'))
+
+
+def export_saved(args):
     """Zelfde vorm als export_dashboard_metrics: {success, data: {data: [{timestamp, compareTimestamp, metrics}]}}."""
     R = _rows()
     metrics = args.get('metrics') or [m.upper() for m in SUM]

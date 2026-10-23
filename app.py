@@ -156,7 +156,8 @@ async def api_query(ds: str, request: Request):
     args.update({k: v for k, v in (body.get('args') or {}).items() if k in ('fromIncl', 'toExcl', 'compareFromIncl', 'compareToExcl')})
     if src.get('connector') == 'ProfitMetrics':
         try:
-            return {'answer': profitmetrics.export(args)}
+            from starlette.concurrency import run_in_threadpool
+            return {'answer': await run_in_threadpool(profitmetrics.export, args)}
         except Exception as e:
             raise HTTPException(400, f'Kon {ds} niet berekenen: {e}')
     raise HTTPException(400, 'Onbekende bron')

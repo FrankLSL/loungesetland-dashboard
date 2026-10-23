@@ -118,8 +118,11 @@ def send():
     msg['Subject'], msg['From'], msg['To'] = subject, os.getenv('MAIL_FROM') or os.getenv('SMTP_USER'), ', '.join(to)
     msg.attach(MIMEText(body, 'html', 'utf-8'))
     port = int(os.getenv('SMTP_PORT', '587'))
-    with smtplib.SMTP(host, port, timeout=60) as s:
-        s.starttls(context=ssl.create_default_context())
+    # port 465 = SSL from the start (one.com), otherwise STARTTLS
+    conn = smtplib.SMTP_SSL(host, port, timeout=60, context=ssl.create_default_context()) if port == 465 else smtplib.SMTP(host, port, timeout=60)
+    with conn as s:
+        if port != 465:
+            s.starttls(context=ssl.create_default_context())
         if os.getenv('SMTP_USER'):
             s.login(os.getenv('SMTP_USER'), os.getenv('SMTP_PASSWORD', ''))
         s.send_message(msg)
