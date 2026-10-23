@@ -626,7 +626,7 @@ def voorraad_analyse():
                 lev_van[l['pid']] = (datum, p.get('contact_id'))
             if is_open and l['q'] - l['d'] > 0:
                 arrivals[l['pid']].append((max(str(eta), td.isoformat()), l['q'] - l['d'], nr))
-        po_rows.append({'po': nr, 'id': p['id'], 'leverancier_id': p.get('contact_id'), 'leverancier': sup.get(p.get('contact_id'), str(p.get('contact_id'))),
+        po_rows.append({'po': nr, 'id': p['id'], 'leverancier_id': p.get('contact_id'), 'leverancier': sup.get(p.get('contact_id'), f"Leverancier {p.get('contact_id')}"),
                         'besteld': datum, 'eta': str(eta) if eta else None, 'status': p.get('status'), 'open': is_open,
                         'stuks': i0(sum(l['q'] for l in lines)), 'open_stuks': i0(open_q),
                         'waarde': r2(sum(val(l) for l in lines)), 'open_waarde': r2(sum(max(0.0, l['q'] - l['d']) * (l['c'] or cost(l['pid'])) for l in lines)),
@@ -741,9 +741,9 @@ def voorraad_analyse():
                      'volgende': nxt[0] if nxt else None, 'volgende_stuks': i0(nxt[1]) if nxt else None, 'volgende_po': nxt[2] if nxt else None,
                      'leveringen': [{'datum': d, 'stuks': i0(q), 'po': n} for d, q, n in arr][:6],
                      'status': status, 'waarde_52w': r2(verkocht52 * cost(pid)),
-                     'pid': pid, 'kostprijs': r2(cost(pid)), 'in_stock': i0(st['in_stock']),
+                     'pid': pid, 'kostprijs': r2(cost(pid)), 'verkocht_13w': i0(sum(ws.get(w, 0) for w in last52[:13])), 'in_stock': i0(st['in_stock']),
                      'leverancier_id': (lev_van.get(pid) or (None, None))[1],
-                     'leverancier': sup.get((lev_van.get(pid) or (None, None))[1]) or 'Onbekend',
+                     'leverancier': sup.get((lev_van.get(pid) or (None, None))[1]) or (f'Leverancier {(lev_van.get(pid) or (None, None))[1]}' if lev_van.get(pid) and lev_van[pid][1] else 'Onbekend'),
                      'vraag': [round(basis * x, 2) for x in idx]})
     rows.sort(key=lambda r: -r['waarde_52w'])
     for i, r in enumerate(rows):

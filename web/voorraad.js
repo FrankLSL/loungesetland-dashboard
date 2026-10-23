@@ -62,25 +62,28 @@
     // voorraad doorrekenen zonder nieuwe bestelling
     let s = Number(r.voorraad) || 0, opIdx = null; const proj = [];
     for (let i = 0; i < H; i++) { s += arr[i]; s -= v[i]; proj.push(s); if (opIdx === null && s < 0) opIdx = i; }
-    // bestelmoment: het moment dat de voorraad onder de veiligheidsvoorraad zakt, min de levertijd
+    // bestelmoment: eerste week vanaf de levertijd (eerder kan een nieuwe bestelling niet binnen zijn) waarin de voorraad
+    // onder de veiligheidsvoorraad zakt; bestellen uiterlijk = die week − levertijd
+    const bufAt = (i) => v.slice(i + 1, i + 1 + B).reduce((a, b) => a + b, 0);
+    const a = Math.min(L, H - 1);
     let rp = null;
-    for (let i = 0; i < H; i++) { const buf = v.slice(i + 1, i + 1 + B).reduce((a, b) => a + b, 0); if (proj[i] < buf) { rp = i; break; } }
+    for (let i = a; i < H; i++) if (proj[i] < bufAt(i)) { rp = i; break; }
     const orderBy = rp === null ? null : rp - L;
     // hoeveelheid als je nu bestelt: verkoop vanaf aankomst t/m dekking + veiligheidsvoorraad − wat er dan ligt − wat er in die periode binnenkomt
-    const a = Math.min(L, H - 1);
     const atArr = a > 0 ? proj[a - 1] : Number(r.voorraad) || 0;
     const need = v.slice(a, a + D + B).reduce((x, y) => x + y, 0);
     const inWin = arr.slice(a, a + D).reduce((x, y) => x + y, 0);
     const qty = Math.max(0, Math.ceil(need - Math.max(0, atArr) - inWin));
+    const kortVoor = opIdx !== null && opIdx < a; // tekort vóór een nieuwe bestelling binnen kan zijn
     let status, rank;
     if (rp === null) { status = 'Voldoende'; rank = 5; }
-    else if (opIdx !== null && opIdx < L) { status = 'Te laat'; rank = 0; }
+    else if (kortVoor && rp <= a) { status = 'Te laat'; rank = 0; }
     else if (orderBy <= 0) { status = 'Nu bestellen'; rank = 1; }
     else if (orderBy <= 4) { status = 'Binnen 4 weken'; rank = 2; }
     else { status = 'Later'; rank = 3; }
     const wkTo = (i) => addD(t0, i * 7);
     const perWk = v.slice(a, a + D).reduce((x, y) => x + y, 0) / D;
-    return { L, opDatum: opIdx === null ? null : wkTo(opIdx), bestelDatum: orderBy === null ? null : wkTo(Math.max(0, orderBy)), orderBy, qty: rank <= 2 || P.vr_alles ? qty : 0, qtyNu: qty, status, rank, atArr, perWk, aankomst: wkTo(a) };
+    return { kortVoor, L, opDatum: opIdx === null ? null : wkTo(opIdx), bestelDatum: orderBy === null ? null : wkTo(Math.max(0, orderBy)), orderBy, qty: rank <= 2 || P.vr_alles ? qty : 0, qtyNu: qty, status, rank, atArr, perWk, aankomst: wkTo(a) };
   }
 
   // ---------- containers ----------
@@ -103,7 +106,7 @@
     if (!root) return;
     const dk = rows('st_dekking'), pos = rows('vr_pos'), lev = rows('vr_leveranciers'), sz = rows('st_seizoen');
     const P = dash.params();
-    if (!dk || !pos || !lev) return;
+    if (!dk || !pos || !lev) { clearTimeout(render._t); render._t = setTimeout(render, 700); return; }
     const stand = sz && sz[0] ? sz[0].stand : null;
     document.getElementById('vr-stand').textContent = stand ? dNl(stand.slice(0, 10)) + ' ' + stand.slice(11, 16) : '—';
     const week0 = sz && sz[0] ? sz[0].week : today();
@@ -125,7 +128,9 @@
     }
 
     // advies per product
-    const all = dk.map((r) => { r._week0 = week0; const L = leadOf(r.leverancier_id, r.leverancier); const a = advies(r, P, L); const c = cbmOf(r.sku); return { r, a, cbm: c }; });
+    const actief = (r) => (Number(r.voorraad) || 0) > 0 || (Number(r.onderweg) || 0) > 0 || (Number(r.verkocht_13w) || 0) > 0;
+    const nonActief = dk.filter((r) => !actief(r)).length;
+    const all = dk.filter(actief).map((r) => { r._week0 = week0; const L = leadOf(r.leverancier_id, r.leverancier); const a = advies(r, P, L); const c = cbmOf(r.sku); return { r, a, cbm: c }; });
     LAST = all;
     const urgent = (x) => x.a.rank <= 2;
     const fLev = P.vr_lev != null && P.vr_lev !== '' ? String(P.vr_lev) : '';
@@ -139,7 +144,7 @@
     const openPos = pos.filter((p) => p.open && (!fLev || String(p.leverancier_id) === fLev));
     const nxt = openPos.slice().sort((a, b) => (a.eta < b.eta ? -1 : 1))[0];
     const tileDefs = [
-      ['laat', 'Te laat', cnt(0), (a) => `op vóór een nieuwe bestelling binnen kan zijn · advies ${eur0.format(val(a))}`],
+      ['laat', 'Te laat', cnt(0), (a) => `op vóór een bestelling van nu binnen kan zijn · advies ${eur0.format(val(a))}`],
       ['nu', 'Nu bestellen', cnt(1), (a) => `bestelmoment is nu · advies ${eur0.format(val(a))}`],
       ['4w', 'Binnen 4 weken bestellen', cnt(2), (a) => `advies ${eur0.format(val(a))}`],
     ];
@@ -170,6 +175,7 @@
     if (fSt === 'laat') list = list.filter((x) => x.a.rank === 0); else if (fSt === 'nu') list = list.filter((x) => x.a.rank === 1); else if (fSt === '4w') list = list.filter((x) => x.a.rank === 2); else list = list.filter((x) => x.a.rank <= 3);
     list.sort((a, b) => a.a.rank - b.a.rank || (a.a.bestelDatum || '9999').localeCompare(b.a.bestelDatum || '9999') || b.r.waarde_52w - a.r.waarde_52w);
     document.getElementById('vr-best-t').textContent = `Bestellijst${fLev ? ' · ' + (levName.get(fLev) || '') : ''} (${list.length})`;
+    document.getElementById('vr-inact').textContent = nonActief ? `${nonActief} producten zonder voorraad, zonder inkooporder en zonder verkoop in de laatste 13 weken staan niet in de lijst (waarschijnlijk uit het assortiment).` : '';
     const tb = document.querySelector('#vr-tbl tbody');
     const stCls = (s) => (s === 'Te laat' ? ' lw-bad' : s === 'Nu bestellen' ? ' lw-warn' : s === 'Binnen 4 weken' ? ' lw-warn' : ' lw-ok');
     tb.replaceChildren(...list.slice(0, 400).map((x) => {
@@ -177,7 +183,7 @@
       const nm = el('td', 'lw-wrap', short(r.naam)); nm.title = `${r.sku} · ${int.format(r.verkocht_52w)} verkocht in 52 weken · verwacht ${n1.format(a.perWk)}/week na aankomst`;
       const ond = el('td', 'lw-num', r.onderweg ? int.format(r.onderweg) : '—'); if (r.leveringen && r.leveringen.length) ond.title = r.leveringen.map((l) => `${l.po}: ${int.format(l.stuks)} op ${dNl(l.datum)}`).join('\n');
       tr.append(nm, el('td', '', r.leverancier), el('td', 'lw-num', int.format(r.voorraad)), ond,
-        el('td', '', a.opDatum ? dNl(a.opDatum) : 'na 60 wk'), el('td', 'lw-num', a.L + ' wk'),
+        el('td', a.kortVoor ? 'lw-bad' : '', a.opDatum ? dNl(a.opDatum) + (a.kortVoor && r.onderweg ? ' (tot levering)' : '') : 'na 60 wk'), el('td', 'lw-num', a.L + ' wk'),
         el('td', a.rank <= 1 ? 'lw-bad' : '', a.bestelDatum ? (a.orderBy <= 0 ? 'nu' : dNl(a.bestelDatum)) : '—'),
         el('td', 'lw-num', a.qty ? int.format(a.qty) : '—'), el('td', 'lw-num', x.cbm && a.qty ? n1.format(a.qty * x.cbm) : x.cbm ? '' : '?'),
         el('td', 'lw-num', a.qty ? eur0.format(a.qty * (r.kostprijs || 0)) : '—'));
