@@ -230,7 +230,13 @@ def users_del(request: Request, username: str = Form(...)):
 
 # ---------- status, koppelingen, taken ----------
 def _base_url(request):
-    return os.getenv('PUBLIC_URL') or str(request.base_url).rstrip('/')
+    u = (os.getenv('PUBLIC_URL') or str(request.base_url)).strip().rstrip('/')
+    # behind Railway's proxy the request looks like http; the public address is https
+    if u.startswith('http://') and 'localhost' not in u and '127.0.0.1' not in u:
+        u = 'https://' + u[7:]
+    if not u.startswith('http'):
+        u = 'https://' + u
+    return u
 
 
 @app.get('/status', response_class=HTMLResponse)

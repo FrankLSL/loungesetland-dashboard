@@ -60,7 +60,7 @@ def login_url(base, state):
     store.kv_set('pm_pkce', ver)
     ch = base64.urlsafe_b64encode(hashlib.sha256(ver.encode()).digest()).decode().rstrip('=')
     q = {'response_type': 'code', 'client_id': os.getenv('PROFITMETRICS_CLIENT_ID', '').strip(), 'redirect_uri': base.rstrip('/') + '/profitmetrics/callback',
-         'scope': 'metrics.read sites.read offline_access', 'state': state, 'code_challenge': ch, 'code_challenge_method': 'S256', 'resource': MCP_URL}
+         'scope': 'openid sites.read metrics.read', 'state': state, 'code_challenge': ch, 'code_challenge_method': 'S256', 'resource': MCP_URL}
     return AUTH_BASE + '/oauth2/authorize?' + urllib.parse.urlencode(q)
 
 
