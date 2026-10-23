@@ -40,3 +40,5 @@ body { min-height: 100vh; }
 .lsl-table th { color: var(--color-fg-muted); font-weight: 600; font-size: .78rem; }
 .lsl-table .bad { color: var(--color-bad); } .lsl-table .good { color: var(--color-ok); }
 .lsl-table small { color: var(--color-fg-muted); }
+.lsl-bar .lsl-barbtn { background: none; border: 1px solid #1f4b47; border-radius: 999px; padding: 2px 10px; font: inherit; color: #1f4b47; cursor: pointer; opacity: .9; }
+.lsl-bar .lsl-barbtn:hover { opacity: 1; }

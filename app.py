@@ -125,7 +125,8 @@ def index(request: Request):
     page = (WEB / 'index.html').read_text(encoding='utf-8')
     boot = json.dumps(_boot(u), ensure_ascii=False).replace('</', '<\\/')
     title = ((store.get_doc('dash/meta') or {}).get('data') or {}).get('title') or 'Loungesetland dashboard'
-    links = f'<span>{html.escape(u.get("n") or u["u"])}</span><a href="/status">Status</a>' + ('<a href="/gebruikers">Gebruikers</a>' if u['r'] == 'beheerder' else '') + (
+    refresh = '<form method="post" action="/status/run-all" style="display:inline;margin:0"><button class="lsl-barbtn" title="Haalt alle cijfers nu opnieuw op">↻ Alles verversen</button></form>' if u['r'] == 'beheerder' else ''
+    links = f'<span>{html.escape(u.get("n") or u["u"])}</span>{refresh}<a href="/status">Status</a>' + ('<a href="/gebruikers">Gebruikers</a>' if u['r'] == 'beheerder' else '') + (
         '<a href="/logout">Uitloggen</a>' if auth.enabled() else '')
     return HTMLResponse(f'''<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{html.escape(title)}</title>
@@ -273,8 +274,16 @@ def status(request: Request, msg: str = ''):
     note = f'<p class="lsl-ok">{html.escape(msg)}</p>' if msg else ''
     return auth.page('Status', f'''<p><a href="/">← terug naar het dashboard</a></p><h1>Status</h1>{note}
 <h2>Koppelingen</h2><table class="lsl-table">{rows}</table>{od}
-<h2>Automatische taken</h2><table class="lsl-table"><tr><th>Taak</th><th>Laatste keer</th><th></th></tr>{jr}</table>
+<h2>Automatische taken</h2>{'<form method="post" action="/status/run-all" style="margin:0 0 10px"><button class="lsl-btn">↻ Alles nu verversen</button></form>' if adm else ''}<table class="lsl-table"><tr><th>Taak</th><th>Laatste keer</th><th></th></tr>{jr}</table>
 <h2>Bronnen</h2><table class="lsl-table"><tr><th>Bron</th><th>Bijgewerkt (UTC)</th></tr>{dr}</table>''')
+
+
+@app.post('/status/run-all')
+def status_run_all(request: Request):
+    _admin(request)
+    names = [n for n, (fn, label, ok) in scheduler.JOBS.items() if n not in ('maandagmail', 'pm_toegang') and ok()]
+    scheduler.run_async(names, request.state.user['u'])
+    return RedirectResponse('/status?msg=Alle ' + str(len(names)) + ' taken gestart; dat duurt 1 à 2 minuten. Ververs deze pagina daarna.', status_code=303)
 
 
 @app.post('/status/run/{name}')
