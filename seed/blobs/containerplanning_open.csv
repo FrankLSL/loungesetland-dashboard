@@ -1,23 +1,21 @@
-﻿PO;Leverancier;Nummer/code;Geboekt;ETA;Container betalen uiterlijk;Container betaald;Inhoud;Aanbetaling USD;Aanbetaling EUR;Open USD;Container open EUR (koers 0.89222 van 2026-10-15);Vracht USD;Vracht EUR;Vracht bron;Totaal open EUR
-PO 108;TIERRA;Tierra - bak 4;Ja;2026-10-19;;Ja;Julia hoekset - julia 3 zits - stoel bank etc;3629,40;3192,93;0,00;0,00;0,00;0,00;verwacht;0,00
-PO 109;TIERRA;Tierra - bak 5;Ja;2026-10-19;;Ja;Julia hoekset - julia 3 zits - stoel bank etc;3665,40;3222,90;0,00;0,00;0,00;0,00;verwacht;0,00
-PO 110;TIERRA;Tierra - bak 6;Ja;2026-10-19;;Ja;Hoekset, 2 zit- stoel bank etc;3600,00;3165,39;0,00;0,00;0,00;0,00;verwacht;0,00
-PO 100;Republic;PI 12;Ja;2026-10-21;;Ja;Daan teak - corner + center + tafels;8907,15;7799,47;0,00;0,00;5750,00;5130,27;verwacht;5130,27
-PO 124;MOD;26LS22912 - Rajv;Ja;2026-11-03;2026-10-27;Nee;Lotte taupe - birmingham taupe - verstelbaar etc;5572,00;4866,80;22288,00;19885,80;3000,00;2676,66;verwacht;22562,46
-PO 125;MOD;26LS22913 - Rajv;Ja;2026-11-03;2026-10-27;Nee;Fermo set - lounge en dining + verstelbaar;5920,00;5159,00;23628,80;21082,09;3000,00;2676,66;verwacht;23758,75
-PO 131;Applebee;SQ004454 - Rajv;Ja;2026-10-28;;Ja;Condor 217 BLACK en OYSTER, Condor 150 BLACK en OYSTER;15624,99;13754,00;0,00;0,00;3900,00;3479,66;verwacht;3479,66
-PO 135;MOD;26LS22914 - RAJIV;Ja;2027-01-05;2026-12-29;Nee;Lotte taupe / antraciet / verstelbaar / bankjes;6222,00;5378,63;24888,00;22205,57;3000,00;2676,66;verwacht;24882,23
-PO 132;Applebee;SQ004421;Nee;2027-01-20;2027-01-13;Nee;Santorini upholstered en ROPE en stoelen;24172,00;21278,00;24172,00;21566,74;3000,00;2676,66;verwacht;24243,40
-PO 134;Applebee;SQ004420;Nee;2027-01-20;2027-01-13;Nee;Bora / Moon / camp bay / tonga;26619,95;23011,71;26990,45;24081,42;3000,00;2676,66;verwacht;26758,08
-PO 144;MOD;26LS22915 - Rajv;Nee;2027-02-16;2027-02-09;Nee;Lotte hoekset antraciet - birm antraciet 3 zits en stoel en lage tafel;5108,20;4439,60;20432,80;18230,55;3000,00;2676,66;verwacht;20907,21
-PO 145;MOD;26LS22916 - Rajv;Nee;2027-02-16;2027-02-09;Nee;Lotte taupe - lisa - birm taupe stoel en 3 zits en tafel;5188,60;4509,87;20754,40;18517,49;3000,00;2676,66;verwacht;21194,15
-PO 136;Applebee;SQ004503 - SQ004433;Nee;2027-02-22;2027-02-15;Nee;Santorini UPHOLSTERED en bora LOW dining stoelen;15401,00;13292,11;28603,00;25520,17;3000,00;2676,66;verwacht;28196,83
-PO 137;Applebee;SQ004504;Nee;2027-02-22;2027-02-15;Nee;Murni en monaco tafels;15655,00;13512,50;29075,75;25941,97;3000,00;2676,66;verwacht;28618,63
-PO 138;Applebee;SQ004506 - SO004430;Nee;2027-02-22;2027-02-15;Nee;Condor - cocoon - milou;11876,00;10248,91;22056,10;19678,89;3000,00;2676,66;verwacht;22355,55
-PO 139;Applebee;SQ004507 - SQ00431;Nee;2027-02-22;2027-02-15;Nee;Tafel container - zanzibar - melville ;17798,00;15360,89;33055,80;29493,05;3000,00;2676,66;verwacht;32169,71
-PO 146;TIERRA;Tierra - 7;Nee;2027-02-25;2027-02-18;Nee;Julia hoekset - koffietafel - julia stoel - en hocker;4501,20;0,00;18004,80;16064,24;0,00;0,00;verwacht;16064,24
-PO 147;TIERRA;Tierra - 8;Nee;2027-02-25;2027-02-18;Nee;Julia koffietafel - 3 zits - julia hoekset;4429,00;0,00;17716,00;15806,57;0,00;0,00;verwacht;15806,57
-PO 148;TIERRA;Tierra - 9;Nee;2027-02-25;2027-02-18;Nee;Julia stoelen 3 zits - diningset en olivia tafelset;8461,00;0,00;33844,00;30196,29;0,00;0,00;verwacht;30196,29
-PO 153;MOD;26LS22917 - Rajv;Nee;2027-03-06;2027-02-27;Nee;Belito lisa antraciet - stoelen hoekset - hocker - tafels etc;5927,20;5123,79;23708,80;21153,47;3000,00;2676,66;verwacht;23830,13
-PO 154;MOD;26LS22918;Nee;2027-03-25;2027-03-18;Nee;Lotte antraciet en birm stoelen etc;5128,00;4432,92;20512,00;18301,22;3000,00;2676,66;verwacht;20977,88
-PO 155;MOD;26LS22919;Nee;2027-05-10;2027-05-03;Nee;Lotte taupe en birm taupe;5378,60;4649,55;21514,40;19195,58;3000,00;2676,66;verwacht;21872,24
+﻿PO;Leverancier;Nummer/code;Geboekt;ETA;Container betalen uiterlijk;Container betaald;Inhoud;Aanbetaling USD;Aanbetaling EUR;Open USD;Container open EUR (koers 0.89246 van 2026-10-22);Vracht USD;Vracht EUR;Vracht bron;Totaal open EUR
+PO 131;Applebee;SQ004454 - Rajv;Ja;2026-10-27;;Ja;Condor 217 BLACK en OYSTER, Condor 150 BLACK en OYSTER;15624,99;13754,00;0,00;0,00;3900,00;3480,59;verwacht;3480,59
+PO 124;MOD;26LS22912 - Rajv;Ja;2026-11-06;;Ja;Lotte taupe - birmingham taupe - verstelbaar etc;5572,00;4866,80;0,00;0,00;3000,00;2677,38;verwacht;2677,38
+PO 125;MOD;26LS22913 - Rajv;Ja;2026-11-06;;Ja;Fermo set - lounge en dining + verstelbaar;5920,00;5159,00;0,00;0,00;3000,00;2677,38;verwacht;2677,38
+PO 135;MOD;26LS22914 - RAJIV;Ja;2027-01-05;2026-12-29;Nee;Lotte taupe / antraciet / verstelbaar / bankjes;6222,00;5378,63;24888,00;22211,54;3000,00;2677,38;verwacht;24888,92
+PO 132;Applebee;SQ004421;Ja;2027-01-20;2027-01-13;Nee;Santorini upholstered en ROPE en stoelen;24172,00;21278,00;24172,00;21572,54;2525,00;2253,46;verwacht;23826,00
+PO 134;Applebee;SQ004420;Ja;2027-01-20;2027-01-13;Nee;Bora / Moon / camp bay / tonga;26619,95;23011,71;26990,45;24087,90;2525,00;2253,46;verwacht;26341,36
+PO 136;Applebee;SQ004503 - SQ004433;Ja;2027-02-01;2027-01-25;Nee;Santorini UPHOLSTERED en bora LOW dining stoelen;15401,00;13292,11;28603,00;25527,03;2525,00;2253,46;verwacht;27780,49
+PO 137;Applebee;SQ004504 - 4432;Nee;2027-02-01;2027-01-25;Nee;Murni en monaco tafels;15655,00;13512,50;29075,75;25948,94;3000,00;2677,38;verwacht;28626,32
+PO 138;Applebee;SQ004506 - SO004430;Nee;2027-02-01;2027-01-25;Nee;Condor - cocoon - milou;11876,00;10248,91;22056,10;19684,19;3000,00;2677,38;verwacht;22361,57
+PO 139;Applebee;SQ004507 - SQ00431;Ja;2027-02-01;2027-01-25;Nee;Tafel container - zanzibar - melville ;17798,00;15360,89;33055,80;29500,98;2525,00;2253,46;verwacht;31754,44
+PO 144;MOD;26LS22915 - Rajv;Ja;2027-02-16;2027-02-09;Nee;Lotte hoekset antraciet - birm antraciet 3 zits en stoel en lage tafel;5108,20;4439,60;20432,80;18235,46;3000,00;2677,38;verwacht;20912,84
+PO 145;MOD;26LS22916 - Rajv;Ja;2027-02-16;2027-02-09;Nee;Lotte taupe - lisa - birm taupe stoel en 3 zits en tafel;5188,60;4509,87;20754,40;18522,47;3000,00;2677,38;verwacht;21199,85
+PO 157;PLATINUM;PLATINUM;Ja;2027-02-17;2027-02-10;Nee;Belito hoezen alle maten;16762,25;14958,55;16762,25;14959,64;1,00;0,89;verwacht;14960,53
+PO 146;TIERRA;Tierra - 7;Ja;2027-02-25;2027-02-18;Nee;Julia hoekset - koffietafel - julia stoel - en hocker;4501,20;0,00;18004,80;16068,56;0,00;0,00;verwacht;16068,56
+PO 147;TIERRA;Tierra - 8;Ja;2027-02-25;2027-02-18;Nee;Julia koffietafel - 3 zits - julia hoekset;4429,00;0,00;17716,00;15810,82;0,00;0,00;verwacht;15810,82
+PO 148;TIERRA;Tierra - 9;Ja;2027-02-25;2027-02-18;Nee;Julia stoelen 3 zits - diningset en olivia tafelset;8461,00;0,00;33844,00;30204,42;0,00;0,00;verwacht;30204,42
+PO 153;MOD;26LS22917 - Rajv;Nee;2027-03-06;2027-02-27;Nee;Belito lisa antraciet - stoelen hoekset - hocker - tafels etc;5927,20;5123,79;23708,80;21159,16;3000,00;2677,38;verwacht;23836,54
+PO 154;MOD;26LS22918;Nee;2027-03-25;2027-03-18;Nee;Lotte antraciet en birm stoelen etc;5128,00;4432,92;20512,00;18306,14;3000,00;2677,38;verwacht;20983,52
+PO 156;MOD;26LS22920;Nee;2027-03-25;2027-03-18;Nee;Belito noor hoekset + tafel ovaal en tafel rond 120 cm;5438,00;4868,00;21752,00;19412,79;3000,00;2677,38;verwacht;22090,17
+PO 155;MOD;26LS22919;Nee;2027-05-10;2027-05-03;Nee;Lotte taupe en birm taupe;5378,60;4649,55;21514,40;19200,74;3000,00;2677,38;verwacht;21878,12

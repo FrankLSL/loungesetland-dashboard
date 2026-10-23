@@ -26,9 +26,12 @@ app.mount('/static', StaticFiles(directory=WEB / 'static'), name='static')
 
 # ---------- seed: eerste start met de gegevens uit het oude dashboard ----------
 def _seed():
-    if store.dataset_count() > 0:
-        return
+    # import on first start, and again whenever seed/VERSION changes (overwrites datasets and docs; users stay)
     sd = BASE / 'seed'
+    vf = sd / 'VERSION'
+    ver = vf.read_text().strip() if vf.exists() else '1'
+    if store.dataset_count() > 0 and store.kv_get('seed_version') == ver:
+        return
     for f in sorted((sd / 'datasets').glob('*.json*')):
         raw = gzip.decompress(f.read_bytes()) if f.suffix == '.gz' else f.read_bytes()
         d = json.loads(raw)
@@ -40,6 +43,7 @@ def _seed():
         store.set_doc(d['path'], d['data'], 'import')
     for f in sorted((sd / 'blobs').glob('*')):
         store.put_blob(f.name, f.read_bytes(), 'text/csv; charset=utf-8' if f.suffix == '.csv' else 'application/octet-stream')
+    store.kv_set('seed_version', ver)
 
 
 _seed()
