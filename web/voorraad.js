@@ -120,10 +120,10 @@
     const CPETA = new Map(cp.filter((c) => c.eta).map((c) => [pon(c.po), c.eta]));
     const stByPo = new Map(pos.map((p) => [pon(p.po), p]));
     const levByName = (n) => { const k = String(n || '').toLowerCase().replace(/[^a-z]/g, ''); const hit = lev.find((l) => { const m = String(l.leverancier || '').toLowerCase().replace(/[^a-z]/g, ''); return m && k && (m.includes(k) || k.includes(m.split('outdoor')[0])); }); return hit ? hit.leverancier_id : null; };
-    const IN = cp.filter((c) => c.eta || (Number(c.aanbetaling_eur) || 0) > 0).map((c) => {
+    const IN = cp.filter((c) => c.binnen !== 'Ja' && (c.eta || (Number(c.aanbetaling_eur) || 0) > 0)).map((c) => {
       const st = stByPo.get(pon(c.po));
       const aanb = (Number(c.aanbetaling_eur) || 0) + (Number(c.betaling2_eur) || 0);
-      const open = c.container_betaald ? 0 : (Number(c.open_usd) || 0) * rate, vracht = (Number(c.vracht_usd) || 0) * rate;
+      const open = c.container_betaald ? 0 : (Number(c.open_usd) || 0) * rate, vracht = c.binnen === 'Ja' ? 0 : (Number(c.vracht_usd) || 0) * rate;
       return { po: st ? st.po : String(c.po).replace(/\s+/g, ''), eta: c.eta, leverancier: st ? st.leverancier : c.leverancier, leverancier_id: st ? st.leverancier_id : levByName(c.leverancier),
         inhoud: c.inhoud, stuks: st ? st.open_stuks : null, regels: st ? st.regels : null, inSt: !!st, aanb, open, vracht, totaal: aanb + open + vracht, betaald: !!c.container_betaald };
     }).filter((x) => !x.eta || x.eta >= addD(today(), -14) || (x.inSt && stByPo.get(pon(x.po)).open)).sort((a, b) => ((a.eta || '9999') < (b.eta || '9999') ? -1 : 1));

@@ -665,7 +665,7 @@
   </section>
   <section class="lw-section" id="inkoop">
     <h2>Inkoopbetalingen containers</h2>
-    <p class="lw-note">Bron: Containerplanning 2026, alleen open rijen zonder ‘Euro betaling 2’ (ingevuld = volledig betaald) (stand <span id="cp-stand">—</span>). Open bedrag in dollars omgerekend tegen de ECB-koers van <span id="cp-fxdate">—</span>: 1 USD = <span id="cp-fx">—</span> EUR (elke ochtend ververst). Container betalen uiterlijk 7 dagen vóór ETA; vracht (kosten transport daadwerkelijk, anders verwacht/afgesproken; in dollars, omgerekend tegen dezelfde koers) valt op de ETA. Staat los van de gekozen periode. <a id="cp-csv" href="#" download="containerplanning_open.csv">Open rijen downloaden (Excel/CSV)</a></p>
+    <p class="lw-note">Bron: Containerplanning 2026, alleen open rijen zonder ‘Euro betaling 2’ (ingevuld = volledig betaald) (stand <span id="cp-stand">—</span>). Open bedrag in dollars omgerekend tegen de ECB-koers van <span id="cp-fxdate">—</span>: 1 USD = <span id="cp-fx">—</span> EUR (elke ochtend ververst). Container betalen uiterlijk 7 dagen vóór ETA; vracht (kosten transport daadwerkelijk, anders verwacht/afgesproken; in dollars, omgerekend tegen dezelfde koers) valt ± 7 dagen na de ETA en telt niet meer mee zodra ‘Binnen?’ op Ja staat. Staat los van de gekozen periode. <a id="cp-csv" href="#" download="containerplanning_open.csv">Open rijen downloaden (Excel/CSV)</a></p>
     <div class="lw-tiles" id="tiles-cp">
       <div class="lw-tile lw-click" role="button" tabindex="0" data-cp=""><div class="lw-label">Nog te betalen</div><div class="lw-value" id="cp-t-tot">—</div><div class="lw-delta" id="cp-t-tot-d">—</div></div>
       <div class="lw-tile lw-click" role="button" tabindex="0" data-cp="over"><div class="lw-label">Betaaldatum verstreken</div><div class="lw-value" id="cp-t-over">—</div><div class="lw-delta" id="cp-t-over-d">—</div></div>
@@ -889,7 +889,7 @@
   <section class="lw-section" id="vr-s-in">
     <h2>Inkomend</h2>
     <div class="lw-card">
-      <p class="lw-note">Bron: containerplanning (ETA, aanbetaald, nog te betalen, vracht), gekoppeld aan Sumtracker op PO-nummer voor de inhoud. Nog te betalen in dollars omgerekend tegen <span id="vr-in-k">—</span>. Per maand: donker = al betaald, groen = nog te betalen (container + vracht). Klik op een regel om te zien wat er in de container zit.</p>
+      <p class="lw-note">Bron: containerplanning (ETA, aanbetaald, nog te betalen, vracht), gekoppeld aan Sumtracker op PO-nummer voor de inhoud. Euro betaling 2 ingevuld = container volledig betaald; vracht blijft open tot ‘Binnen?’ op Ja staat (betaling ± 7 dagen na ETA); containers met ‘Binnen?’ = Ja staan er niet meer in. Nog te betalen in dollars omgerekend tegen <span id="vr-in-k">—</span>. Per maand: donker = al betaald, groen = nog te betalen (container + vracht). Klik op een regel om te zien wat er in de container zit.</p>
       <div id="vr-in-m"></div>
       <div class="lw-tablebox lw-tablebox-20"><table class="lw-table lw-stocktable" id="vr-in"><thead><tr>
         <th>ETA</th><th>PO</th><th>Leverancier</th><th>Inhoud</th><th class="lw-num">Stuks</th><th class="lw-num">Betaald</th><th class="lw-num">Nog te betalen</th><th class="lw-num">Vracht</th><th class="lw-num">Totaal</th>
@@ -1391,7 +1391,7 @@ window.lwToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Amst
 dash.calc('cp_rows', {
   inputs: ['cp_open', 'fx'],
   title: 'Openstaande container-PO\'s in euro',
-  description: 'Per PO: container open_eur = open_usd × actuele USD→EUR-koers (0 als Euro betaling 2 is ingevuld), plus vracht_eur = vracht_usd (daadwerkelijk, anders verwacht/afgesproken) × dezelfde koers. vervalt = eerstvolgende betaling: containerbetaling (ETA − 7 dagen) of, als de container al betaald is, de vracht (ETA).',
+  description: 'Per PO: container open_eur = open_usd × actuele USD→EUR-koers (0 als Euro betaling 2 is ingevuld), plus vracht_eur = vracht_usd (daadwerkelijk, anders verwacht/afgesproken) × dezelfde koers. vervalt = eerstvolgende betaling: containerbetaling (ETA − 7 dagen) of, als de container al betaald is, de vracht (ETA + 7 dagen). Vracht telt niet meer mee als \'Binnen?\' op Ja staat.',
   fn: (cp_open, fx) => {
     const rate = fx[0] ? Number(fx[0].usd_eur) : null;
     const today = window.lwToday();
@@ -1399,11 +1399,13 @@ dash.calc('cp_rows', {
     return cp_open.filter((r) => r.eta).map((r) => {
       const open_eur = rate ? Math.round(Number(r.open_usd) * rate * 100) / 100 : null;
       // vracht staat in de planning in dollars
-      const vracht = rate ? Math.round((Number(r.vracht_usd) || 0) * rate * 100) / 100 : 0;
-      const vervalt = r.container_betaald ? r.eta : r.betalen_voor;
+      // vracht is betaald als 'Binnen?' op Ja staat; anders open, te betalen ± 7 dagen na ETA
+      const vracht = rate && r.binnen !== 'Ja' ? Math.round((Number(r.vracht_usd) || 0) * rate * 100) / 100 : 0;
+      const vrachtDatum = new Date(new Date(r.eta + 'T00:00:00Z').getTime() + 7 * 864e5).toISOString().slice(0, 10);
+      const vervalt = r.container_betaald ? vrachtDatum : r.betalen_voor;
       const dg = days(vervalt);
       const status = dg < 0 ? 'Over datum' : dg <= 7 ? 'Binnen 7 dagen' : dg <= 30 ? 'Binnen 30 dagen' : 'Later';
-      return { ...r, open_eur, vracht_eur: vracht, totaal_eur: open_eur == null ? null : Math.round((open_eur + vracht) * 100) / 100, vervalt, dagen: dg, status };
+      return { ...r, vracht_datum: vrachtDatum, open_eur, vracht_eur: vracht, totaal_eur: open_eur == null ? null : Math.round((open_eur + vracht) * 100) / 100, vervalt, dagen: dg, status };
     }).sort((a, b) => (a.vervalt < b.vervalt ? -1 : a.vervalt > b.vervalt ? 1 : 0));
   },
 });
@@ -1411,13 +1413,13 @@ dash.calc('cp_rows', {
 dash.calc('cp_items', {
   inputs: ['cp_rows'],
   title: 'Losse inkoopbetalingen',
-  description: 'Elke te betalen post: containerbetaling op ETA − 7 dagen (als nog niet betaald) en vracht op ETA.',
+  description: 'Elke te betalen post: containerbetaling op ETA − 7 dagen (als nog niet betaald) en vracht op ETA + 7 dagen (als \'Binnen?\' nog niet op Ja staat).',
   fn: (cp_rows) => {
     const today = window.lwToday();
     const out = [];
     for (const r of cp_rows) {
       if (!r.container_betaald && Number(r.open_usd) > 0) out.push({ po: r.po, leverancier: r.leverancier, soort: 'Container', datum: r.betalen_voor, eur: r.open_eur || 0 });
-      if (r.vracht_eur > 0) out.push({ po: r.po, leverancier: r.leverancier, soort: 'Vracht', datum: r.eta, eur: r.vracht_eur });
+      if (r.vracht_eur > 0) out.push({ po: r.po, leverancier: r.leverancier, soort: 'Vracht', datum: r.vracht_datum, eur: r.vracht_eur });
     }
     return out.map((x) => ({ ...x, maand: x.datum.slice(0, 7), over: x.datum < today }))
       .sort((a, b) => (a.datum < b.datum ? -1 : a.datum > b.datum ? 1 : 0));
@@ -1427,7 +1429,7 @@ dash.calc('cp_items', {
 dash.calc('cp_months', {
   inputs: ['cp_items'],
   title: 'Inkoopbetalingen per maand',
-  description: 'Per maand: containerbetalingen (op ETA − 7 dagen) en vracht (op ETA) in euro.',
+  description: 'Per maand: containerbetalingen (op ETA − 7 dagen) en vracht (op ETA + 7 dagen) in euro.',
   fn: (cp_items) => {
     const m = new Map();
     for (const x of cp_items) {
@@ -2229,7 +2231,7 @@ window.lqPrognose = (aannames, ontvangsten, cp_open, fx, P) => {
     for (const r of cp_open) {
       const betaald = r.container_betaald === true || r.container_betaald === 'true';
       if (!betaald && Number(r.open_usd) > 0) push(String(r.betalen_voor).slice(0, 10), 'containers', 'Container ' + r.po + ' ' + (r.leverancier || ''), -Number(r.open_usd) * rate);
-      if (Number(r.vracht_usd) > 0) push(String(r.eta).slice(0, 10), 'vracht', 'Vracht ' + r.po, -Number(r.vracht_usd) * rate);
+      if (Number(r.vracht_usd) > 0 && r.binnen !== 'Ja') push(new Date(new Date(String(r.eta).slice(0, 10) + 'T00:00:00Z').getTime() + 7 * 864e5).toISOString().slice(0, 10), 'vracht', 'Vracht ' + r.po, -Number(r.vracht_usd) * rate);
     }
     const catOf = { 'Reguliere inkoop': 'inkoop', 'Investeringen pand': 'investeringen', Belastingen: 'belastingen', Extra: 'extra' };
     for (const p of E.posten) push(p.datum, catOf[p.soort] || 'extra', p.omschrijving, Number(p.bedrag));

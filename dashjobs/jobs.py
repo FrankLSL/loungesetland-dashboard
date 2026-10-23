@@ -425,6 +425,9 @@ def weer():
     return f'{len(out)} dagen'
 
 
+CP_BUILD = 2  # verhogen als build_cp.py nieuwe kolommen leest: dan wordt de planning opnieuw ingelezen
+
+
 def containers():
     fx = http('GET', 'https://api.frankfurter.dev/v1/latest?from=USD&to=EUR').json()
     rate, rdate = float(fx['rates']['EUR']), fx['date']
@@ -436,7 +439,7 @@ def containers():
         from .common import AMS
         data, dt = onedrive.share_download()
         h = hashlib.sha256(data).hexdigest()
-        if h == store.kv_get('cp_hash') and store.dataset_rows('cp_open') is not None and store.kv_get('cp_rate') == rate:
+        if h == store.kv_get('cp_hash') and store.dataset_rows('cp_open') is not None and store.kv_get('cp_rate') == rate and store.kv_get('cp_build') == CP_BUILD:
             msg = 'containerplanning ongewijzigd'
         else:
             with tempfile.TemporaryDirectory() as td:
@@ -450,7 +453,7 @@ def containers():
                 store.put_blob('containerplanning_open.csv', c.read_bytes(), 'text/csv; charset=utf-8')
             if h != store.kv_get('cp_hash'):
                 stand = (dt.astimezone(AMS) if dt else datetime.datetime.now(AMS)).strftime('%Y-%m-%dT%H:%M')
-            store.kv_set('cp_hash', h); store.kv_set('cp_rate', rate)
+            store.kv_set('cp_hash', h); store.kv_set('cp_rate', rate); store.kv_set('cp_build', CP_BUILD)
             msg = f'{len(rows)} PO\'s ingelezen'
       else:
         info = onedrive.file_info()
