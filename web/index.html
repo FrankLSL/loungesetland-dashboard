@@ -621,7 +621,7 @@
   </section>
   <section class="lw-section" id="dekking">
     <h2>Voorraad tegenover verwachte verkoop</h2>
-    <p class="lw-note">Per product (losse onderdelen: een verkochte set telt mee voor de onderdelen waaruit hij bestaat). Verwachte verkoop per week = gemiddelde verkoop van de afgelopen 52 weken, omgezet naar het seizoenspatroon van vorig jaar (dezelfde weken, hele winkel). Voorraad = beschikbaar in Sumtracker (voorraad min al verkocht). Leveringen = open regels van inkooporders in Sumtracker op de verwachte aankomstdatum. Gesorteerd op inkoopwaarde van de verkoop in de afgelopen 52 weken, dus de echte bestsellers staan bovenaan. Stand <span id="dk-stand">—</span>.</p>
+    <p class="lw-note">Per product (losse onderdelen: een verkochte set telt mee voor de onderdelen waaruit hij bestaat). Verwachte verkoop per week volgt de begroting: de verkoop van het product in dezelfde week vorig jaar (gemiddelde over de afgelopen 52 weken, verdeeld volgens het seizoenspatroon van de hele winkel) × (1 + de begrote groei van die maand uit ‘Omzet tegen begroting’). Pas je daar een groei aan, dan rekent dit bij de volgende verversing mee. Voorraad = beschikbaar in Sumtracker (voorraad min al verkocht). Leveringen = open regels van inkooporders in Sumtracker op de verwachte aankomstdatum. Gesorteerd op inkoopwaarde van de verkoop in de afgelopen 52 weken, dus de echte bestsellers staan bovenaan. Stand <span id="dk-stand">—</span>.</p>
     <div class="lw-tiles" id="tiles-dk">
       <div class="lw-tile lw-click" role="button" tabindex="0" data-dk="voor"><div class="lw-label">Op vóór de volgende levering</div><div class="lw-value" id="dk-t-voor">—</div><div class="lw-delta" id="dk-t-voor-d">—</div></div>
       <div class="lw-tile lw-click" role="button" tabindex="0" data-dk="geen"><div class="lw-label">Op binnen 26 weken, geen inkoop</div><div class="lw-value" id="dk-t-geen">—</div><div class="lw-delta" id="dk-t-geen-d">—</div></div>
@@ -654,7 +654,7 @@
   </section>
   <section class="lw-section" id="marge">
     <h2>Marge per merk en categorie</h2>
-    <p class="lw-note">Brutomarge = netto-omzet excl. btw (Shopify, na kortingen en retouren) min inkoopwaarde (aantal × gewogen landed cost uit Sumtracker; een set = de som van zijn onderdelen). Dit is de huidige kostprijs, niet die van het moment van verkoop, en zonder bezorgkosten. Omzet van producten zonder kostprijs telt niet mee in het percentage en staat apart.</p>
+    <p class="lw-note">Brutomarge = netto-omzet excl. btw (Shopify, na kortingen en retouren) min inkoopwaarde (aantal × gewogen landed cost uit Sumtracker; een set = de som van zijn onderdelen). Kostprijs = de actuele gewogen landed cost uit de voorraad in Sumtracker, live bij elke verversing; zonder bezorgkosten. Omzet van producten zonder kostprijs telt niet mee in het percentage en staat apart.</p>
     <div class="lw-mini" id="mm-per"><button type="button" data-per="jaar">Dit jaar</button><button type="button" data-per="12m">Laatste 52 weken</button><button type="button" data-per="4w">Laatste 4 weken</button></div>
     <div class="lw-mini" id="mm-dim"><button type="button" data-dim="merk">Per merk</button><button type="button" data-dim="categorie">Per categorie</button></div>
     <div class="lw-tiles" id="tiles-mm">

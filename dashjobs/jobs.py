@@ -483,6 +483,27 @@ def _cat(p):
     return 'Overig'
 
 
+# Groei per maand uit de begroting (weekrapport): zelfde standaard als window.BG_PLAN in web/index.html,
+# overschreven door wat in de begroting is ingevuld (gedeelde instellingen, bg_<jaar>_<mm> in procenten).
+BG_PLAN = {2027: [15, 10, 32, 32, 32, 32, 20, 10, 25, 20, 20, 20]}
+
+
+def _groei():
+    doc = store.get_doc('instellingen/gedeeld') or {}
+    w = (doc.get('data') or {}).get('waarden') or {}
+
+    def g(y, mo):
+        v = w.get(f'bg_{y}_{mo:02d}')
+        try:
+            if v not in (None, ''):
+                return float(str(v).replace(',', '.')) / 100
+        except ValueError:
+            pass
+        p = BG_PLAN.get(y)
+        return (p[mo - 1] if p else 25) / 100
+    return g
+
+
 def voorraad_analyse():
     """Weken voorraad per bestseller (met de volgende inkooplevering) en marge per merk en categorie.
     Leest Sumtracker (producten, bundels, voorraad, open inkooporders) en shop_sku_weekly."""
@@ -556,7 +577,10 @@ def voorraad_analyse():
         return max(0.15, (sum(vals) / 3) / gem)
     HOR = 40
     fut = [cur + datetime.timedelta(weeks=i) for i in range(HOR)]
-    idx = [seizoen(d) for d in fut]
+    groei = _groei()
+    # verwachte verkoop volgt de begroting: dezelfde week vorig jaar × (1 + begrote groei van die maand)
+    fgr = [1 + groei((d + datetime.timedelta(days=3)).year, (d + datetime.timedelta(days=3)).month) for d in fut]
+    idx = [seizoen(d) * f for d, f in zip(fut, fgr)]
 
     rows = []
     for pid, ws in vraag.items():
@@ -638,7 +662,7 @@ def voorraad_analyse():
         r['rang'] = i + 1
     from .common import AMS
     stand = datetime.datetime.now(AMS).strftime('%Y-%m-%dT%H:%M')
-    seiz = [{'week': d.isoformat(), 'index': round(x, 2), 'stand': stand} for d, x in zip(fut, idx)]
+    seiz = [{'week': d.isoformat(), 'index': round(x, 2), 'groei': round((f - 1) * 100, 1), 'stand': stand} for d, x, f in zip(fut, idx, fgr)]
     store.save_dataset('st_dekking', rows)
     store.save_dataset('st_seizoen', seiz)
 
