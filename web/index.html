@@ -1890,7 +1890,7 @@ window.lqEff = (raw, P) => {
     startdatum: (() => { const d = new Date(window.lqToday() + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); })(), eindmaand: String(A.eindmaand).slice(0, 7),
     saldo_lopend: num('s_saldo_lopend', A.saldo_lopend), saldo_spaar: num('s_saldo_spaar', A.saldo_spaar),
     krediet: num('s_krediet', A.krediet), buffer: 0,
-    omzetgroei: num('s_groei', A.omzetgroei), marketing_pct: num('s_marketing', A.marketing_pct), verzend_pct: num('s_verzend', A.verzend_pct),
+    omzetgroei: num('s_groei', A.omzetgroei), marketing_pct: num('s_marketing', window.lqAds28 && window.lqAds28.pct != null ? window.lqAds28.pct : A.marketing_pct), verzend_pct: num('s_verzend', A.verzend_pct),
     brutomarge: num('s_marge', A.brutomarge == null ? 0.48 : A.brutomarge), btw: A.btw == null ? 0.21 : Number(A.btw),
     btw_afdracht: num('s_btw', A.btw_afdracht == null ? 0.21 : A.btw_afdracht),
     bijgewerkt: A.bijgewerkt, bron: A.bron,
@@ -2250,7 +2250,7 @@ dash.calc('samenvatting', {
       ['s_marge', 'Brutomarge (omzet excl. btw)', 'pct', 'brutomarge', '%'],
     ]],
     ['Kosten als % van de omzet', [
-      ['s_marketing', 'Ads (van omzet excl. btw)', 'pct', 'marketing_pct', '%'],
+      ['s_marketing', 'Ads (van omzet excl. btw; standaard werkelijk laatste 28 dagen)', 'pct', 'marketing_pct', '%'],
       ['s_verzend', 'Verzendkosten (van omzet excl. btw)', 'pct', 'verzend_pct', '%'],
       ['s_btw', 'BTW-afdracht (omzet excl. btw)', 'pct', 'btw_afdracht', '%'],
     ]],
@@ -2306,7 +2306,7 @@ dash.calc('samenvatting', {
   };
   let builtFor = '';
   function buildForm(A) {
-    const key = JSON.stringify(A);
+    const key = JSON.stringify(A) + '|' + (window.lqAds28 ? window.lqAds28.pct : '');
     if (key === builtFor) return;
     builtFor = key;
     fields.length = 0;
@@ -2319,7 +2319,7 @@ dash.calc('samenvatting', {
         const row = el('label', 'lq-frow');
         const box = el('span', 'lq-fin');
         if (unit === '€') box.append(el('span', 'lq-unit', '€'));
-        box.append(mkInput(param, kind, Number(A[prop])));
+        box.append(mkInput(param, kind, Number(prop === 'marketing_pct' && window.lqAds28 ? window.lqAds28.pct : A[prop])));
         if (unit === '%') box.append(el('span', 'lq-unit', '%'));
         row.append(el('span', 'lq-flab', label), box);
         grp.append(row);
@@ -2523,6 +2523,17 @@ dash.calc('samenvatting', {
     const P = dash.params();
     const aa = dash.data('aannames');
     const A = aa.status === 'ok' && aa.data[0] ? aa.data[0] : null;
+    // default ads share: actual ProfitMetrics ad spend ÷ revenue excl. VAT over the last 28 days up to yesterday
+    {
+      const pmd = dash.data('pm_daily');
+      if (pmd.status === 'ok') {
+        const td = window.lqToday(), d0 = new Date(td + 'T00:00:00Z'); d0.setUTCDate(d0.getUTCDate() - 28);
+        const from = d0.toISOString().slice(0, 10);
+        const r28 = pmd.data.filter((x) => String(x.d).slice(0, 10) >= from && String(x.d).slice(0, 10) < td);
+        const om = r28.reduce((t, x) => t + (Number(x.omzet) || 0), 0), ad = r28.reduce((t, x) => t + (Number(x.ads) || 0), 0);
+        window.lqAds28 = om > 0 ? { pct: Math.round((ad / om) * 1000) / 1000, from, dagen: r28.length } : null;
+      }
+    }
     const E = A ? window.lqEff(A, P) : null;
     const pr = dash.data('prognose');
     // recompute live with what is filled in (every input re-runs the whole forecast)
