@@ -26,6 +26,8 @@ def get(connector, fields, date_from=None, date_to=None, accounts=None, filters=
     if filters:
         p['filter'] = json.dumps(filters)
     if options:
+        # Windsor reads connector options from an 'options' JSON parameter; also sent top-level for older endpoints
+        p['options'] = json.dumps(options)
         p.update({k: (json.dumps(v) if isinstance(v, (list, dict)) else v) for k, v in options.items()})
     if max_rows:
         p['_max_rows'] = max_rows

@@ -22,21 +22,38 @@ def configured():
 
 def share_download(url=SHARE_URL):
     """Download via een deellink ('Iedereen met de link kan weergeven'); geen Microsoft-app nodig.
-    Geeft (bytes, laatst_gewijzigd_of_None). Probeert eerst ?download=1, daarna de OneDrive-shares-API."""
-    import base64, email.utils
+    Geeft (bytes, laatst_gewijzigd_of_None). Probeert de link zelf met download=1, de link na doorsturen,
+    en de OneDrive-shares-API."""
+    import base64, email.utils, urllib.parse
+    tries, seen, notes = [], set(), []
+    def add(u):
+        if u and u not in seen: seen.add(u); tries.append(u)
     sep = '&' if '?' in url else '?'
-    tries = [url + sep + 'download=1',
-             'https://api.onedrive.com/v1.0/shares/u!' + base64.urlsafe_b64encode(url.encode()).decode().rstrip('=') + '/root/content']
-    last = ''
+    add(url + sep + 'download=1')
+    try:
+        r0 = http('GET', url, timeout=60, allow_redirects=True, tries=1)
+        fin = r0.url
+        q = urllib.parse.urlparse(fin)
+        qs = urllib.parse.parse_qs(q.query)
+        if 'onedrive.live.com' in q.netloc and (qs.get('resid') or qs.get('id')):
+            rid = (qs.get('resid') or qs.get('id'))[0]
+            ak = (qs.get('authkey') or [''])[0]
+            add('https://onedrive.live.com/download?resid=' + urllib.parse.quote(rid) + ('&authkey=' + urllib.parse.quote(ak) if ak else ''))
+        add(fin + ('&' if '?' in fin else '?') + 'download=1')
+    except Exception as e:
+        notes.append('link openen: ' + str(e)[:60])
+    add('https://api.onedrive.com/v1.0/shares/u!' + base64.urlsafe_b64encode(url.encode()).decode().rstrip('=') + '/root/content')
     for u in tries:
-        r = http('GET', u, timeout=300, allow_redirects=True)
-        ct = r.headers.get('content-type', '')
+        try:
+            r = http('GET', u, timeout=300, allow_redirects=True, tries=1)
+        except Exception as e:
+            notes.append(str(e)[:60]); continue
         if r.ok and r.content[:2] == b'PK':  # xlsx = zip
             lm = r.headers.get('last-modified')
             dt = email.utils.parsedate_to_datetime(lm) if lm else None
             return r.content, dt
-        last = f'{r.status_code} {ct[:40]}'
-    raise RuntimeError('deellink gaf geen Excel-bestand terug (' + last + '); controleer of de link op "Iedereen met de link" staat')
+        notes.append(f"{urllib.parse.urlparse(u).netloc} {r.status_code} {r.headers.get('content-type', '')[:20]}")
+    raise RuntimeError('deellink gaf geen Excel-bestand terug (' + '; '.join(notes) + '). Staat de link op "Iedereen met de link kan weergeven"?')
 
 
 def connected():

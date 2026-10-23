@@ -99,7 +99,8 @@ def start():
     if os.getenv('DASH_NO_SCHEDULER'):
         return
     threading.Thread(target=_loop, daemon=True).start()
-    # first start: run every data task once, so the dashboard does not wait for the schedule
-    import store
-    if not store.last_runs_per_job():
-        run_async([n for n in JOBS if n != 'maandagmail'], by='eerste start')
+    # at every start: run the data tasks that never ran or failed last time (so a fix is tried right after a deploy)
+    last = {r['job']: r for r in store.last_runs_per_job()}
+    todo = [n for n in JOBS if n != 'maandagmail' and (n not in last or not last[n].get('ok'))]
+    if todo:
+        run_async(todo, by='start')
