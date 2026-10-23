@@ -35,6 +35,12 @@ def share_download(url=SHARE_URL):
         fin = r0.url
         q = urllib.parse.urlparse(fin)
         qs = urllib.parse.parse_qs(q.query)
+        hops = ' > '.join(urllib.parse.urlparse(h.headers.get('location') or h.url).netloc + urllib.parse.urlparse(h.headers.get('location') or h.url).path[:25] for h in r0.history)
+        notes.append('route ' + hops + ' > ' + q.netloc + q.path[:25] + ' keys=' + ','.join(sorted(qs)))
+        # new-style personal links land on ?redeem=<base64 share url>: the shares API accepts that token
+        if qs.get('redeem'):
+            add('https://api.onedrive.com/v1.0/shares/u!' + qs['redeem'][0].rstrip('=') + '/root/content')
+            add('https://my.microsoftpersonalcontent.com/personal/' + (qs.get('cid') or [''])[0] + '/_layouts/15/download.aspx?share=' + qs['redeem'][0])
         if 'onedrive.live.com' in q.netloc and (qs.get('resid') or qs.get('id')):
             rid = (qs.get('resid') or qs.get('id'))[0]
             ak = (qs.get('authkey') or [''])[0]
@@ -53,6 +59,7 @@ def share_download(url=SHARE_URL):
             dt = email.utils.parsedate_to_datetime(lm) if lm else None
             return r.content, dt
         notes.append(f"{urllib.parse.urlparse(u).netloc} {r.status_code} {r.headers.get('content-type', '')[:20]}")
+    store.kv_set('cp_share_debug', notes)
     raise RuntimeError('deellink gaf geen Excel-bestand terug (' + '; '.join(notes) + '). Staat de link op "Iedereen met de link kan weergeven"?')
 
 

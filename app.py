@@ -84,7 +84,7 @@ def healthz():
             'connections': {'shopify': shopify.configured(), 'windsor': windsor.configured(), 'sumtracker': sumtracker.configured(),
                             'profitmetrics': profitmetrics.configured(), 'containerplanning': bool(onedrive.SHARE_URL) or (onedrive.configured() and onedrive.connected()),
                             'mail': bool(os.getenv('SMTP_HOST')) or (onedrive.configured() and onedrive.connected())},
-            'runs': runs}
+            'runs': runs, 'cp_share_debug': store.kv_get('cp_share_debug')}
 
 
 @app.get('/login', response_class=HTMLResponse)
