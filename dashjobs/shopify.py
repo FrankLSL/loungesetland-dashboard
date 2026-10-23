@@ -31,7 +31,7 @@ def token():
         'grant_type': 'client_credentials', 'client_id': os.getenv('SHOPIFY_CLIENT_ID', '').strip(),
         'client_secret': os.getenv('SHOPIFY_CLIENT_SECRET', '').strip()})
     if not r.ok:
-        raise RuntimeError(f'Shopify-token mislukt (HTTP {r.status_code})')
+        raise RuntimeError(f'Shopify-token mislukt (HTTP {r.status_code}): {r.text[:200]}')
     j = r.json()
     _tok['t'], _tok['x'] = j['access_token'], time.time() + int(j.get('expires_in', 86399)) - 300
     return _tok['t']
