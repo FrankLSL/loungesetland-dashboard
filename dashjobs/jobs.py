@@ -552,6 +552,9 @@ def _groei():
 def voorraad_analyse():
     """Weken voorraad per bestseller (met de volgende inkooplevering) en marge per merk en categorie.
     Leest Sumtracker (producten, bundels, voorraad, open inkooporders) en shop_sku_weekly."""
+    if store.get_doc('voorraad/cbm') is None:
+        from .cbm_seed import CBM
+        store.set_doc('voorraad/cbm', {'waarden': CBM}, by='startwaarden')
     sales = store.dataset_rows('shop_sku_weekly')
     if not sales:
         shop_sku_weekly()
@@ -583,18 +586,52 @@ def voorraad_analyse():
             return out
         return [(pid, q)]
 
-    # ---- open inkooporders met regels (open = besteld − geleverd) ----
+    # ---- inkooporders met regels (regels van ongewijzigde PO's uit de cache) ----
     td = today()
-    pos = [p for p in sumtracker.paged('purchases/orders/', max_pages=3) if p.get('expected_arrival_date')
-           and str(p['expected_arrival_date']) >= (td - datetime.timedelta(days=120)).isoformat()]
-    arrivals = collections.defaultdict(list)  # product_id → [(datum, stuks, po)]
-    for p in pos:
-        for l in sumtracker.paged(f"purchases/orders/{p['id']}/lines/"):
-            q = num(l.get('quantity')) - num(l.get('delivered_quantity'))
-            if q > 0:
+    allpos = sumtracker.paged('purchases/orders/')
+    cache = store.kv_get('po_lines') or {}
+    if isinstance(cache, str):
+        cache = json.loads(cache)
+    nieuw = {}
+    for p in allpos:
+        k = str(p['id'])
+        c = cache.get(k)
+        if not c or c.get('u') != p.get('updated'):
+            lines = []
+            for l in sumtracker.paged(f"purchases/orders/{p['id']}/lines/"):
                 if l.get('product') and l.get('product_id') not in prods:
                     prods[l['product_id']] = l['product']
-                arrivals[l.get('product_id')].append((max(str(p['expected_arrival_date']), td.isoformat()), q, p.get('number') or str(p['id'])))
+                lines.append({'pid': l.get('product_id'), 'q': num(l.get('quantity')), 'd': num(l.get('delivered_quantity')), 'c': num(l.get('cost'))})
+            c = {'u': p.get('updated'), 'lines': lines}
+        nieuw[k] = c
+    store.kv_set('po_lines', nieuw)
+    try:
+        sup = {c['id']: (c.get('company_name') or c.get('code') or str(c['id'])).strip() for c in sumtracker.paged('purchases/contacts/')}
+    except Exception:
+        sup = {}
+    van_d = (td - datetime.timedelta(days=120)).isoformat()
+    arrivals = collections.defaultdict(list)  # product_id → [(datum, stuks, po)]
+    lev_van = {}  # product_id → (datum, leverancier-id) van de laatste inkooporder
+    po_rows = []
+    for p in allpos:
+        lines = nieuw[str(p['id'])]['lines']
+        datum = str(p.get('confirmation_date') or p.get('created') or '')[:10]
+        nr = p.get('number') or str(p['id'])
+        val = lambda l: l['q'] * (l['c'] or cost(l['pid']))
+        open_q = sum(max(0.0, l['q'] - l['d']) for l in lines)
+        eta = p.get('expected_arrival_date')
+        is_open = bool(eta) and str(eta) >= van_d and open_q > 0
+        for l in lines:
+            if l['pid'] and (l['pid'] not in lev_van or datum > lev_van[l['pid']][0]):
+                lev_van[l['pid']] = (datum, p.get('contact_id'))
+            if is_open and l['q'] - l['d'] > 0:
+                arrivals[l['pid']].append((max(str(eta), td.isoformat()), l['q'] - l['d'], nr))
+        po_rows.append({'po': nr, 'id': p['id'], 'leverancier_id': p.get('contact_id'), 'leverancier': sup.get(p.get('contact_id'), str(p.get('contact_id'))),
+                        'besteld': datum, 'eta': str(eta) if eta else None, 'status': p.get('status'), 'open': is_open,
+                        'stuks': i0(sum(l['q'] for l in lines)), 'open_stuks': i0(open_q),
+                        'waarde': r2(sum(val(l) for l in lines)), 'open_waarde': r2(sum(max(0.0, l['q'] - l['d']) * (l['c'] or cost(l['pid'])) for l in lines)),
+                        'notitie': (p.get('reference') or p.get('notes') or '')[:60]})
+    pos = [r for r in po_rows if r['open']]
 
     # ---- vraag per component per week ----
     weeks = sorted({r['week'] for r in sales})
@@ -618,9 +655,11 @@ def voorraad_analyse():
     gem = sum(tot_w.get(w, 0) for w in last52) / 52 or 1
     def seizoen(d):  # index voor de week die begint op d, op basis van dezelfde week een jaar eerder (±1 week gemiddeld)
         b = wk(d - datetime.timedelta(weeks=52))
+        while b >= cur:
+            b -= datetime.timedelta(weeks=52)
         vals = [tot_w.get((b + datetime.timedelta(weeks=k)).isoformat(), 0) for k in (-1, 0, 1)]
         return max(0.15, (sum(vals) / 3) / gem)
-    HOR = 40
+    HOR = 60
     fut = [cur + datetime.timedelta(weeks=i) for i in range(HOR)]
     groei = _groei()
     # verwachte verkoop volgt de begroting: dezelfde week vorig jaar × (1 + begrote groei van die maand)
@@ -701,7 +740,11 @@ def voorraad_analyse():
                      'op': op.isoformat() if op else None, 'tekort_stuks': i0(round(tekort)),
                      'volgende': nxt[0] if nxt else None, 'volgende_stuks': i0(nxt[1]) if nxt else None, 'volgende_po': nxt[2] if nxt else None,
                      'leveringen': [{'datum': d, 'stuks': i0(q), 'po': n} for d, q, n in arr][:6],
-                     'status': status, 'waarde_52w': r2(verkocht52 * cost(pid))})
+                     'status': status, 'waarde_52w': r2(verkocht52 * cost(pid)),
+                     'pid': pid, 'kostprijs': r2(cost(pid)), 'in_stock': i0(st['in_stock']),
+                     'leverancier_id': (lev_van.get(pid) or (None, None))[1],
+                     'leverancier': sup.get((lev_van.get(pid) or (None, None))[1]) or 'Onbekend',
+                     'vraag': [round(basis * x, 2) for x in idx]})
     rows.sort(key=lambda r: -r['waarde_52w'])
     for i, r in enumerate(rows):
         r['rang'] = i + 1
@@ -710,6 +753,31 @@ def voorraad_analyse():
     seiz = [{'week': d.isoformat(), 'index': round(x, 2), 'groei': round((f - 1) * 100, 1), 'stand': stand} for d, x, f in zip(fut, idx, fgr)]
     store.save_dataset('st_dekking', rows)
     store.save_dataset('st_seizoen', seiz)
+
+    # ---- inkoop per leverancier en inkooporders ----
+    y0s, m12 = f'{td.year}-01-01', (td - datetime.timedelta(days=365)).isoformat()
+    lev = {}
+    for r in po_rows:
+        a = lev.setdefault(r['leverancier_id'], {'leverancier_id': r['leverancier_id'], 'leverancier': r['leverancier'], 'inkoop_jaar': 0.0, 'inkoop_12m': 0.0,
+                                                 'pos_jaar': 0, 'open_pos': 0, 'open_stuks': 0, 'open_waarde': 0.0, 'volgende': None, 'laatste_order': None})
+        if r['besteld'] >= y0s:
+            a['inkoop_jaar'] += r['waarde']; a['pos_jaar'] += 1
+        if r['besteld'] >= m12:
+            a['inkoop_12m'] += r['waarde']
+        if r['open']:
+            a['open_pos'] += 1; a['open_stuks'] += r['open_stuks']; a['open_waarde'] += r['open_waarde']
+            e = max(r['eta'], td.isoformat())
+            a['volgende'] = min(a['volgende'] or e, e)
+        a['laatste_order'] = max(a['laatste_order'] or '', r['besteld']) or None
+    for r in rows:
+        a = lev.get(r['leverancier_id'])
+        if a is not None:
+            a['skus'] = a.get('skus', 0) + 1
+    lev_rows = sorted(({**a, 'inkoop_jaar': r2(a['inkoop_jaar']), 'inkoop_12m': r2(a['inkoop_12m']), 'open_waarde': r2(a['open_waarde']), 'skus': a.get('skus', 0)}
+                       for a in lev.values()), key=lambda a: -a['inkoop_12m'])
+    store.save_dataset('vr_leveranciers', lev_rows)
+    keep = (td - datetime.timedelta(days=730)).isoformat()
+    store.save_dataset('vr_pos', sorted([r for r in po_rows if r['open'] or r['besteld'] >= keep], key=lambda r: (r['eta'] or '9999', r['po'])))
 
     # ---- marge per merk en categorie ----
     def marge(van, tot):

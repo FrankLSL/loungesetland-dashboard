@@ -253,6 +253,16 @@
 #dash-root .lw-pill.lw-warn { border-color: #e09a00; color: #8a5d00; }
 #dash-root .lw-mbar { display: inline-block; height: 10px; border-radius: 3px; background: #84bd3f; vertical-align: middle; }
 #dash-root td.lw-wrap { white-space: normal; min-width: 14rem; }
+#dash-root #pg-vr .lw-section { scroll-margin-top: 3.2rem; }
+#dash-root .vr-setgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: .6rem; margin: .6rem 0; }
+#dash-root .vr-setgrid label { display: flex; flex-direction: column; gap: .2rem; font-size: .8rem; color: var(--color-fg-muted); }
+#dash-root #pg-vr input[type=number] { font: inherit; font-size: .85rem; padding: .2rem .4rem; border: 1px solid var(--ls-line, #e4dfd6); border-radius: 6px; width: 6rem; background: #fff; }
+#dash-root #vr-lev tbody tr { cursor: pointer; }
+#dash-root #vr-lev tbody tr[aria-pressed="true"] td { background: var(--ls-lime-soft); }
+#dash-root .vr-cbox { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: .3rem 0 .8rem; }
+#dash-root .vr-fill { height: 14px; border-radius: 4px; background: var(--cds-chart-muted, #eee); overflow: hidden; display: flex; max-width: 40rem; }
+#dash-root .vr-fill > div { height: 100%; border-right: 2px solid #fff; }
+#dash-root .lw-mini button.vr-btn { background: var(--ls-green, #1f4b47); color: #fff; border-color: var(--ls-green, #1f4b47); }
 </style>
 <style>
 #dash-root .lq {
@@ -466,7 +476,7 @@
 <div class="lw">
   <div class="lw-brand">
     <div class="lw-logo"><svg viewBox="0 0 40 40" aria-hidden="true"><g stroke="#f0b429" stroke-width="3" stroke-linecap="round"><line x1="20" y1="3" x2="20" y2="8" transform="rotate(0 20 20)"/><line x1="20" y1="3" x2="20" y2="8" transform="rotate(45 20 20)"/><line x1="20" y1="3" x2="20" y2="8" transform="rotate(90 20 20)"/><line x1="20" y1="3" x2="20" y2="8" transform="rotate(135 20 20)"/><line x1="20" y1="3" x2="20" y2="8" transform="rotate(180 20 20)"/><line x1="20" y1="3" x2="20" y2="8" transform="rotate(225 20 20)"/><line x1="20" y1="3" x2="20" y2="8" transform="rotate(270 20 20)"/><line x1="20" y1="3" x2="20" y2="8" transform="rotate(315 20 20)"/></g><circle cx="20" cy="20" r="8" fill="#f0b429"/></svg><span>Lounge<b>set</b>land</span></div>
-    <nav class="lw-tabs" role="tablist" aria-label="Dashboards"><button type="button" role="tab" id="tab-week" data-tab="week" aria-selected="true">Weekrapport</button><button type="button" role="tab" id="tab-liq" data-tab="liquiditeit" aria-selected="false">Liquiditeitsprognose</button><button type="button" role="tab" id="tab-ads" data-tab="ads" aria-selected="false">Ads</button></nav>
+    <nav class="lw-tabs" role="tablist" aria-label="Dashboards"><button type="button" role="tab" id="tab-week" data-tab="week" aria-selected="true">Weekrapport</button><button type="button" role="tab" id="tab-liq" data-tab="liquiditeit" aria-selected="false">Liquiditeitsprognose</button><button type="button" role="tab" id="tab-ads" data-tab="ads" aria-selected="false">Ads</button><button type="button" role="tab" id="tab-vr" data-tab="voorraad" aria-selected="false">Voorraad</button></nav>
   </div>
   <div class="lw-page" id="pg-week">
   <header class="lw-head" id="top">
@@ -614,39 +624,6 @@
               <td class="lw-num" data-source="top15_total" data-field="waarde" data-row="0">—</td>
               <td class="lw-num" data-source="top15_total" data-field="incoming" data-row="0">—</td>
             </tr></tfoot>
-          </table>
-        </div>
-      </div>
-    </div>
-  </section>
-  <section class="lw-section" id="dekking">
-    <h2>Voorraad tegenover verwachte verkoop</h2>
-    <p class="lw-note">Per product (losse onderdelen: een verkochte set telt mee voor de onderdelen waaruit hij bestaat). Verwachte verkoop per week volgt de begroting: de verkoop van het product in dezelfde week vorig jaar (gemiddelde over de afgelopen 52 weken, verdeeld volgens het seizoenspatroon van de hele winkel) × (1 + de begrote groei van die maand uit ‘Omzet tegen begroting’). Pas je daar een groei aan, dan rekent dit bij de volgende verversing mee. Voorraad = beschikbaar in Sumtracker (voorraad min al verkocht). Leveringen = open regels van inkooporders in Sumtracker op de verwachte aankomstdatum. Gesorteerd op inkoopwaarde van de verkoop in de afgelopen 52 weken, dus de echte bestsellers staan bovenaan. Stand <span id="dk-stand">—</span>.</p>
-    <div class="lw-tiles" id="tiles-dk">
-      <div class="lw-tile lw-click" role="button" tabindex="0" data-dk="voor"><div class="lw-label">Op vóór de volgende levering</div><div class="lw-value" id="dk-t-voor">—</div><div class="lw-delta" id="dk-t-voor-d">—</div></div>
-      <div class="lw-tile lw-click" role="button" tabindex="0" data-dk="geen"><div class="lw-label">Op binnen 26 weken, geen inkoop</div><div class="lw-value" id="dk-t-geen">—</div><div class="lw-delta" id="dk-t-geen-d">—</div></div>
-      <div class="lw-tile lw-click" role="button" tabindex="0" data-dk="na"><div class="lw-label">Levering te klein voor het seizoen</div><div class="lw-value" id="dk-t-na">—</div><div class="lw-delta" id="dk-t-na-d">—</div></div>
-      <div class="lw-tile"><div class="lw-label">Verwachte verkoop nu t.o.v. piek</div><div class="lw-value" id="dk-t-seiz">—</div><div class="lw-delta" id="dk-t-seiz-d">—</div></div>
-    </div>
-    <div class="lw-grid">
-      <div class="lw-card" id="card-dk">
-        <h3 id="dk-title">Top 40 bestsellers</h3>
-        <div class="lw-mini" id="dk-scope"><button type="button" data-scope="">Top 40</button><button type="button" data-scope="alles">Alle producten</button></div>
-        <p class="lw-note">Weken voorraad = hoe lang de huidige voorraad meegaat zonder nieuwe levering. ‘Op’ = de week waarin het product uitverkocht raakt, mét de geplande leveringen. Gemist = verwachte verkoop die je niet kunt leveren tot de eerste levering (zonder inkoop: in de komende 26 weken). Klik op een tegel hierboven om alleen die producten te zien.</p>
-        <div class="lw-tablebox lw-tablebox-20">
-          <table class="lw-table lw-stocktable" id="tbl-dk" data-source="st_dekking" data-row-key="sku">
-            <thead><tr>
-              <th data-field="rang" class="lw-num">#</th>
-              <th data-field="naam">Product</th>
-              <th data-field="voorraad" class="lw-num">Voorraad</th>
-              <th data-field="per_week_nu" class="lw-num">Verkoop/wk nu</th>
-              <th data-field="per_week_piek" class="lw-num">Piek/wk</th>
-              <th data-field="weken" class="lw-num">Weken voorraad</th>
-              <th data-field="op">Op</th>
-              <th data-field="volgende">Volgende levering</th>
-              <th data-field="tekort_stuks" class="lw-num">Gemist</th>
-              <th data-field="status">Status</th>
-            </tr></thead><tbody></tbody>
           </table>
         </div>
       </div>
@@ -856,6 +833,97 @@
       </div>
       <p class="lq-note">Wanneer er wat afgaat en hoe het saldo meeloopt. Per week eerst de grote betalingen op hun datum, daaronder de verwachte ontvangsten, de ads, de bezorgkosten en de overige doorlopende kosten (kosten zonder vaste betaaldag, uitgesmeerd over de maand), met het saldo aan het eind van de week. Volgt de maand die bij Opbouw is gekozen.</p>
       <div class="lq-kal" id="opb-kal"></div>
+    </div>
+  </section>
+  </div>
+  <div class="lw-page" id="pg-vr" hidden>
+  <header class="lw-head">
+    <h1>Voorraad en inkoop</h1>
+    <p>Wanneer moet wat bijbesteld worden, wat komt er binnen en wat kopen we per leverancier in. Bron: Sumtracker (voorraad, inkooporders) en Shopify (verkoop), verwachte verkoop volgens de begroting. Stand <span id="vr-stand">—</span>.</p>
+  </header>
+  <nav class="ad-nav" aria-label="Onderdelen"><a href="#vr-s-best">Bestellen</a><a href="#vr-s-lev">Per leverancier</a><a href="#vr-s-cont">Containervoorstel</a><a href="#vr-s-in">Inkomend</a><a href="#dekking">Dekking per product</a></nav>
+
+  <section class="lw-section" id="vr-s-best">
+    <h2>Bestellen</h2>
+    <details class="ad-info" id="vr-set"><summary>⚙ Instellingen: levertijd, dekking en containers</summary>
+      <div class="vr-setgrid">
+        <label>Dekking na aankomst (weken)<input type="number" min="1" max="40" step="1" data-vrp="vr_dek"></label>
+        <label>Veiligheidsvoorraad (weken)<input type="number" min="0" max="12" step="1" data-vrp="vr_buf"></label>
+        <label>20ft container (cbm)<input type="number" min="1" step="1" data-vrp="vr_c20"></label>
+        <label>40ft container (cbm)<input type="number" min="1" step="1" data-vrp="vr_c40"></label>
+        <label>40ft HQ container (cbm)<input type="number" min="1" step="1" data-vrp="vr_chq"></label>
+      </div>
+      <p class="lw-note">Levertijd = weken van bestellen tot binnen in Ridderkerk. Standaard de mediaan van jullie eigen inkooporders (besteldatum → verwachte aankomst); vul een getal in om dat te overschrijven. Alles wordt gedeeld opgeslagen.</p>
+      <div class="lw-tablebox"><table class="lw-table" id="vr-lt"><thead><tr><th>Leverancier</th><th class="lw-num">Historisch</th><th class="lw-num">Levertijd (weken)</th></tr></thead><tbody></tbody></table></div>
+    </details>
+    <div class="lw-tiles" id="vr-tiles"></div>
+    <div class="lw-mini" id="vr-levf"></div>
+    <div class="lw-card">
+      <h3 id="vr-best-t">Bestellijst</h3>
+      <p class="lw-note">Per product: wanneer het op is (mét wat er al onderweg is), wanneer je uiterlijk moet bestellen (op-datum − levertijd − veiligheidsvoorraad) en hoeveel: verwachte verkoop vanaf aankomst tot de gekozen dekking plus de veiligheidsvoorraad, min wat er dan nog ligt en wat er in die periode al binnenkomt. Klik op een tegel om te filteren.</p>
+      <div class="lw-tablebox lw-tablebox-20"><table class="lw-table lw-stocktable" id="vr-tbl"><thead><tr>
+        <th>Product</th><th>Leverancier</th><th class="lw-num">Voorraad</th><th class="lw-num">Onderweg</th><th>Op</th><th class="lw-num">Levertijd</th><th>Bestellen uiterlijk</th><th class="lw-num">Advies</th><th class="lw-num">CBM</th><th class="lw-num">Inkoop</th><th>Status</th>
+      </tr></thead><tbody></tbody><tfoot><tr><td id="vr-ft-l">Totaal</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="lw-num" id="vr-ft-q">—</td><td class="lw-num" id="vr-ft-c">—</td><td class="lw-num" id="vr-ft-e">—</td><td></td></tr></tfoot></table></div>
+    </div>
+  </section>
+
+  <section class="lw-section" id="vr-s-lev">
+    <h2>Per leverancier</h2>
+    <div class="lw-card">
+      <p class="lw-note">Inkoop = waarde van de inkooporders (regelprijs, anders de huidige kostprijs) op besteldatum. Te bestellen = producten met status ‘Te laat’, ‘Nu bestellen’ of ‘Binnen 4 weken’. Klik op een leverancier om de bestellijst en het containervoorstel op die leverancier te zetten.</p>
+      <div class="lw-tablebox"><table class="lw-table lw-stocktable" id="vr-lev"><thead><tr>
+        <th>Leverancier</th><th class="lw-num">Inkoop dit jaar</th><th class="lw-num">Inkoop 12 mnd</th><th class="lw-num">Open PO's</th><th class="lw-num">Onderweg</th><th class="lw-num">Onderweg €</th><th>Volgende levering</th><th class="lw-num">Te bestellen</th><th class="lw-num">Voorstel</th><th>Containers</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <section class="lw-section" id="vr-s-cont">
+    <h2 id="vr-cont-t">Containervoorstel</h2>
+    <div class="lw-card" id="vr-cont"></div>
+  </section>
+
+  <section class="lw-section" id="vr-s-in">
+    <h2>Inkomend</h2>
+    <div class="lw-card">
+      <p class="lw-note">Open inkooporders in Sumtracker (nog niet volledig geleverd), op verwachte aankomstdatum. Een datum in het verleden staat op vandaag.</p>
+      <div id="vr-in-m"></div>
+      <div class="lw-tablebox lw-tablebox-20"><table class="lw-table lw-stocktable" id="vr-in"><thead><tr>
+        <th>Verwacht</th><th>PO</th><th>Leverancier</th><th>Besteld</th><th class="lw-num">Stuks open</th><th class="lw-num">Waarde open</th><th>Notitie</th>
+      </tr></thead><tbody></tbody><tfoot><tr><td>Totaal</td><td id="vr-in-n"></td><td></td><td></td><td class="lw-num" id="vr-in-q">—</td><td class="lw-num" id="vr-in-e">—</td><td></td></tr></tfoot></table></div>
+    </div>
+  </section>
+
+  <section class="lw-section" id="dekking">
+    <h2>Voorraad tegenover verwachte verkoop</h2>
+    <p class="lw-note">Per product (losse onderdelen: een verkochte set telt mee voor de onderdelen waaruit hij bestaat). Verwachte verkoop per week volgt de begroting: de verkoop van het product in dezelfde week vorig jaar (gemiddelde over de afgelopen 52 weken, verdeeld volgens het seizoenspatroon van de hele winkel) × (1 + de begrote groei van die maand uit ‘Omzet tegen begroting’). Pas je daar een groei aan, dan rekent dit bij de volgende verversing mee. Voorraad = beschikbaar in Sumtracker (voorraad min al verkocht). Leveringen = open regels van inkooporders in Sumtracker op de verwachte aankomstdatum. Gesorteerd op inkoopwaarde van de verkoop in de afgelopen 52 weken, dus de echte bestsellers staan bovenaan. Stand <span id="dk-stand">—</span>.</p>
+    <div class="lw-tiles" id="tiles-dk">
+      <div class="lw-tile lw-click" role="button" tabindex="0" data-dk="voor"><div class="lw-label">Op vóór de volgende levering</div><div class="lw-value" id="dk-t-voor">—</div><div class="lw-delta" id="dk-t-voor-d">—</div></div>
+      <div class="lw-tile lw-click" role="button" tabindex="0" data-dk="geen"><div class="lw-label">Op binnen 26 weken, geen inkoop</div><div class="lw-value" id="dk-t-geen">—</div><div class="lw-delta" id="dk-t-geen-d">—</div></div>
+      <div class="lw-tile lw-click" role="button" tabindex="0" data-dk="na"><div class="lw-label">Levering te klein voor het seizoen</div><div class="lw-value" id="dk-t-na">—</div><div class="lw-delta" id="dk-t-na-d">—</div></div>
+      <div class="lw-tile"><div class="lw-label">Verwachte verkoop nu t.o.v. piek</div><div class="lw-value" id="dk-t-seiz">—</div><div class="lw-delta" id="dk-t-seiz-d">—</div></div>
+    </div>
+    <div class="lw-grid">
+      <div class="lw-card" id="card-dk">
+        <h3 id="dk-title">Top 40 bestsellers</h3>
+        <div class="lw-mini" id="dk-scope"><button type="button" data-scope="">Top 40</button><button type="button" data-scope="alles">Alle producten</button></div>
+        <p class="lw-note">Weken voorraad = hoe lang de huidige voorraad meegaat zonder nieuwe levering. ‘Op’ = de week waarin het product uitverkocht raakt, mét de geplande leveringen. Gemist = verwachte verkoop die je niet kunt leveren tot de eerste levering (zonder inkoop: in de komende 26 weken). Klik op een tegel hierboven om alleen die producten te zien.</p>
+        <div class="lw-tablebox lw-tablebox-20">
+          <table class="lw-table lw-stocktable" id="tbl-dk" data-source="st_dekking" data-row-key="sku">
+            <thead><tr>
+              <th data-field="rang" class="lw-num">#</th>
+              <th data-field="naam">Product</th>
+              <th data-field="voorraad" class="lw-num">Voorraad</th>
+              <th data-field="per_week_nu" class="lw-num">Verkoop/wk nu</th>
+              <th data-field="per_week_piek" class="lw-num">Piek/wk</th>
+              <th data-field="weken" class="lw-num">Weken voorraad</th>
+              <th data-field="op">Op</th>
+              <th data-field="volgende">Volgende levering</th>
+              <th data-field="tekort_stuks" class="lw-num">Gemist</th>
+              <th data-field="status">Status</th>
+            </tr></thead><tbody></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </section>
   </div>
@@ -1870,8 +1938,8 @@ dash.calc('debit_sorted', {
           ['voorraad', (v, r) => int.format(Number(v)) + (r.onderweg ? ` (+${int.format(r.onderweg)})` : ''), 'lw-num'],
           ['per_week_nu', (v) => n1.format(Number(v)), 'lw-num'],
           ['per_week_piek', (v) => n1.format(Number(v)), 'lw-num'],
-          ['weken', (v) => (v == null ? '—' : Number(v) >= 40 ? '40+' : n1.format(Number(v))), 'lw-num'],
-          ['op', (v) => (v ? dateNlY(v) : 'na 40 wk')],
+          ['weken', (v) => (v == null ? '—' : Number(v) >= 60 ? '60+' : n1.format(Number(v))), 'lw-num'],
+          ['op', (v) => (v ? dateNlY(v) : 'na 60 wk')],
           ['volgende', (v, r) => { if (!v) return '—'; const sp = el('span', '', `${dateNlY(v)} · ${int.format(r.volgende_stuks)} st`); sp.title = (r.leveringen || []).map((x) => `${x.po}: ${int.format(x.stuks)} st op ${dateNlY(x.datum)}`).join('\n'); return sp; }],
           ['tekort_stuks', (v) => (Number(v) ? int.format(Number(v)) : '—'), 'lw-num'],
           ['status', (v) => el('span', 'lw-pill' + cls(v), v)],
@@ -3188,11 +3256,12 @@ window.bgEngine = (m, params, todayS) => {
 
 <script src="ads.js"></script>
 <script src="markt.js"></script>
+<script src="voorraad.js"></script>
 
 <script>
 // ---------- gedeelde instellingen: ingevulde waarden in de database, zodat ze op elke computer gelijk zijn ----------
 (function () {
-  const KEEP = /^(s_|bg_\d{4}_|ad_pct_|ad_jaar_pct$|ad_marge$)/;
+  const KEEP = /^(s_|bg_\d{4}_|ad_pct_|ad_jaar_pct$|ad_marge$|lt_\d+$|vr_(dek|buf|c20|c40|chq)$)/;
   const PATH = 'instellingen/gedeeld';
   const pick = (p) => { const o = {}; for (const [k, v] of Object.entries(p || {})) if (KEEP.test(k) && v !== null && v !== undefined && v !== '') o[k] = v; return o; };
   const same = (a, b) => JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort());
@@ -3241,6 +3310,7 @@ window.bgEngine = (m, params, todayS) => {
     document.getElementById('pg-week').hidden = tab !== 'week';
     document.getElementById('pg-liq').hidden = tab !== 'liquiditeit';
     document.getElementById('pg-ads').hidden = tab !== 'ads';
+    document.getElementById('pg-vr').hidden = tab !== 'voorraad';
     btns.forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
     if (push) { dash.setLink(tab); dash.setParams({ tab }); }
     // charts drawn while a tab was hidden have no width: redraw now it is visible
@@ -3248,6 +3318,6 @@ window.bgEngine = (m, params, todayS) => {
   };
   btns.forEach((b) => b.addEventListener('click', () => show(b.dataset.tab, true)));
   const h = location.hash.slice(1);
-  if (h === 'liquiditeit' || h === 'ads') show(h, false);
+  if (h === 'liquiditeit' || h === 'ads' || h === 'voorraad') show(h, false);
 })();
 </script>

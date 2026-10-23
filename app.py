@@ -15,7 +15,7 @@ from dashjobs import scheduler, profitmetrics, onedrive, shopify, windsor, sumtr
 
 BASE = Path(__file__).parent
 WEB = BASE / 'web'
-PAGE_FILES = {'ads.js', 'markt.js'}
+PAGE_FILES = {'ads.js', 'markt.js', 'voorraad.js'}
 ANY_USER_DOCS = ('ads/opschaalplan',)  # afgeleid van wat de pagina berekent: elke ingelogde gebruiker mag dit bijwerken
 
 store.init()
