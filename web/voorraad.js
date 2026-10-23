@@ -92,7 +92,7 @@
 
   // ---------- containers ----------
   function containers(T, P) {
-    const c20 = num(P.vr_c20, 28), c40 = num(P.vr_c40, 58), chq = num(P.vr_chq, 68);
+    const c20 = num(P.vr_c20, 28), c40 = num(P.vr_c40, 58), chq = num(P.vr_chq, 67);
     if (!(T > 0)) return { txt: '—', cap: 0, list: [] };
     const list = [];
     let rest = T;
@@ -130,7 +130,7 @@
     const leadOf = (id, name) => num(P['lt_' + id], hist.get(id) ?? guess(name));
 
     // instellingen
-    document.querySelectorAll('#vr-set [data-vrp]').forEach((i) => { const d = { vr_dek: 16, vr_buf: 2, vr_c20: 28, vr_c40: 58, vr_chq: 68 }[i.dataset.vrp]; if (document.activeElement !== i) i.value = num(P[i.dataset.vrp], d); });
+    document.querySelectorAll('#vr-set [data-vrp]').forEach((i) => { const d = { vr_dek: 16, vr_buf: 2, vr_c20: 28, vr_c40: 58, vr_chq: 67 }[i.dataset.vrp]; if (document.activeElement !== i) i.value = num(P[i.dataset.vrp], d); });
     const ltb = document.querySelector('#vr-lt tbody');
     if (!ltb.contains(document.activeElement)) {
       const levs = lev.filter((l) => l.leverancier_id != null && (l.skus || l.open_pos || l.inkoop_12m));
@@ -320,7 +320,7 @@
       tb.append(tr);
     }
     tbl.append(tb); const tbx = el('div', 'lw-tablebox lw-tablebox-20'); tbx.append(tbl); parts.push(tbx);
-    parts.push(el('p', 'lw-note', `Containermaten: 20ft ${num(P.vr_c20, 28)} cbm, 40ft ${num(P.vr_c40, 58)} cbm, 40ft HQ ${num(P.vr_chq, 68)} cbm netto laadruimte (aan te passen bij Instellingen). ‘Container vol maken’ vult de laatste container aan met de producten die na aankomst het kortst toe kunnen. Aankomst bij bestellen nu: ${dNl(items[0] ? items[0].a.aankomst : null)}.`));
+    parts.push(el('p', 'lw-note', `Containermaten: 20ft ${num(P.vr_c20, 28)} cbm, 40ft ${num(P.vr_c40, 58)} cbm, 40ft HQ ${num(P.vr_chq, 67)} cbm netto laadruimte (aan te passen bij Instellingen). ‘Container vol maken’ vult de laatste container aan met de producten die na aankomst het kortst toe kunnen. Aankomst bij bestellen nu: ${dNl(items[0] ? items[0].a.aankomst : null)}.`));
     host.replaceChildren(...parts);
   }
 
