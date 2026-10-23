@@ -215,8 +215,26 @@ def send():
     msg['Subject'], msg['From'], msg['To'] = subject, os.getenv('MAIL_FROM') or os.getenv('SMTP_USER'), ', '.join(to)
     msg.attach(MIMEText(body, 'html', 'utf-8'))
     port = int(os.getenv('SMTP_PORT', '587'))
-    # port 465 = SSL from the start (one.com), otherwise STARTTLS
-    conn = smtplib.SMTP_SSL(host, port, timeout=60, context=ssl.create_default_context()) if port == 465 else smtplib.SMTP(host, port, timeout=60)
+    # port 465 = SSL from the start (one.com), otherwise STARTTLS.
+    # Railway has no IPv6 route out, so connect over IPv4 (the certificate is still checked against the host name).
+    import socket
+    _orig = socket.create_connection
+    def _v4(addr, timeout=None, source_address=None, **kw):
+        h, pt = addr
+        for fam, typ, proto, _, sa in socket.getaddrinfo(h, pt, socket.AF_INET, socket.SOCK_STREAM):
+            sk = socket.socket(fam, typ, proto)
+            sk.settimeout(timeout)
+            try:
+                sk.connect(sa)
+                return sk
+            except OSError:
+                sk.close()
+        return _orig(addr, timeout, source_address)
+    socket.create_connection = _v4
+    try:
+        conn = smtplib.SMTP_SSL(host, port, timeout=60, context=ssl.create_default_context()) if port == 465 else smtplib.SMTP(host, port, timeout=60)
+    finally:
+        socket.create_connection = _orig
     with conn as s:
         if port != 465:
             s.starttls(context=ssl.create_default_context())
