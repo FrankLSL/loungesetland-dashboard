@@ -2,7 +2,7 @@
 
 Variabele: WINDSOR_API_KEY (Windsor → account → API key).
 """
-import os, json
+import os, json, time
 from .common import http
 
 BASE = 'https://connectors.windsor.ai/'
@@ -15,6 +15,17 @@ def configured():
     return bool(os.getenv('WINDSOR_API_KEY', '').strip())
 
 
+def _req(connector, p):
+    r = http('GET', BASE + connector, params=p, timeout=300)
+    try:
+        j = r.json()
+    except ValueError:
+        raise RuntimeError(f'Windsor {connector}: HTTP {r.status_code} {r.text[:200]}')
+    if not r.ok or (isinstance(j, dict) and j.get('error')):
+        raise RuntimeError(f'Windsor {connector}: ' + json.dumps(j.get('error') if isinstance(j, dict) else j)[:300])
+    return j
+
+
 def get(connector, fields, date_from=None, date_to=None, accounts=None, filters=None, options=None, max_rows=None):
     p = {'api_key': os.getenv('WINDSOR_API_KEY', '').strip(), 'fields': ','.join(fields)}
     if date_from:
@@ -25,17 +36,32 @@ def get(connector, fields, date_from=None, date_to=None, accounts=None, filters=
         p['select_accounts'] = ','.join(accounts)
     if filters:
         p['filter'] = json.dumps(filters)
-    if options:
-        # Windsor reads connector options from an 'options' JSON parameter; also sent top-level for older endpoints
-        p['options'] = json.dumps(options)
-        p.update({k: (json.dumps(v) if isinstance(v, (list, dict)) else v) for k, v in options.items()})
     if max_rows:
         p['_max_rows'] = max_rows
-    r = http('GET', BASE + connector, params=p, timeout=300)
-    try:
-        j = r.json()
-    except ValueError:
-        raise RuntimeError(f'Windsor {connector}: HTTP {r.status_code} {r.text[:200]}')
-    if not r.ok or (isinstance(j, dict) and j.get('error')):
-        raise RuntimeError(f'Windsor {connector}: ' + json.dumps(j.get('error') if isinstance(j, dict) else j)[:300])
-    return j.get('data', []) if isinstance(j, dict) else j
+    # connector options: the REST encoding is not documented, so try the known spellings in turn
+    variants = [{}]
+    if options:
+        sv = {k: (json.dumps(v) if isinstance(v, (list, dict)) else v) for k, v in options.items()}
+        variants = [dict(sv), {'options': json.dumps(options)}, {f'options[{k}]': v for k, v in sv.items()},
+                    {f'{connector}__{k}': v for k, v in sv.items()}, {f'option_{k}': v for k, v in sv.items()}]
+    err = None
+    for i, extra in enumerate(variants):
+        q = dict(p, **extra)
+        try:
+            j = _req(connector, q)
+        except RuntimeError as e:
+            err = e
+            if options and ('option' in str(e).lower() or 'seed' in str(e).lower()):
+                continue
+            raise
+        # a report that is still being prepared answers 'pending': ask again
+        for _ in range(20):
+            if isinstance(j, dict) and str(j.get('status', '')).lower() == 'pending':
+                time.sleep(15); j = _req(connector, q)
+            else:
+                break
+        if options:
+            import store
+            store.kv_set('windsor_option_style', i)
+        return j.get('data', []) if isinstance(j, dict) else j
+    raise err
