@@ -17,6 +17,8 @@
   const rows = (id) => { const d = dash.data(id); return d && d.status === 'ok' && Array.isArray(d.data) ? d.data : null; };
   const num = (v, d) => { const n = Number(String(v ?? '').replace(',', '.')); return v === undefined || v === null || v === '' || Number.isNaN(n) ? d : n; };
   const short = (s) => String(s || '').split('|').slice(0, 2).map((x) => x.trim()).join(' · ');
+  const pon = (x) => String(x || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
+  let OPEN_PO = new Set();
   const isAdmin = () => !!(dash.user && dash.user.r === 'beheerder');
 
   // ---------- CBM per product (gedeeld document voorraad/cbm) ----------
@@ -58,7 +60,7 @@
     const v = r.vraag || [], H = v.length;
     const t0 = r._week0;
     const arr = new Array(H).fill(0);
-    for (const x of r.leveringen || []) { const i = Math.max(0, Math.floor((P0(x.datum) - P0(t0)) / DAY / 7)); if (i < H) arr[i] += Number(x.stuks) || 0; }
+    for (const x of r.leveringen || []) { const dt = (r._cpEta && r._cpEta.get(pon(x.po))) || x.datum; const i = Math.max(0, Math.floor((P0(dt < today() ? today() : dt) - P0(t0)) / DAY / 7)); if (i < H) arr[i] += Number(x.stuks) || 0; }
     // voorraad doorrekenen zonder nieuwe bestelling
     let s = Number(r.voorraad) || 0, opIdx = null; const proj = [];
     for (let i = 0; i < H; i++) { s += arr[i]; s -= v[i]; proj.push(s); if (opIdx === null && s < 0) opIdx = i; }
@@ -108,11 +110,23 @@
     if (!root) return;
     const dk = rows('st_dekking'), pos = rows('vr_pos'), lev = rows('vr_leveranciers'), sz = rows('st_seizoen');
     const P = dash.params();
-    if (!dk || !pos || !lev) { clearTimeout(render._t); render._t = setTimeout(render, 700); return; }
+    if (!dk || !pos || !lev || !rows('cp_open') || !rows('fx')) { clearTimeout(render._t); render._t = setTimeout(render, 700); return; }
     const stand = sz && sz[0] ? sz[0].stand : null;
     document.getElementById('vr-stand').textContent = stand ? dNl(stand.slice(0, 10)) + ' ' + stand.slice(11, 16) : '—';
     const week0 = sz && sz[0] ? sz[0].week : today();
     const hist = leadDefaults(pos);
+    // inkomend: containerplanning (ETA, bedragen) gekoppeld aan Sumtracker (inhoud) op PO-nummer
+    const cp = rows('cp_open') || [], fx = rows('fx'), rate = fx && fx[0] ? Number(fx[0].usd_eur) || 0 : 0;
+    const CPETA = new Map(cp.filter((c) => c.eta).map((c) => [pon(c.po), c.eta]));
+    const stByPo = new Map(pos.map((p) => [pon(p.po), p]));
+    const levByName = (n) => { const k = String(n || '').toLowerCase().replace(/[^a-z]/g, ''); const hit = lev.find((l) => { const m = String(l.leverancier || '').toLowerCase().replace(/[^a-z]/g, ''); return m && k && (m.includes(k) || k.includes(m.split('outdoor')[0])); }); return hit ? hit.leverancier_id : null; };
+    const IN = cp.filter((c) => c.eta || (Number(c.aanbetaling_eur) || 0) > 0).map((c) => {
+      const st = stByPo.get(pon(c.po));
+      const aanb = (Number(c.aanbetaling_eur) || 0) + (Number(c.betaling2_eur) || 0);
+      const open = c.container_betaald ? 0 : (Number(c.open_usd) || 0) * rate, vracht = (Number(c.vracht_usd) || 0) * rate;
+      return { po: st ? st.po : String(c.po).replace(/\s+/g, ''), eta: c.eta, leverancier: st ? st.leverancier : c.leverancier, leverancier_id: st ? st.leverancier_id : levByName(c.leverancier),
+        inhoud: c.inhoud, stuks: st ? st.open_stuks : null, regels: st ? st.regels : null, inSt: !!st, aanb, open, vracht, totaal: aanb + open + vracht, betaald: !!c.container_betaald };
+    }).filter((x) => !x.eta || x.eta >= addD(today(), -14) || (x.inSt && stByPo.get(pon(x.po)).open)).sort((a, b) => ((a.eta || '9999') < (b.eta || '9999') ? -1 : 1));
     const leadOf = (id, name) => num(P['lt_' + id], hist.get(id) ?? guess(name));
 
     // instellingen
@@ -132,7 +146,7 @@
     // advies per product
     const actief = (r) => (Number(r.voorraad) || 0) > 0 || (Number(r.onderweg) || 0) > 0 || (Number(r.verkocht_13w) || 0) > 0;
     const nonActief = dk.filter((r) => !actief(r)).length;
-    const all = dk.filter(actief).map((r) => { r._week0 = week0; const L = leadOf(r.leverancier_id, r.leverancier); const a = advies(r, P, L); const c = cbmOf(r.sku); return { r, a, cbm: c }; });
+    const all = dk.filter(actief).map((r) => { r._week0 = week0; r._cpEta = CPETA; const L = leadOf(r.leverancier_id, r.leverancier); const a = advies(r, P, L); const c = cbmOf(r.sku); return { r, a, cbm: c }; });
     LAST = all;
     const urgent = (x) => x.a.rank <= 2;
     const fLev = P.vr_lev != null && P.vr_lev !== '' ? String(P.vr_lev) : '';
@@ -143,8 +157,8 @@
     const T = el('div'); const tiles = document.getElementById('vr-tiles');
     const cnt = (rk) => all.filter((x) => inLev(x) && x.a.rank === rk);
     const val = (a) => a.reduce((t, x) => t + x.a.qty * (x.r.kostprijs || 0), 0);
-    const openPos = pos.filter((p) => p.open && (!fLev || String(p.leverancier_id) === fLev));
-    const nxt = openPos.slice().sort((a, b) => (a.eta < b.eta ? -1 : 1))[0];
+    const openPos = IN.filter((p) => !fLev || String(p.leverancier_id) === fLev);
+    const nxt = openPos.find((p) => p.eta && p.eta >= today());
     const tileDefs = [
       ['laat', 'Te laat', cnt(0), (a) => `op vóór een bestelling van nu binnen kan zijn · advies ${eur0.format(val(a))}`],
       ['nu', 'Nu bestellen', cnt(1), (a) => `bestelmoment is nu · advies ${eur0.format(val(a))}`],
@@ -159,8 +173,8 @@
       return t;
     }), (() => {
       const t = el('div', 'lw-tile');
-      t.append(el('div', 'lw-label', 'Onderweg'), el('div', 'lw-value', eur0.format(openPos.reduce((a, p) => a + p.open_waarde, 0))),
-        el('div', 'lw-delta', `${int.format(openPos.reduce((a, p) => a + p.open_stuks, 0))} stuks in ${openPos.length} PO's${nxt ? ` · eerstvolgende ${dNl(nxt.eta < today() ? today() : nxt.eta)} (${nxt.po})` : ''}`));
+      t.append(el('div', 'lw-label', 'Onderweg (containerplanning)'), el('div', 'lw-value', eur0.format(openPos.reduce((a, p) => a + p.totaal, 0))),
+        el('div', 'lw-delta', `${openPos.length} containers · ${eur0.format(openPos.reduce((a, p) => a + p.aanb, 0))} al betaald, ${eur0.format(openPos.reduce((a, p) => a + p.open + p.vracht, 0))} nog te betalen${nxt ? ` · eerstvolgende ${dNl(nxt.eta)} (${nxt.po})` : ''}`));
       return t;
     })());
 
@@ -204,8 +218,9 @@
       const cb = mine.reduce((t, x) => t + (x.cbm ? x.a.qty * x.cbm : 0), 0);
       const eur = mine.reduce((t, x) => t + x.a.qty * (x.r.kostprijs || 0), 0);
       const tr = el('tr'); tr.setAttribute('aria-pressed', String(fLev === String(l.leverancier_id)));
-      tr.append(el('td', '', l.leverancier), el('td', 'lw-num', eur0.format(l.inkoop_jaar)), el('td', 'lw-num', eur0.format(l.inkoop_12m)), el('td', 'lw-num', int.format(l.open_pos)),
-        el('td', 'lw-num', l.open_stuks ? int.format(l.open_stuks) : '—'), el('td', 'lw-num', l.open_waarde ? eur0.format(l.open_waarde) : '—'), el('td', '', l.volgende ? dNl(l.volgende) : '—'),
+      tr.append(el('td', '', l.leverancier), el('td', 'lw-num', eur0.format(l.inkoop_jaar)), el('td', 'lw-num', eur0.format(l.inkoop_12m)), el('td', 'lw-num', int.format(IN.filter((p) => p.leverancier_id === l.leverancier_id).length)),
+        ...(() => { const m = IN.filter((p) => p.leverancier_id === l.leverancier_id); const q = m.reduce((a, p) => a + (p.stuks || 0), 0), e = m.reduce((a, p) => a + p.totaal, 0); const nx = m.find((p) => p.eta && p.eta >= today());
+          return [el('td', 'lw-num', q ? int.format(q) : '—'), el('td', 'lw-num', e ? eur0.format(e) : '—'), el('td', '', nx ? dNl(nx.eta) : '—')]; })(),
         el('td', 'lw-num', mine.length ? `${mine.length} · ${eur0.format(eur)}` : '—'), el('td', 'lw-num', cb ? n1.format(cb) + ' cbm' : '—'), el('td', '', cb ? containers(cb, P).txt : '—'));
       tr.addEventListener('click', () => dash.setParams({ vr_lev: fLev === String(l.leverancier_id) ? null : String(l.leverancier_id) }));
       return tr;
@@ -215,16 +230,42 @@
     renderCont(all, P, fLev, levName);
 
     // inkomend
-    const inp = pos.filter((p) => p.open && (!fLev || String(p.leverancier_id) === fLev)).map((p) => ({ ...p, _eta: p.eta < today() ? today() : p.eta })).sort((a, b) => (a._eta < b._eta ? -1 : 1));
+    const inp = IN.filter((p) => !fLev || String(p.leverancier_id) === fLev);
     const ib = document.querySelector('#vr-in tbody');
-    ib.replaceChildren(...inp.map((p) => { const tr = el('tr'); tr.append(el('td', '', dNl(p._eta)), el('td', '', p.po), el('td', '', p.leverancier), el('td', '', dNl(p.besteld)), el('td', 'lw-num', int.format(p.open_stuks)), el('td', 'lw-num', eur0.format(p.open_waarde)), el('td', '', p.notitie || '')); return tr; }));
-    document.getElementById('vr-in-n').textContent = `${inp.length} PO's`;
-    document.getElementById('vr-in-q').textContent = int.format(inp.reduce((a, p) => a + p.open_stuks, 0));
-    document.getElementById('vr-in-e').textContent = eur0.format(inp.reduce((a, p) => a + p.open_waarde, 0));
-    const byM = new Map(); for (const p of inp) { const m = p._eta.slice(0, 7); byM.set(m, (byM.get(m) || 0) + p.open_waarde); }
-    const mx = Math.max(1, ...byM.values());
+    const open = new Set(String(P.vr_po || '').split(',').filter(Boolean));
+    const out = [];
+    for (const p of inp) {
+      const tr = el('tr', 'vr-po'); tr.setAttribute('aria-expanded', String(open.has(p.po))); tr.title = 'Klik om de inhoud te zien';
+      const late = p.eta && p.eta < today();
+      tr.append(el('td', late ? 'lw-bad' : '', (open.has(p.po) ? '▾ ' : '▸ ') + (p.eta ? dNl(p.eta) : 'geen ETA')), el('td', '', p.po), el('td', '', p.leverancier || ''), el('td', 'lw-wrap', p.inhoud || ''),
+        el('td', 'lw-num', p.stuks == null ? '—' : int.format(p.stuks)), el('td', 'lw-num', eur0.format(p.aanb)), el('td', 'lw-num', p.open ? eur0.format(p.open) : p.betaald ? 'betaald' : '—'),
+        el('td', 'lw-num', p.vracht ? eur0.format(p.vracht) : '—'), el('td', 'lw-num', eur0.format(p.totaal)));
+      tr.addEventListener('click', () => { const n = new Set(open); if (n.has(p.po)) n.delete(p.po); else n.add(p.po); dash.setParams({ vr_po: [...n].join(',') || null }); });
+      out.push(tr);
+      if (open.has(p.po)) {
+        const dr = el('tr', 'vr-detail'); const td = el('td'); td.colSpan = 9;
+        if (!p.regels) td.append(el('p', 'lw-note', p.inSt ? 'Geen regels gevonden in Sumtracker.' : `${p.po} staat niet (open) in Sumtracker, dus de inhoud is niet bekend.`));
+        else {
+          const t = el('table', 'lw-table vr-sub'); const h = el('tr'); ['SKU', 'Product', 'Besteld', 'Geleverd', 'Nog te komen'].forEach((x, i) => h.append(el('th', i >= 2 ? 'lw-num' : '', x))); const th = el('thead'); th.append(h); t.append(th);
+          const tb = el('tbody');
+          for (const g of p.regels.slice().sort((a, b) => b.open - a.open)) { const r = el('tr'); r.append(el('td', '', g.sku || ''), el('td', 'lw-wrap', g.naam || ''), el('td', 'lw-num', int.format(g.besteld)), el('td', 'lw-num', g.geleverd ? int.format(g.geleverd) : '—'), el('td', 'lw-num', int.format(g.open))); tb.append(r); }
+          t.append(tb); td.append(t);
+        }
+        dr.append(td); out.push(dr);
+      }
+    }
+    ib.replaceChildren(...out);
+    document.getElementById('vr-in-n').textContent = `${inp.length} containers`;
+    document.getElementById('vr-in-q').textContent = int.format(inp.reduce((a, p) => a + (p.stuks || 0), 0));
+    document.getElementById('vr-in-a').textContent = eur0.format(inp.reduce((a, p) => a + p.aanb, 0));
+    document.getElementById('vr-in-o').textContent = eur0.format(inp.reduce((a, p) => a + p.open, 0));
+    document.getElementById('vr-in-v').textContent = eur0.format(inp.reduce((a, p) => a + p.vracht, 0));
+    document.getElementById('vr-in-e').textContent = eur0.format(inp.reduce((a, p) => a + p.totaal, 0));
+    document.getElementById('vr-in-k').textContent = rate ? `1 USD = ${new Intl.NumberFormat(nl, { maximumFractionDigits: 4 }).format(rate)} EUR (ECB, ${dNl(fx[0].date)})` : '—';
+    const byM = new Map(); for (const p of inp) { if (!p.eta) continue; const m = p.eta.slice(0, 7); const o = byM.get(m) || { a: 0, o: 0, n: 0 }; o.a += p.aanb; o.o += p.open + p.vracht; o.n += 1; byM.set(m, o); }
+    const mx = Math.max(1, ...[...byM.values()].map((v) => v.a + v.o));
     const host = document.getElementById('vr-in-m');
-    host.replaceChildren(...[...byM.entries()].map(([m, v]) => { const row = el('div', 'lw-funnel-row'); const b = el('div', 'lw-funnel-bar'); const f = el('div', 'lw-funnel-fill'); f.style.width = (v / mx) * 100 + '%'; f.style.background = '#1f4b47'; b.append(f); row.append(el('div', '', mNl(m)), b, el('div', 'lw-num', eur0.format(v))); return row; }));
+    host.replaceChildren(...[...byM.entries()].sort().map(([m, v]) => { const row = el('div', 'lw-funnel-row'); const b = el('div', 'lw-funnel-bar lw-stack'); const f1 = el('div', 'lw-funnel-fill'); f1.style.width = (v.a / mx) * 100 + '%'; f1.style.background = '#1f4b47'; const f2 = el('div', 'lw-funnel-fill'); f2.style.width = (v.o / mx) * 100 + '%'; f2.style.background = '#84bd3f'; b.append(f1, f2); row.title = `${v.n} containers · betaald ${eur0.format(v.a)} · nog te betalen ${eur0.format(v.o)}`; row.append(el('div', '', mNl(m)), b, el('div', 'lw-num', eur0.format(v.a + v.o))); return row; }));
   }
 
   function renderCont(all, P, fLev, levName) {

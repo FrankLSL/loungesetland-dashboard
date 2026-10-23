@@ -257,7 +257,10 @@
 #dash-root .vr-setgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: .6rem; margin: .6rem 0; }
 #dash-root .vr-setgrid label { display: flex; flex-direction: column; gap: .2rem; font-size: .8rem; color: var(--color-fg-muted); }
 #dash-root #pg-vr input[type=number] { font: inherit; font-size: .85rem; padding: .2rem .4rem; border: 1px solid var(--ls-line, #e4dfd6); border-radius: 6px; width: 6rem; background: #fff; }
-#dash-root #vr-lev tbody tr { cursor: pointer; }
+#dash-root #vr-lev tbody tr, #dash-root #vr-in tr.vr-po { cursor: pointer; }
+#dash-root #vr-in tr.vr-detail > td { background: #fff; padding: .2rem .5rem .8rem 1.5rem; }
+#dash-root .vr-sub { font-size: .8rem; margin: .3rem 0; }
+#dash-root .vr-sub th { background: var(--ls-lime-soft, #eef5e4); color: var(--ls-green, #1f4b47); }
 #dash-root #vr-lev tbody tr[aria-pressed="true"] td { background: var(--ls-lime-soft); }
 #dash-root .vr-cbox { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: .3rem 0 .8rem; }
 #dash-root .vr-fill { height: 14px; border-radius: 4px; background: var(--cds-chart-muted, #eee); overflow: hidden; display: flex; max-width: 40rem; }
@@ -871,7 +874,7 @@
   <section class="lw-section" id="vr-s-lev">
     <h2>Per leverancier</h2>
     <div class="lw-card">
-      <p class="lw-note">Inkoop = waarde van de inkooporders (regelprijs, anders de huidige kostprijs) op besteldatum. Te bestellen = producten met status ‘Te laat’, ‘Nu bestellen’ of ‘Binnen 4 weken’. Klik op een leverancier om de bestellijst en het containervoorstel op die leverancier te zetten.</p>
+      <p class="lw-note">Inkoop = waarde van de inkooporders in Sumtracker (regelprijs, anders de huidige kostprijs) op besteldatum. Open PO's, onderweg en volgende levering komen uit de containerplanning. Te bestellen = producten met status ‘Te laat’, ‘Nu bestellen’ of ‘Binnen 4 weken’. Klik op een leverancier om de bestellijst en het containervoorstel op die leverancier te zetten.</p>
       <div class="lw-tablebox"><table class="lw-table lw-stocktable" id="vr-lev"><thead><tr>
         <th>Leverancier</th><th class="lw-num">Inkoop dit jaar</th><th class="lw-num">Inkoop 12 mnd</th><th class="lw-num">Open PO's</th><th class="lw-num">Onderweg</th><th class="lw-num">Onderweg €</th><th>Volgende levering</th><th class="lw-num">Te bestellen</th><th class="lw-num">Voorstel</th><th>Containers</th>
       </tr></thead><tbody></tbody></table></div>
@@ -886,11 +889,11 @@
   <section class="lw-section" id="vr-s-in">
     <h2>Inkomend</h2>
     <div class="lw-card">
-      <p class="lw-note">Open inkooporders in Sumtracker (nog niet volledig geleverd), op verwachte aankomstdatum. Een datum in het verleden staat op vandaag.</p>
+      <p class="lw-note">Bron: containerplanning (ETA, aanbetaald, nog te betalen, vracht), gekoppeld aan Sumtracker op PO-nummer voor de inhoud. Nog te betalen in dollars omgerekend tegen <span id="vr-in-k">—</span>. Per maand: donker = al betaald, groen = nog te betalen (container + vracht). Klik op een regel om te zien wat er in de container zit.</p>
       <div id="vr-in-m"></div>
       <div class="lw-tablebox lw-tablebox-20"><table class="lw-table lw-stocktable" id="vr-in"><thead><tr>
-        <th>Verwacht</th><th>PO</th><th>Leverancier</th><th>Besteld</th><th class="lw-num">Stuks open</th><th class="lw-num">Waarde open</th><th>Notitie</th>
-      </tr></thead><tbody></tbody><tfoot><tr><td>Totaal</td><td id="vr-in-n"></td><td></td><td></td><td class="lw-num" id="vr-in-q">—</td><td class="lw-num" id="vr-in-e">—</td><td></td></tr></tfoot></table></div>
+        <th>ETA</th><th>PO</th><th>Leverancier</th><th>Inhoud</th><th class="lw-num">Stuks</th><th class="lw-num">Betaald</th><th class="lw-num">Nog te betalen</th><th class="lw-num">Vracht</th><th class="lw-num">Totaal</th>
+      </tr></thead><tbody></tbody><tfoot><tr><td>Totaal</td><td id="vr-in-n"></td><td></td><td></td><td class="lw-num" id="vr-in-q">—</td><td class="lw-num" id="vr-in-a">—</td><td class="lw-num" id="vr-in-o">—</td><td class="lw-num" id="vr-in-v">—</td><td class="lw-num" id="vr-in-e">—</td></tr></tfoot></table></div>
     </div>
   </section>
 

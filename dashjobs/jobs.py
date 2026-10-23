@@ -610,6 +610,9 @@ def voorraad_analyse():
     except Exception:
         sup = {}
     van_d = (td - datetime.timedelta(days=120)).isoformat()
+    # ETA uit de containerplanning (leidend), gekoppeld op PO-nummer ('PO 131' = 'PO131')
+    pon = lambda x: re.sub(r'[^0-9A-Z]', '', str(x or '').upper())
+    cp_eta = {pon(r.get('po')): r.get('eta') for r in (store.dataset_rows('cp_open') or []) if r.get('eta')}
     arrivals = collections.defaultdict(list)  # product_id → [(datum, stuks, po)]
     lev_van = {}  # product_id → (datum, leverancier-id) van de laatste inkooporder
     po_rows = []
@@ -619,8 +622,9 @@ def voorraad_analyse():
         nr = p.get('number') or str(p['id'])
         val = lambda l: l['q'] * (l['c'] or cost(l['pid']))
         open_q = sum(max(0.0, l['q'] - l['d']) for l in lines)
-        eta = p.get('expected_arrival_date')
-        is_open = bool(eta) and str(eta) >= van_d and open_q > 0
+        eta = cp_eta.get(pon(nr)) or p.get('expected_arrival_date')
+        eta_bron = 'containerplanning' if pon(nr) in cp_eta else 'sumtracker'
+        is_open = bool(eta) and (str(eta) >= van_d or eta_bron == 'containerplanning') and open_q > 0
         for l in lines:
             if l['pid'] and (l['pid'] not in lev_van or datum > lev_van[l['pid']][0]):
                 lev_van[l['pid']] = (datum, p.get('contact_id'))
@@ -630,7 +634,9 @@ def voorraad_analyse():
                         'besteld': datum, 'eta': str(eta) if eta else None, 'status': p.get('status'), 'open': is_open,
                         'stuks': i0(sum(l['q'] for l in lines)), 'open_stuks': i0(open_q),
                         'waarde': r2(sum(val(l) for l in lines)), 'open_waarde': r2(sum(max(0.0, l['q'] - l['d']) * (l['c'] or cost(l['pid'])) for l in lines)),
-                        'notitie': (p.get('reference') or p.get('notes') or '')[:60]})
+                        'notitie': (p.get('reference') or p.get('notes') or '')[:60], 'eta_bron': eta_bron,
+                        'regels': [{'sku': (prods.get(l['pid']) or {}).get('sku'), 'naam': (prods.get(l['pid']) or {}).get('name'), 'besteld': i0(l['q']),
+                                    'geleverd': i0(l['d']), 'open': i0(max(0.0, l['q'] - l['d']))} for l in lines] if is_open else None})
     pos = [r for r in po_rows if r['open']]
 
     # ---- vraag per component per week ----
