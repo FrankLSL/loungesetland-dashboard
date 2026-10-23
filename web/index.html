@@ -363,6 +363,8 @@
 #dash-root .lq-pl td { padding: .35rem .2rem; border-bottom: 1px solid var(--ls-line); }
 #dash-root .lq-pl td:last-child { text-align: right; }
 #dash-root .lq-pl tr.lq-pl-sub td { color: var(--ls-muted); font-size: .78rem; }
+#dash-root .lq-pl tr.lq-pl-head td { color: var(--ls-muted); font-size: .72rem; text-align: right; border-bottom: 0; padding-bottom: 0; }
+#dash-root .lq-pl td.lq-pl-a { text-align: right; color: var(--ls-muted); font-size: .8rem; }
 #dash-root .lq-pl tr.lq-pl-tot td { font-weight: 700; font-size: 1rem; border-top: 2px solid var(--ls-green); border-bottom: 0; }
 #dash-root .lq-pl .lq-pl-badge { display: inline-block; margin-top: .6rem; padding: .3rem .7rem; border-radius: 999px; font-weight: 600; font-size: .85rem; }
 #dash-root .lq-pl .lq-pl-badge.win { background: var(--ls-lime-soft); color: var(--ls-green); }
@@ -733,7 +735,7 @@
       <p class="lq-note">Links het banksaldo: begin van de maand, plus de ontvangsten, min alle uitgaven, is het saldo aan het eind. Rechts de winst of het verlies van die maand.</p>
       <div class="lq-opb-grid">
         <div class="lq-wf" id="opb-wf" data-source="prognose"></div>
-        <div class="lq-pl" id="opb-pl" data-source="prognose"></div>
+        <div class="lq-pl" id="opb-pl" data-source="prognose pm_daily"></div>
       </div>
     </div>
   </section>
@@ -2005,7 +2007,7 @@ window.lqPrognose = (aannames, ontvangsten, cp_open, fx, P) => {
     const out = months.map((m) => {
       const mStart = m + '-01', mEnd = lastDay(m), dim = Number(mEnd.slice(8, 10));
       const from = m === today.slice(0, 7) ? today : mStart;
-      const row = { maand: m, deel: from !== mStart, ontvangsten: 0, vast_ex: 0, dagen: [] };
+      const row = { maand: m, deel: from !== mStart, ontvangsten: 0, vast_ex: 0, dagen: [], vast_ex_maand: -E.kosten.reduce((t, c) => t + kost(c, m) / (c.btw ? 1 + E.btw : 1), 0) };
       CATS.forEach((c) => { row[c] = 0; });
       const begin = saldo;
       let minS = Infinity, minD = from;
@@ -2020,13 +2022,8 @@ window.lqPrognose = (aannames, ontvangsten, cp_open, fx, P) => {
         let uit = 0;
         for (const e of evs) { row[e.cat] += e.v; uit += e.v; }
         row.ontvangsten += o;
-        // fixed costs ex VAT for the profit view
-        for (const c of E.kosten) {
-          const paidToday = c.betaaldag ? s.slice(8, 10) === String(Math.min(c.betaaldag, dim)).padStart(2, '0') : true;
-          if (!paidToday) continue;
-          const v = c.betaaldag ? kost(c, m) : kost(c, m) / dim;
-          row.vast_ex -= v / (c.btw ? 1 + E.btw : 1);
-        }
+        // fixed costs ex VAT for the profit view: spread over the days of the month, whatever day they are paid
+        for (const c of E.kosten) row.vast_ex -= kost(c, m) / dim / (c.btw ? 1 + E.btw : 1);
         saldo += o + uit;
         const big = evs.filter((e) => !e.spread && e.cat !== 'marketing' && e.cat !== 'verzend' && Math.abs(e.v) >= 1000).map((e) => ({ l: e.label, v: e.v, cat: e.cat }));
         const adsD = evs.filter((e) => e.cat === 'marketing').reduce((t, e) => t + e.v, 0), verzD = evs.filter((e) => e.cat === 'verzend').reduce((t, e) => t + e.v, 0);
@@ -2099,6 +2096,8 @@ dash.calc('samenvatting', {
   const mLong = (m) => new Date(m + '-01T00:00:00Z').toLocaleDateString(nl, { month: 'long', year: 'numeric', timeZone: 'UTC' });
   const dLong = (s) => new Date(s + 'T00:00:00Z').toLocaleDateString(nl, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
   const dShort = (s) => new Date(s + 'T00:00:00Z').toLocaleDateString(nl, { day: 'numeric', month: 'short', timeZone: 'UTC' }).replace('.', '');
+  const addDay = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const lastDay2 = (m) => { const d = new Date(m + '-01T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() + 1); d.setUTCDate(0); return d.toISOString().slice(0, 10); };
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
   const setTxt = (id, t) => { const n = document.getElementById(id); if (n) n.textContent = t; };
 
@@ -2482,19 +2481,37 @@ dash.calc('samenvatting', {
       row.append(el('div', '', label), track, el('div', 'lq-amt ' + (t === 'tot' ? (v < 0 ? 'lq-negc' : '') : v < 0 ? 'lq-negc' : 'lq-pos'), (t !== 'tot' && v > 0 ? '+' : '') + eur0.format(v)));
       return row;
     }));
-    // profit of the month
-    const lines = [
-      ['Omzet excl. btw', r.omzet_ex, ''],
-      ['Brutowinst (' + pct.format(E.brutomarge) + ' marge)', r.brutowinst, 'b'],
-      ['Ads (Meta, Google)', r.marketing, ''],
-      ['Verzendkosten', r.verzend, ''],
-      ['Vaste kosten excl. btw', r.vast_ex, ''],
-    ];
+    // profit of the month; for the running month: ProfitMetrics up to yesterday + forecast for the rest
+    const prog = { omzet: r.omzet_ex, bw: r.brutowinst, ads: r.marketing, verz: r.verzend, vast: r.vast_ex };
+    let act = null;
+    const pmd = dash.data('pm_daily');
+    if (r.deel && pmd.status === 'ok') {
+      const today = window.lqToday(), dim = Number(lastDay2(m).slice(8, 10)), gone = Number(today.slice(8, 10)) - 1;
+      const pr = pmd.data.filter((x) => String(x.d).slice(0, 7) === m && String(x.d).slice(0, 10) < today);
+      const sum = (k) => pr.reduce((t, x) => t + (Number(x[k]) || 0), 0);
+      act = { omzet: sum('omzet'), bw: sum('bw'), ads: -sum('ads'), dagen: pr.length, gone };
+      act.verz = -act.omzet * E.verzend_pct;
+      act.vast = r.vast_ex_maand * gone / dim;
+    }
+    const keys = [['omzet', 'Omzet excl. btw'], ['bw', act ? 'Brutowinst' : 'Brutowinst (' + pct.format(E.brutomarge) + ' marge)'], ['ads', 'Ads (Meta, Google)'], ['verz', 'Verzendkosten'], ['vast', 'Vaste kosten excl. btw']];
+    const winst = (o) => o.bw + o.ads + o.verz + o.vast;
     const tbl = el('table');
-    lines.forEach(([l, v, kind]) => { const tr = el('tr', kind === '' && l.startsWith('Omzet') ? 'lq-pl-sub' : ''); tr.append(el('td', '', l), el('td', v < 0 ? 'lq-negc' : '', eur0.format(v))); tbl.append(tr); });
-    const tot = el('tr', 'lq-pl-tot'); tot.append(el('td', '', r.winst >= 0 ? 'Winst' : 'Verlies'), el('td', r.winst < 0 ? 'lq-negc' : 'lq-pos', eur0.format(r.winst))); tbl.append(tot);
-    const badge = el('div', 'lq-pl-badge ' + (r.winst >= 0 ? 'win' : 'loss'), r.winst >= 0 ? `${mLong(m)}: winst van ${eur0.format(r.winst)}` : `${mLong(m)}: verlies van ${eur0.format(-r.winst)}`);
-    const note = el('p', 'lq-note', 'Inkoop, investeringen en belastingen zijn kasstromen en tellen niet mee in de winst; ze staan wel links in het saldo.');
+    const td = (v, cls) => el('td', (cls || '') + (v < 0 ? ' lq-negc' : ''), eur0.format(v));
+    let total;
+    if (act) {
+      const h = el('tr', 'lq-pl-head');
+      h.append(el('td', ''), el('td', '', `t/m ${dShort(addDay(window.lqToday(), -1))}`), el('td', '', 'rest (prognose)'), el('td', '', 'hele maand'));
+      tbl.append(h);
+      keys.forEach(([k, l]) => { const tr = el('tr', k === 'omzet' ? 'lq-pl-sub' : ''); tr.append(el('td', '', l), td(act[k], 'lq-pl-a'), td(prog[k], 'lq-pl-a'), td(act[k] + prog[k])); tbl.append(tr); });
+      total = winst(act) + winst(prog);
+      const tot = el('tr', 'lq-pl-tot'); tot.append(el('td', '', total >= 0 ? 'Winst' : 'Verlies'), td(winst(act), 'lq-pl-a'), td(winst(prog), 'lq-pl-a'), el('td', total < 0 ? 'lq-negc' : 'lq-pos', eur0.format(total))); tbl.append(tot);
+    } else {
+      keys.forEach(([k, l]) => { const tr = el('tr', k === 'omzet' ? 'lq-pl-sub' : ''); tr.append(el('td', '', l), td(prog[k])); tbl.append(tr); });
+      total = winst(prog);
+      const tot = el('tr', 'lq-pl-tot'); tot.append(el('td', '', total >= 0 ? 'Winst' : 'Verlies'), el('td', total < 0 ? 'lq-negc' : 'lq-pos', eur0.format(total))); tbl.append(tot);
+    }
+    const badge = el('div', 'lq-pl-badge ' + (total >= 0 ? 'win' : 'loss'), `${mLong(m)}${act ? ' (verwacht)' : ''}: ${total >= 0 ? 'winst' : 'verlies'} van ${eur0.format(Math.abs(total))}`);
+    const note = el('p', 'lq-note', (act ? `T/m gisteren: omzet, brutowinst en ads uit ProfitMetrics (${act.dagen} dagen); verzendkosten ${pct.format(E.verzend_pct)} van de omzet; vaste kosten naar rato (${act.gone} van de ${Number(lastDay2(m).slice(8, 10))} dagen). Rest: prognose. ` : 'Vaste kosten naar rato van de dagen. ') + 'Inkoop, investeringen en belastingen zijn kasstromen en tellen niet mee in de winst; ze staan wel links in het saldo.');
     pl.replaceChildren(el('h3', '', 'Winst of verlies'), tbl, badge, note);
   }
 
