@@ -172,35 +172,21 @@ def shop_search_month():
         if m == y.isoformat()[:7]:
             x['tm'] = y.isoformat()
         out.append(x)
-    # Bezoekers via Google = organische klikken (Search Console) + betaalde klikken (Google Ads, zonder Display).
-    # Shopify mist een groot deel van de Google Ads-klikken (die landen als 'direct'), daarom de klikken van Google zelf.
+    # Bezoekers via Google = zoekmachinebezoek volgens Shopify + klikken op Google Ads (zonder Display).
+    # Shopify ziet een groot deel van de advertentieklikken als 'direct', daarom de Ads-klikken er los bij.
     msg = ''
     try:
-        if windsor.configured():
-            sc_from = (today().replace(day=1) - datetime.timedelta(days=455)).replace(day=1)
-            org, paid = collections.defaultdict(float), collections.defaultdict(float)
-            for r in windsor.get('searchconsole', ['date', 'clicks'], sc_from, y, [os.getenv('SEARCH_CONSOLE_SITE', 'sc-domain:loungesetland.nl')]):
-                org[str(r.get('date'))[:7]] += num(r.get('clicks'))
-            for r in windsor.get('google_ads', ['date', 'ad_network_type', 'clicks'], out[0]['maand'] + '-01' if out else sc_from, y, [windsor.GOOGLE_ACCOUNT]):
+        if windsor.configured() and out:
+            paid = collections.defaultdict(float)
+            for r in windsor.get('google_ads', ['date', 'ad_network_type', 'clicks'], out[0]['maand'] + '-01', y, [windsor.GOOGLE_ACCOUNT]):
                 if str(r.get('ad_network_type') or '').upper() != 'CONTENT':
                     paid[str(r.get('date'))[:7]] += num(r.get('clicks'))
-            # maanden vóór Search Console (max 16 maanden terug): organisch schatten met de verhouding
-            # organische klikken / Shopify-zoekbezoek uit de maanden waar beide er zijn
-            both = [r for r in out if org.get(r['maand']) and r['sessies']]
-            ratio = (sum(org[r['maand']] for r in both) / sum(r['sessies'] for r in both)) if both else None
             for r in out:
-                m = r['maand']
-                o = org.get(m)
-                r['betaald'] = i0(paid.get(m, 0))
-                if o:
-                    r['organisch'] = i0(o)
-                elif ratio:
-                    r['organisch'] = i0(r['sessies'] * ratio); r['organisch_geschat'] = True
-                if 'organisch' in r:
-                    r['google'] = r['organisch'] + r['betaald']
-            msg = f", Google-klikken toegevoegd (verhouding SC/Shopify {ratio:.2f})" if ratio else ', Google-klikken toegevoegd'
+                r['betaald'] = i0(paid.get(r['maand'], 0))
+                r['google'] = r['sessies'] + r['betaald']
+            msg = ', Google Ads-klikken toegevoegd'
     except Exception as e:
-        msg = f'; Google-klikken niet opgehaald: {str(e)[:150]}'
+        msg = f'; Google Ads-klikken niet opgehaald: {str(e)[:150]}'
     store.save_dataset('shop_search_month', sorted(out, key=lambda r: r['maand']))
     return f'{len(out)} maanden{msg}'
 
