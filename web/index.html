@@ -765,12 +765,6 @@
         <p class="lq-note">Betaald eind van de maand na het kwartaal. Vul het bedrag van de aangifte in zodra je dat weet; vink <b>Betaald</b> aan als het eraf is, dan telt hij niet meer mee (werk dan ook het banksaldo bij).</p>
         <div class="lq-tablebox"><table class="lq-table lq-edit" id="f-btw"><thead><tr><th>Kwartaal</th><th>Betalen op</th><th>Bedrag</th><th>Betaald</th></tr></thead><tbody></tbody></table></div>
       </div>
-      <div class="lq-card">
-        <h3>Herkomst</h3>
-        <p class="lq-note" id="ass-note">—</p>
-        <p class="lq-note">Containers en vracht komen live uit de containerplanning (open PO's zonder Euro betaling 2, tegen de actuele koers) en zijn hier niet aan te passen; dat doe je in de planning zelf.</p>
-        <button type="button" class="lq-btn" id="p-reset">Alles terug naar standaard</button>
-      </div>
     </div>
   </section>
 
@@ -2394,7 +2388,7 @@ dash.calc('samenvatting', {
     const tot = E.kosten.reduce((t, c) => t + (c.nieuw != null && c.vanaf && window.lqToday().slice(0, 7) >= c.vanaf ? c.nieuw : c.bedrag), 0);
     setTxt('f-kosten-tot', eur0.format(tot));
   }
-  document.getElementById('p-reset').addEventListener('click', () => {
+  document.getElementById('p-reset')?.addEventListener('click', () => {
     const z = {};
     Object.keys(dash.params()).forEach((k) => { if (k.startsWith('s_') && !k.startsWith('s_btwb_') && !k.startsWith('s_btww_')) z[k] = null; });
     fields.forEach((f) => { z[f.param] = null; });
