@@ -338,6 +338,7 @@
 #dash-root .lq-card h3.lq-h3b { margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--color-border-line); }
 #dash-root #f-btw tr.lq-paid td { color: var(--color-fg-muted); }
 #dash-root #f-btw tr.lq-paid input:not([type=checkbox]) { text-decoration: line-through; }
+#dash-root .lq-link { background: none; border: 0; padding: 0; color: var(--ls-green); text-decoration: underline; cursor: pointer; font: inherit; }
 #dash-root #f-btw .lq-sub { font-size: 11px; color: var(--color-fg-muted); }
 #dash-root #f-btw td:first-child { text-align: left; }
 #dash-root #f-posten input[type=date] { min-width: 0; width: 9.5rem; }
@@ -764,6 +765,7 @@
         <h3 class="lq-h3b">BTW per kwartaal</h3>
         <p class="lq-note">Betaald eind van de maand na het kwartaal. Vul het bedrag van de aangifte in zodra je dat weet; vink <b>Betaald</b> aan als het eraf is, dan telt hij niet meer mee (werk dan ook het banksaldo bij).</p>
         <div class="lq-tablebox"><table class="lq-table lq-edit" id="f-btw"><thead><tr><th>Kwartaal</th><th>Betalen op</th><th>Bedrag</th><th>Betaald</th></tr></thead><tbody></tbody></table></div>
+        <p class="lq-note" id="f-btw-paid"></p>
       </div>
     </div>
   </section>
@@ -2587,8 +2589,16 @@ dash.calc('samenvatting', {
     {
       const tb = document.querySelector('#f-btw tbody');
       const act = document.activeElement;
-      if (!(act && tb.contains(act))) {
-        tb.replaceChildren(...(rows.btw || []).map((b) => {
+      if (!(act && tb.contains(act) && act.type !== 'checkbox')) {
+        // paid quarters drop out of the list; a small line below can undo a tick
+        const paid = (rows.btw || []).filter((b) => b.betaald);
+        const undo = document.getElementById('f-btw-paid');
+        undo.replaceChildren(...(paid.length ? [document.createTextNode('Betaald: ')] : []), ...paid.flatMap((b, i) => {
+          const u = el('button', 'lq-link', b.kw + ' ongedaan maken'); u.type = 'button';
+          u.addEventListener('click', () => dash.setParams({ ['s_btwb_' + b.kw.replace('-', '_')]: null }));
+          return i ? [document.createTextNode(' · '), u] : [u];
+        }));
+        tb.replaceChildren(...(rows.btw || []).filter((b) => !b.betaald).map((b) => {
           const tr = el('tr');
           if (b.betaald) tr.className = 'lq-paid';
           const bi = eurInput(Math.round(Math.abs(b.bedrag)));
