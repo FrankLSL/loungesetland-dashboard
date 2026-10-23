@@ -22,10 +22,12 @@
   const isAdmin = () => !!(dash.user && dash.user.r === 'beheerder');
 
   // ---------- CBM per product (gedeeld document voorraad/cbm) ----------
-  let CBM = {}, cbmLoaded = false, db = null;
+  let CBM = {}, HERK = {}, cbmLoaded = false, db = null;
+  const LOCNAAM = { I: 'China', J: 'China', C: 'China', E: 'China', A: 'Indonesië', B: 'Indonesië' };
   (async () => {
     try { db = window.claude && window.claude.use ? await window.claude.use('db') : null; } catch (e) { db = null; }
     try { if (db) { const s = await db.doc('voorraad/cbm').get(); CBM = s.exists ? (s.data().waarden || {}) : {}; } } catch (e) { CBM = {}; }
+    try { if (db) { const h = await db.doc('voorraad/herkomst').get(); HERK = h.exists ? (h.data().waarden || {}) : {}; } } catch (e) { HERK = {}; }
     cbmLoaded = true; render();
   })();
   async function saveCbm(sku, v) {
@@ -279,7 +281,30 @@
     const id = fLev;
     tt.textContent = 'Containervoorstel · ' + (levName.get(id) || '');
     const fill = !!P.vr_fill;
-    const items = all.filter((x) => String(x.r.leverancier_id) === fLev && (x.a.rank <= 2 || (fill && x.cbm && x.a.qtyNu >= 0 && x.r.verkocht_52w > 0))).map((x) => ({ ...x, q: x.a.rank <= 2 ? x.a.qty : 0 }));
+    const lnm = String(levName.get(id) || '').toLowerCase();
+    const ofLev = (x) => String(x.r.leverancier_id) === fLev || (HERK[x.r.sku] && HERK[x.r.sku].leverancier && lnm.includes(String(HERK[x.r.sku].leverancier).toLowerCase()) && /container/.test(lnm));
+    const items = all.filter((x) => ofLev(x) && (x.a.rank <= 2 || (fill && x.cbm && x.a.qtyNu >= 0 && x.r.verkocht_52w > 0))).map((x) => ({ ...x, q: x.a.rank <= 2 ? x.a.qty : 0 }));
+    const tg = el('div', 'lw-mini');
+    const b1 = el('button', '', 'Alleen het advies'); b1.type = 'button'; b1.setAttribute('aria-pressed', String(!fill)); b1.addEventListener('click', () => dash.setParams({ vr_fill: null }));
+    const b2 = el('button', '', 'Container vol maken'); b2.type = 'button'; b2.setAttribute('aria-pressed', String(fill)); b2.addEventListener('click', () => dash.setParams({ vr_fill: 1 }));
+    const b3 = el('button', 'vr-btn', 'Download als CSV'); b3.type = 'button'; b3.addEventListener('click', () => csv(items.filter((x) => x.q > 0), levName.get(id)));
+    tg.append(b1, b2, b3);
+    const parts = [tg];
+    // per productielocatie een eigen container (fabrieken laden niet samen)
+    const locOf = (x) => (HERK[x.r.sku] && HERK[x.r.sku].locatie) || '';
+    const locs = [...new Set(items.map(locOf))].sort();
+    for (const loc of locs) {
+      const g = items.filter((x) => locOf(x) === loc);
+      if (!g.some((x) => x.q > 0) && !fill) continue;
+      if (locs.length > 1 || loc) parts.push(el('h3', 'vr-loc', loc ? `Productielocatie ${loc}${LOCNAAM[loc] ? ' · ' + LOCNAAM[loc] : ''}` : 'Locatie onbekend'));
+      parts.push(...group(g));
+    }
+    parts.push(el('p', 'lw-note', `Containermaten: 20ft ${num(P.vr_c20, 28)} cbm, 40ft ${num(P.vr_c40, 58)} cbm, 40ft HQ ${num(P.vr_chq, 67)} cbm netto laadruimte (aan te passen bij Instellingen). ‘Container vol maken’ vult de laatste container aan met de producten die na aankomst het kortst toe kunnen. Aankomst bij bestellen nu: ${dNl(items[0] ? items[0].a.aankomst : null)}.`));
+    host.replaceChildren(...parts);
+  }
+
+  function group(items) {
+    const P = dash.params(); const fill = !!P.vr_fill;
     const T0 = items.reduce((t, x) => t + (x.cbm ? x.q * x.cbm : 0), 0);
     let C = containers(T0, P);
     // container vol maken: steeds 1 stuk erbij van het product dat na aankomst het kortst dekt, tot de laatste container vol is
@@ -296,18 +321,13 @@
     const noCbm = items.filter((x) => !x.cbm && x.q > 0);
     const eur = items.reduce((t, x) => t + x.q * (x.r.kostprijs || 0), 0);
     const box = el('div', 'vr-cbox');
-    const tg = el('div', 'lw-mini');
-    const b1 = el('button', '', 'Alleen het advies'); b1.type = 'button'; b1.setAttribute('aria-pressed', String(!fill)); b1.addEventListener('click', () => dash.setParams({ vr_fill: null }));
-    const b2 = el('button', '', 'Container vol maken'); b2.type = 'button'; b2.setAttribute('aria-pressed', String(fill)); b2.addEventListener('click', () => dash.setParams({ vr_fill: 1 }));
-    const b3 = el('button', 'vr-btn', 'Download als CSV'); b3.type = 'button'; b3.addEventListener('click', () => csv(items.filter((x) => x.q > 0), levName.get(id)));
-    tg.append(b1, b2, b3);
     box.append(el('div', 'lw-value', `${n1.format(T)} cbm`), el('div', '', C.txt), el('div', 'lw-delta', `${int.format(items.reduce((t, x) => t + x.q, 0))} stuks · ${eur0.format(eur)} inkoopwaarde (huidige kostprijs)`));
     const bar = el('div', 'vr-fill');
     let restT = T; for (const [k, cap] of C.list) { const d = el('div'); const f = Math.min(cap, restT); restT -= f; d.style.width = (cap / Math.max(C.cap, 1)) * 100 + '%'; d.style.background = `linear-gradient(90deg, #84bd3f ${(f / cap) * 100}%, transparent ${(f / cap) * 100}%)`; d.title = `${k}: ${n1.format(f)} van ${cap} cbm`; bar.append(d); }
-    const parts = [tg, box, bar];
+    const parts = [box, bar];
     if (noCbm.length) parts.push(el('p', 'lw-note lw-bad', `${noCbm.length} producten hebben nog geen CBM en tellen niet mee in de containers. Vul de CBM per stuk hieronder in${isAdmin() ? '' : ' (alleen een beheerder kan dat opslaan)'}.`));
     const tbl = el('table', 'lw-table lw-stocktable'); const th = el('thead'); const hr = el('tr');
-    ['Product', 'SKU', 'Status', 'Bestellen', 'CBM/stuk', 'CBM', 'Inkoop', 'Dekt na aankomst'].forEach((h, i) => hr.append(el('th', i >= 3 && i !== 7 ? 'lw-num' : '', h))); th.append(hr); tbl.append(th);
+    ['Product', 'SKU · art.nr leverancier', 'Status', 'Bestellen', 'CBM/stuk', 'CBM', 'Inkoop', 'Dekt na aankomst'].forEach((h, i) => hr.append(el('th', i >= 3 && i !== 7 ? 'lw-num' : '', h))); th.append(hr); tbl.append(th);
     const tb = el('tbody');
     for (const x of items.filter((x) => x.q > 0 || !x.cbm).sort((a, b) => a.a.rank - b.a.rank || b.q - a.q)) {
       const tr = el('tr');
@@ -315,17 +335,16 @@
       if (isAdmin()) { const i = el('input'); i.type = 'number'; i.step = '0.01'; i.min = 0; i.value = x.cbm ?? ''; i.placeholder = '?'; i.addEventListener('change', () => saveCbm(x.r.sku, i.value === '' ? null : Number(i.value))); cbTd.append(i); }
       else cbTd.textContent = x.cbm ? n2.format(x.cbm) : '?';
       const wk = x.a.perWk > 0 ? (Math.max(0, x.a.atArr) + x.q) / x.a.perWk : null;
-      tr.append(el('td', 'lw-wrap', short(x.r.naam)), el('td', '', x.r.sku), el('td', '', x.a.status), el('td', 'lw-num', int.format(x.q)), cbTd,
+      tr.append(el('td', 'lw-wrap', short(x.r.naam)), el('td', '', x.r.sku + (HERK[x.r.sku] ? ' · ' + HERK[x.r.sku].artikel : '')), el('td', '', x.a.status), el('td', 'lw-num', int.format(x.q)), cbTd,
         el('td', 'lw-num', x.cbm ? n1.format(x.q * x.cbm) : '—'), el('td', 'lw-num', eur0.format(x.q * (x.r.kostprijs || 0))), el('td', '', wk == null ? '—' : n1.format(wk) + ' wk'));
       tb.append(tr);
     }
     tbl.append(tb); const tbx = el('div', 'lw-tablebox lw-tablebox-20'); tbx.append(tbl); parts.push(tbx);
-    parts.push(el('p', 'lw-note', `Containermaten: 20ft ${num(P.vr_c20, 28)} cbm, 40ft ${num(P.vr_c40, 58)} cbm, 40ft HQ ${num(P.vr_chq, 67)} cbm netto laadruimte (aan te passen bij Instellingen). ‘Container vol maken’ vult de laatste container aan met de producten die na aankomst het kortst toe kunnen. Aankomst bij bestellen nu: ${dNl(items[0] ? items[0].a.aankomst : null)}.`));
-    host.replaceChildren(...parts);
+    return parts;
   }
 
   function csv(items, lev) {
-    const rowsC = [['SKU', 'Product', 'Aantal', 'CBM per stuk', 'CBM totaal', 'Kostprijs', 'Inkoopwaarde']].concat(items.map((x) => [x.r.sku, x.r.naam, x.q, x.cbm ?? '', x.cbm ? (x.q * x.cbm).toFixed(2) : '', (x.r.kostprijs || 0).toFixed(2), (x.q * (x.r.kostprijs || 0)).toFixed(2)]));
+    const rowsC = [['SKU', 'Artikelnr leverancier', 'Locatie', 'Product', 'Aantal', 'CBM per stuk', 'CBM totaal', 'Kostprijs', 'Inkoopwaarde']].concat(items.map((x) => [x.r.sku, (HERK[x.r.sku] || {}).artikel || '', (HERK[x.r.sku] || {}).locatie || '', x.r.naam, x.q, x.cbm ?? '', x.cbm ? (x.q * x.cbm).toFixed(2) : '', (x.r.kostprijs || 0).toFixed(2), (x.q * (x.r.kostprijs || 0)).toFixed(2)]));
     const txt = '﻿' + rowsC.map((r) => r.map((v) => { const s = String(v).replace('.', ','); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(';')).join('\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: 'text/csv;charset=utf-8' }));
     a.download = `bestelvoorstel ${lev || ''} ${today()}.csv`; document.body.append(a); a.click(); a.remove();
