@@ -785,7 +785,7 @@
         <h3 id="kal-title">Betaalkalender</h3>
         <div class="lq-opb-nav"><button type="button" class="lq-btn lq-sm" id="kal-prev" aria-label="Vorige maand">‹</button><button type="button" class="lq-btn lq-sm" id="kal-next" aria-label="Volgende maand">›</button></div>
       </div>
-      <p class="lq-note">Wanneer er wat afgaat en hoe het saldo meeloopt. Per week eerst de grote betalingen op hun datum, daaronder de verwachte ontvangsten, de ads, de verzendkosten en de overige doorlopende kosten (kosten zonder vaste betaaldag, uitgesmeerd over de maand), met het saldo aan het eind van de week. Volgt de maand die bij Opbouw is gekozen.</p>
+      <p class="lq-note">Wanneer er wat afgaat en hoe het saldo meeloopt. Per week eerst de grote betalingen op hun datum, daaronder de verwachte ontvangsten, de ads, de bezorgkosten en de overige doorlopende kosten (kosten zonder vaste betaaldag, uitgesmeerd over de maand), met het saldo aan het eind van de week. Volgt de maand die bij Opbouw is gekozen.</p>
       <div class="lq-kal" id="opb-kal"></div>
     </div>
   </section>
@@ -2015,7 +2015,7 @@ window.lqPrognose = (aannames, ontvangsten, cp_open, fx, P) => {
         const o = est(s);
         // ads and shipping as % of revenue excl. VAT (receipts are incl. VAT)
         const oEx = o / (1 + E.btw);
-        const evs = [{ cat: 'marketing', label: 'Ads', v: -oEx * adsPct }, { cat: 'verzend', label: 'Verzendkosten', v: -oEx * E.verzend_pct }];
+        const evs = [{ cat: 'marketing', label: 'Ads', v: -oEx * adsPct }, { cat: 'verzend', label: 'Bezorgkosten', v: -oEx * E.verzend_pct }];
         // costs without a payment day are spread evenly over the days of the month
         for (const c of E.kosten) if (!c.betaaldag) { const v = -kost(c, m) / dim; if (v) evs.push({ cat: grpCat[c.groep] || 'overig', label: c.naam, v, spread: true }); }
         for (const e of ev.get(s) || []) evs.push(e);
@@ -2183,7 +2183,7 @@ dash.calc('samenvatting', {
   }
 
   // one month, day by day: balance line, payment days marked
-  const CATS = [['containers', 'Inkoop containers', '#1f4b47'], ['vracht', 'Vracht', '#4f8a83'], ['marketing', 'Marketing', '#e09a00'], ['verzend', 'Verzendkosten', '#f0c96a'], ['huisvesting', 'Huisvesting', '#9aa7a4'], ['lonen', 'Lonen & fees', '#6f7f7c'], ['overig', 'Overige vaste kosten', '#c8d3cf'], ['investeringen', 'Investeringen pand', '#b58b62'], ['btw', 'BTW', '#e5675a'], ['belastingen', 'VPB', '#c0392b'], ['extra', 'Toegevoegde posten', '#8e6bb0']];
+  const CATS = [['containers', 'Inkoop containers', '#1f4b47'], ['vracht', 'Vracht', '#4f8a83'], ['marketing', 'Marketing', '#e09a00'], ['verzend', 'Bezorgkosten', '#f0c96a'], ['huisvesting', 'Huisvesting', '#9aa7a4'], ['lonen', 'Lonen & fees', '#6f7f7c'], ['overig', 'Overige vaste kosten', '#c8d3cf'], ['investeringen', 'Investeringen pand', '#b58b62'], ['btw', 'BTW', '#e5675a'], ['belastingen', 'VPB', '#c0392b'], ['extra', 'Toegevoegde posten', '#8e6bb0']];
   function flowChart(box, rows) {
     box.querySelectorAll('svg,.lq-failed').forEach((s) => s.remove());
     const tip = tooltip(box); tip.style.display = 'none';
@@ -2224,7 +2224,7 @@ dash.calc('samenvatting', {
     ['containers', 'Inkoop containers (containerplanning)'],
     ['vracht', 'Vracht containers (containerplanning)'],
     ['marketing', 'Ads (Meta, Google)'],
-    ['verzend', 'Verzendkosten'],
+    ['verzend', 'Bezorgkosten'],
     ['huisvesting', 'Huisvesting'],
     ['lonen', 'Lonen & management fees'],
     ['overig', 'Overige vaste kosten'],
@@ -2254,7 +2254,7 @@ dash.calc('samenvatting', {
     ]],
     ['Kosten als % van de omzet', [
       ['s_marketing', 'Ads (van omzet excl. btw). Leeg = automatisch: deze maand de laatste 28 dagen, daarna per maand zoals dezelfde maand vorig jaar', 'pct', 'marketing_pct', '%'],
-      ['s_verzend', 'Verzendkosten (van omzet excl. btw)', 'pct', 'verzend_pct', '%'],
+      ['s_verzend', 'Bezorgkosten (van omzet excl. btw)', 'pct', 'verzend_pct', '%'],
       ['s_btw', 'BTW-afdracht (omzet excl. btw)', 'pct', 'btw_afdracht', '%'],
     ]],
     ['Krediet', [
@@ -2433,7 +2433,7 @@ dash.calc('samenvatting', {
       if (!wk) return;
       const h = el('tr', 'lq-kal-week'); const td = el('td', '', `Week ${dShort(wk.from)} – ${dShort(wk.to)}`); td.colSpan = 4; h.append(td); tb.append(h);
       wk.rows.forEach((x) => tb.append(x));
-      const lines = [['Ontvangsten (verwacht)', wk.ontv, 'pos'], ['Ads (Meta, Google)', wk.ads, 'neg'], ['Verzendkosten', wk.verz, 'neg'], ['Overige doorlopende kosten', wk.ov, 'neg']].filter(([, v]) => Math.abs(v) >= 0.5);
+      const lines = [['Ontvangsten (verwacht)', wk.ontv, 'pos'], ['Ads (Meta, Google)', wk.ads, 'neg'], ['Bezorgkosten', wk.verz, 'neg'], ['Overige doorlopende kosten', wk.ov, 'neg']].filter(([, v]) => Math.abs(v) >= 0.5);
       lines.forEach(([l, v, c], i) => {
         const tr = el('tr', 'lq-kal-flow' + (i === lines.length - 1 ? ' last' : ''));
         tr.append(el('td', 'muted', i === 0 ? 'deze week' : ''), el('td', c === 'pos' ? 'lq-in' : '', l), el('td', 'num ' + c, money(v)), el('td', 'num strong' + (wk.saldo < 0 ? ' neg' : ''), i === lines.length - 1 ? 'eind week ' + eur0.format(wk.saldo) : ''));
@@ -2499,7 +2499,7 @@ dash.calc('samenvatting', {
       act.verz = -act.omzet * E.verzend_pct;
       act.vast = r.vast_ex_maand * gone / dim;
     }
-    const keys = [['omzet', 'Omzet excl. btw'], ['bw', act ? 'Brutowinst' : 'Brutowinst (' + pct.format(E.brutomarge) + ' marge)'], ['ads', 'Ads (Meta, Google)' + (r.ads_pct != null ? ' · prognose ' + pct.format(r.ads_pct) : '')], ['verz', 'Verzendkosten'], ['vast', 'Vaste kosten excl. btw']];
+    const keys = [['omzet', 'Omzet excl. btw'], ['bw', act ? 'Brutowinst' : 'Brutowinst (' + pct.format(E.brutomarge) + ' marge)'], ['ads', 'Ads (Meta, Google)' + (r.ads_pct != null ? ' · prognose ' + pct.format(r.ads_pct) : '')], ['verz', 'Bezorgkosten'], ['vast', 'Vaste kosten excl. btw']];
     const winst = (o) => o.bw + o.ads + o.verz + o.vast;
     const tbl = el('table');
     const td = (v, cls) => el('td', (cls || '') + (v < 0 ? ' lq-negc' : ''), eur0.format(v));
@@ -2517,7 +2517,7 @@ dash.calc('samenvatting', {
       const tot = el('tr', 'lq-pl-tot'); tot.append(el('td', '', total >= 0 ? 'Winst' : 'Verlies'), el('td', total < 0 ? 'lq-negc' : 'lq-pos', eur0.format(total))); tbl.append(tot);
     }
     const badge = el('div', 'lq-pl-badge ' + (total >= 0 ? 'win' : 'loss'), `${mLong(m)}${act ? ' (verwacht)' : ''}: ${total >= 0 ? 'winst' : 'verlies'} van ${eur0.format(Math.abs(total))}`);
-    const note = el('p', 'lq-note', (act ? `T/m gisteren: omzet, brutowinst en ads uit ProfitMetrics (${act.dagen} dagen); verzendkosten ${pct.format(E.verzend_pct)} van de omzet; vaste kosten naar rato (${act.gone} van de ${Number(lastDay2(m).slice(8, 10))} dagen). Rest: prognose. ` : 'Vaste kosten naar rato van de dagen. ') + 'Inkoop, investeringen en belastingen zijn kasstromen en tellen niet mee in de winst; ze staan wel links in het saldo.');
+    const note = el('p', 'lq-note', (act ? `T/m gisteren: omzet, brutowinst en ads uit ProfitMetrics (${act.dagen} dagen); bezorgkosten ${pct.format(E.verzend_pct)} van de omzet; vaste kosten naar rato (${act.gone} van de ${Number(lastDay2(m).slice(8, 10))} dagen). Rest: prognose. ` : 'Vaste kosten naar rato van de dagen. ') + 'Inkoop, investeringen en belastingen zijn kasstromen en tellen niet mee in de winst; ze staan wel links in het saldo.');
     pl.replaceChildren(el('h3', '', 'Winst of verlies'), tbl, badge, note);
   }
 
