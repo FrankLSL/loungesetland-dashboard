@@ -76,7 +76,15 @@ def _admin(request):
 
 @app.get('/healthz')
 def healthz():
-    return {'ok': True}
+    # no secrets: only whether things are set up and how the last runs went
+    d = str(store.DATA)
+    runs = [{'job': r.get('job'), 'ok': bool(r.get('ok')), 'at': r.get('finished') or r.get('started'), 'msg': str(r.get('message') or '')[:160]} for r in store.last_runs_per_job()]
+    return {'ok': True, 'volume': os.path.ismount(d) or os.path.ismount(os.path.dirname(d)), 'data_dir': d, 'seed_version': store.kv_get('seed_version'),
+            'datasets': store.dataset_count(), 'scheduler': not os.getenv('DASH_NO_SCHEDULER'),
+            'connections': {'shopify': shopify.configured(), 'windsor': windsor.configured(), 'sumtracker': sumtracker.configured(),
+                            'profitmetrics': profitmetrics.configured(), 'containerplanning': bool(onedrive.SHARE_URL) or (onedrive.configured() and onedrive.connected()),
+                            'mail': bool(os.getenv('SMTP_HOST')) or (onedrive.configured() and onedrive.connected())},
+            'runs': runs}
 
 
 @app.get('/login', response_class=HTMLResponse)
