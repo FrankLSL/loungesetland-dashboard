@@ -21,21 +21,85 @@ def configured():
 
 
 # ---------- ophalen ----------
-def fetch_daily(date_from, date_to_excl):
-    """[{d, turnover, ...}] per dag. Endpoint en sleutel via variabelen (zie DEPLOY.md)."""
-    url = os.getenv('PROFITMETRICS_API_URL', '').strip()
+MCP_URL = os.getenv('PROFITMETRICS_MCP_URL', 'https://api.my.profitmetrics.io/mcp')
+
+
+def _rpc_parse(r):
+    """Antwoord van een MCP-server: JSON, of server-sent events met 'data:'-regels."""
+    ct = r.headers.get('content-type', '')
+    if 'event-stream' in ct:
+        last = None
+        for line in r.text.splitlines():
+            if line.startswith('data:'):
+                try:
+                    last = json.loads(line[5:].strip())
+                except ValueError:
+                    pass
+        return last or {}
+    try:
+        return r.json()
+    except ValueError:
+        return {'error': {'message': r.text[:200]}}
+
+
+def _mcp_call(tool, arguments):
+    """Roept een tool aan op de ProfitMetrics MCP-server met de API-sleutel (scope 'MCP Server Access')."""
     key = os.getenv('PROFITMETRICS_API_KEY', '').strip()
-    if not url or not key:
-        raise RuntimeError('ProfitMetrics is nog niet gekoppeld (PROFITMETRICS_API_URL / PROFITMETRICS_API_KEY ontbreken)')
-    hdr = os.getenv('PROFITMETRICS_AUTH_HEADER', 'Authorization')
-    pre = os.getenv('PROFITMETRICS_AUTH_PREFIX', 'Bearer ')
+    styles = [{'Authorization': 'Bearer ' + key}, {'X-API-Key': key}, {'Authorization': key}]
+    if os.getenv('PROFITMETRICS_AUTH_HEADER'):
+        styles.insert(0, {os.getenv('PROFITMETRICS_AUTH_HEADER'): os.getenv('PROFITMETRICS_AUTH_PREFIX', '') + key})
+    notes = []
+    for auth in styles:
+        h = dict(auth, **{'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream'})
+        r = http('POST', MCP_URL, headers=h, json={'jsonrpc': '2.0', 'id': 1, 'method': 'initialize', 'params': {
+            'protocolVersion': '2025-06-18', 'capabilities': {}, 'clientInfo': {'name': 'loungesetland-dashboard', 'version': '1'}}}, tries=1)
+        if r.status_code in (401, 403):
+            notes.append(f'{list(auth)[0]}: {r.status_code}'); continue
+        if not r.ok:
+            notes.append(f'{list(auth)[0]}: {r.status_code} {r.text[:120]}'); continue
+        sid = r.headers.get('mcp-session-id')
+        if sid:
+            h['mcp-session-id'] = sid
+        http('POST', MCP_URL, headers=h, json={'jsonrpc': '2.0', 'method': 'notifications/initialized'}, tries=1)
+        r2 = http('POST', MCP_URL, headers=h, json={'jsonrpc': '2.0', 'id': 2, 'method': 'tools/call',
+                                                     'params': {'name': tool, 'arguments': arguments}}, timeout=180)
+        j = _rpc_parse(r2)
+        if j.get('error'):
+            raise RuntimeError('ProfitMetrics MCP: ' + json.dumps(j['error'])[:300])
+        res = j.get('result') or {}
+        if res.get('structuredContent'):
+            return res['structuredContent']
+        for c in res.get('content') or []:
+            if c.get('type') == 'text':
+                try:
+                    return json.loads(c['text'])
+                except ValueError:
+                    raise RuntimeError('ProfitMetrics MCP: ' + c['text'][:300])
+        raise RuntimeError('ProfitMetrics MCP: leeg antwoord ' + json.dumps(j)[:200])
+    raise RuntimeError('ProfitMetrics MCP: sleutel geweigerd (' + '; '.join(notes) + ')')
+
+
+def fetch_daily(date_from, date_to_excl):
+    """[{d, turnover, ...}] per dag, via de ProfitMetrics MCP-server (of een REST-adres in PROFITMETRICS_API_URL)."""
+    key = os.getenv('PROFITMETRICS_API_KEY', '').strip()
+    if not key:
+        raise RuntimeError('ProfitMetrics is nog niet gekoppeld (PROFITMETRICS_API_KEY ontbreekt)')
     body = {'publicIds': [PUBLIC_ID], 'resolution': 'DAY', 'timezone': 'Europe/Amsterdam', 'fromIncl': str(date_from),
             'toExcl': str(date_to_excl), 'metrics': [m.upper() for m in SUM]}
-    r = http('POST', url, headers={hdr: pre + key, 'Content-Type': 'application/json'}, json=body)
-    if not r.ok:
-        raise RuntimeError(f'ProfitMetrics HTTP {r.status_code}: {r.text[:300]}')
-    j = r.json()
-    pts = (j.get('data') or {}).get('data') if isinstance(j.get('data'), dict) else (j.get('data') or j)
+    url = os.getenv('PROFITMETRICS_API_URL', '').strip()
+    if url:
+        hdr = os.getenv('PROFITMETRICS_AUTH_HEADER', 'Authorization')
+        pre = os.getenv('PROFITMETRICS_AUTH_PREFIX', 'Bearer ')
+        r = http('POST', url, headers={hdr: pre + key, 'Content-Type': 'application/json'}, json=body)
+        if not r.ok:
+            raise RuntimeError(f'ProfitMetrics HTTP {r.status_code}: {r.text[:300]}')
+        j = r.json()
+    else:
+        j = _mcp_call('export_dashboard_metrics', body)
+    if isinstance(j, dict) and j.get('success') is False:
+        raise RuntimeError('ProfitMetrics: ' + json.dumps(j)[:300])
+    d = j.get('data') if isinstance(j, dict) else j
+    pts = d.get('data') if isinstance(d, dict) else d
     out = []
     for p in pts or []:
         row = {'d': str(p['timestamp'])[:10]}
