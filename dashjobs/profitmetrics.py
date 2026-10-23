@@ -47,6 +47,7 @@ AUTH_BASE = os.getenv('PROFITMETRICS_AUTH_BASE', 'https://my.profitmetrics.io/au
 
 def _keep(j):
     import time
+    store.kv_set('pm_token_info', {'refresh': bool(j.get('refresh_token')), 'expires_in': j.get('expires_in'), 'scope': j.get('scope'), 'at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())})
     if j.get('refresh_token'):
         store.kv_set('pm_refresh', j['refresh_token'])
     store.kv_set('pm_oauth', {'t': j['access_token'], 'x': time.time() + int(j.get('expires_in', 3600)) - 120})
@@ -107,8 +108,11 @@ def _oauth_token():
     rt = store.kv_get('pm_refresh')
     if rt:
         r = http('POST', tok_url, data={'grant_type': 'refresh_token', 'refresh_token': rt, 'resource': MCP_URL}, auth=(cid, sec), tries=1)
+        if not r.ok:
+            r = http('POST', tok_url, data={'grant_type': 'refresh_token', 'refresh_token': rt, 'client_id': cid, 'client_secret': sec}, tries=1)
         if r.ok:
             return _keep(r.json())
+        store.kv_set('pm_refresh_error', f'{r.status_code} {r.text[:150]}')
     key = os.getenv('PROFITMETRICS_API_KEY', '').strip()
     if key:
         r = http('POST', tok_url, data={'grant_type': 'urn:ietf:params:oauth:grant-type:token-exchange', 'subject_token': key,

@@ -85,7 +85,8 @@ def healthz():
                             'profitmetrics': profitmetrics.configured(), 'containerplanning': bool(onedrive.SHARE_URL) or (onedrive.configured() and onedrive.connected()),
                             'mail': bool(os.getenv('SMTP_HOST')) or (onedrive.configured() and onedrive.connected())},
             'runs': runs, 'cp_share_debug': store.kv_get('cp_share_debug'),
-            'pm_redirect': (os.getenv('PUBLIC_URL') or '(PUBLIC_URL leeg)'), 'pm_client_start': os.getenv('PROFITMETRICS_CLIENT_ID', '')[:6]}
+            'pm_redirect': (os.getenv('PUBLIC_URL') or '(PUBLIC_URL leeg)'), 'pm_client_start': os.getenv('PROFITMETRICS_CLIENT_ID', '')[:6],
+            'pm_token': store.kv_get('pm_token_info'), 'pm_has_refresh': bool(store.kv_get('pm_refresh')), 'pm_refresh_error': store.kv_get('pm_refresh_error')}
 
 
 @app.get('/login', response_class=HTMLResponse)
