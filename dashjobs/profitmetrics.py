@@ -53,7 +53,7 @@ def _oauth_token():
         return c['t']
     u = urllib.parse.urlparse(MCP_URL)
     base = f'{u.scheme}://{u.netloc}'
-    tok_url = os.getenv('PROFITMETRICS_TOKEN_URL', '').strip()
+    tok_url = os.getenv('PROFITMETRICS_TOKEN_URL', 'https://my.profitmetrics.io/auth/oauth2/token').strip()
     if not tok_url:
         auth_server = base
         for meta in (base + '/.well-known/oauth-protected-resource' + u.path, base + '/.well-known/oauth-protected-resource'):
@@ -73,7 +73,10 @@ def _oauth_token():
                     break
         if not tok_url:
             raise RuntimeError('ProfitMetrics: token-adres niet gevonden via ' + auth_server)
-    r = http('POST', tok_url, data={'grant_type': 'client_credentials', 'client_id': cid, 'client_secret': sec}, tries=1)
+    form = {'grant_type': 'client_credentials', 'scope': 'metrics.read sites.read', 'resource': MCP_URL}
+    r = http('POST', tok_url, data=form, auth=(cid, sec), tries=1)
+    if not r.ok:
+        r = http('POST', tok_url, data=dict(form, client_id=cid, client_secret=sec), tries=1)
     if not r.ok:
         r = http('POST', tok_url, data={'grant_type': 'client_credentials'}, auth=(cid, sec), tries=1)
     if not r.ok:
