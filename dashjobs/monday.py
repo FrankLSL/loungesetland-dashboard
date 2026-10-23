@@ -212,11 +212,19 @@ def send():
     # mail via an HTTPS API (Railway blocks outgoing SMTP on Hobby plans)
     if os.getenv('BREVO_API_KEY'):
         from .common import http
-        r = http('POST', 'https://api.brevo.com/v3/smtp/email', headers={'api-key': os.getenv('BREVO_API_KEY').strip(), 'Content-Type': 'application/json', 'Accept': 'application/json'},
+        key = os.getenv('BREVO_API_KEY').strip().strip('"').strip("'")
+        if not key.startswith('xkeysib-'):
+            # an 'MCP' key from Brevo is base64 JSON that holds the real API key
+            try:
+                import base64, json as _j
+                key = _j.loads(base64.b64decode(key + '=' * (-len(key) % 4)).decode()).get('api_key', key)
+            except Exception:
+                pass
+        r = http('POST', 'https://api.brevo.com/v3/smtp/email', headers={'api-key': key, 'Content-Type': 'application/json', 'Accept': 'application/json'},
                  json={'sender': {'email': sender, 'name': os.getenv('MAIL_FROM_NAME', 'Loungesetland dashboard')}, 'to': [{'email': x} for x in to],
                        'subject': subject, 'htmlContent': body}, tries=1)
         if not r.ok:
-            raise RuntimeError(f'Brevo {r.status_code}: {r.text[:200]}')
+            raise RuntimeError(f'Brevo {r.status_code}: {r.text[:200]} (sleutel begint met {key[:8]}…, {len(key)} tekens)')
         return f'verstuurd via Brevo naar {", ".join(to)}'
     if os.getenv('RESEND_API_KEY'):
         from .common import http
