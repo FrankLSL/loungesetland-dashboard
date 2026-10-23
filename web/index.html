@@ -335,6 +335,11 @@
 #dash-root .lq-chart-sm { min-height: 230px; margin-bottom: 1rem; }
 #dash-root .lq h3.lq-sub3 { font-size: .9rem; margin-top: .6rem; }
 #dash-root #f-posten td:nth-child(2) { text-align: left; white-space: normal; }
+#dash-root .lq-h3b { margin-top: 18px; }
+#dash-root #f-btw tr.lq-paid td { color: var(--color-fg-muted); }
+#dash-root #f-btw tr.lq-paid input:not([type=checkbox]) { text-decoration: line-through; }
+#dash-root #f-btw .lq-sub { font-size: 11px; color: var(--color-fg-muted); }
+#dash-root #f-btw td:first-child { text-align: left; }
 #dash-root #f-posten input[type=date] { min-width: 0; width: 9.5rem; }
 #dash-root .lq-grid-invul { grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); }
 @media (min-width: 1100px) { #dash-root .lq-grid-invul { grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr); } }
@@ -754,6 +759,9 @@
         <p class="lq-note">VPB en investeringen met hun betaaldatum; negatief = uitgave. Een datum die al voorbij is telt mee in de rest van deze maand (nog te betalen). Inkoop komt uit de containerplanning; de BTW wordt per kwartaal berekend uit de ontvangsten.</p>
         <div class="lq-tablebox"><table class="lq-table lq-edit" id="f-posten" data-source="posten" data-row-key="sleutel"><thead><tr><th data-field="datum">Betaaldatum</th><th data-field="omschrijving">Omschrijving</th><th data-field="bedrag">Bedrag</th><th></th></tr></thead><tbody></tbody></table></div>
         <button type="button" class="lq-btn lq-add" id="add-post">+ Losse post toevoegen</button>
+        <h3 class="lq-h3b">BTW per kwartaal</h3>
+        <p class="lq-note">Betaald eind van de maand na het kwartaal. Vul het bedrag van de aangifte in zodra je dat weet; vink <b>Betaald</b> aan als het eraf is, dan telt hij niet meer mee (werk dan ook het banksaldo bij).</p>
+        <div class="lq-tablebox"><table class="lq-table lq-edit" id="f-btw"><thead><tr><th>Kwartaal</th><th>Betalen op</th><th>Bedrag</th><th>Betaald</th></tr></thead><tbody></tbody></table></div>
       </div>
       <div class="lq-card">
         <h3>Herkomst</h3>
@@ -1952,8 +1960,12 @@ window.lqPrognose = (aannames, ontvangsten, cp_open, fx, P) => {
       const qn = Math.floor((Number(iso(q).slice(5, 7)) - 1) / 3) + 1;
       const kw = 'Q' + qn + '-' + iso(q).slice(0, 4);
       // known actual VAT returns override the estimate for that quarter only
-      if (window.LQ_BTW_WERKELIJK[kw] != null) return { bedrag: -window.LQ_BTW_WERKELIJK[kw], kwartaal: kw + ' (werkelijk)' };
-      return { bedrag: -((ontvQ / (1 + E.btw)) * E.btw_afdracht - voor), kwartaal: kw };
+      const geschat = -((ontvQ / (1 + E.btw)) * E.btw_afdracht - voor);
+      // an amount filled in on the page wins, then a known actual return, then the estimate
+      const ing = P && P['s_btww_' + kw] != null && P['s_btww_' + kw] !== '' && !Number.isNaN(Number(P['s_btww_' + kw])) ? Math.abs(Number(P['s_btww_' + kw])) : null;
+      if (ing != null) return { bedrag: -ing, kwartaal: kw + ' (werkelijk)', kw, geschat, bron: 'ingevuld' };
+      if (window.LQ_BTW_WERKELIJK[kw] != null) return { bedrag: -window.LQ_BTW_WERKELIJK[kw], kwartaal: kw + ' (werkelijk)', kw, geschat, bron: 'aangifte' };
+      return { bedrag: geschat, kwartaal: kw, kw, geschat, bron: 'schatting' };
     };
     const months = [];
     for (let m = today.slice(0, 7); m <= E.eindmaand; ) { months.push(m); const d = D(m + '-01'); d.setUTCMonth(d.getUTCMonth() + 1); m = iso(d).slice(0, 7); }
@@ -1971,6 +1983,7 @@ window.lqPrognose = (aannames, ontvangsten, cp_open, fx, P) => {
     for (const p of E.posten) push(p.datum, catOf[p.soort] || 'extra', p.omschrijving, Number(p.bedrag));
     const grpCat = { Huisvesting: 'huisvesting', Lonen: 'lonen', Overig: 'overig' };
     const btwInfo = {};
+    const btwLijst = [];
     for (const m of months) {
       const dim = Number(lastDay(m).slice(8, 10));
       for (const c of E.kosten) {
@@ -1979,12 +1992,17 @@ window.lqPrognose = (aannames, ontvangsten, cp_open, fx, P) => {
         if (d >= today) push(d, grpCat[c.groep] || 'overig', c.naam, -kost(c, m));
       }
       const b = btwFor(m);
-      if (b) { btwInfo[m] = b.kwartaal; push(lastDay(m), 'btw', 'BTW ' + b.kwartaal, b.bedrag); }
+      if (b) {
+        const betaald = !!P && (P['s_btwb_' + b.kw] === true || P['s_btwb_' + b.kw] === 'true');
+        btwLijst.push({ kw: b.kw, datum: lastDay(m), bedrag: b.bedrag, geschat: b.geschat, bron: b.bron, betaald });
+        btwInfo[m] = b.kwartaal + (betaald ? ' (betaald)' : '');
+        if (!betaald) push(lastDay(m), 'btw', 'BTW ' + b.kwartaal, b.bedrag);
+      }
     }
     // walk day by day
     const CATS = ['containers', 'vracht', 'marketing', 'verzend', 'huisvesting', 'lonen', 'overig', 'inkoop', 'investeringen', 'belastingen', 'btw', 'extra'];
     let saldo = E.saldo_lopend + E.saldo_spaar;
-    return months.map((m) => {
+    const out = months.map((m) => {
       const mStart = m + '-01', mEnd = lastDay(m), dim = Number(mEnd.slice(8, 10));
       const from = m === today.slice(0, 7) ? today : mStart;
       const row = { maand: m, deel: from !== mStart, ontvangsten: 0, vast_ex: 0, dagen: [] };
@@ -2027,6 +2045,8 @@ window.lqPrognose = (aannames, ontvangsten, cp_open, fx, P) => {
       row.winst = row.brutowinst + row.marketing + row.verzend + row.vast_ex;
       return row;
     });
+    out.btw = btwLijst;
+    return out;
 };
 
 window.lqSamenvatting = (prognose, aannames, P) => {
@@ -2377,7 +2397,7 @@ dash.calc('samenvatting', {
   }
   document.getElementById('p-reset').addEventListener('click', () => {
     const z = {};
-    Object.keys(dash.params()).forEach((k) => { if (k.startsWith('s_')) z[k] = null; });
+    Object.keys(dash.params()).forEach((k) => { if (k.startsWith('s_') && !k.startsWith('s_btwb_') && !k.startsWith('s_btww_')) z[k] = null; });
     fields.forEach((f) => { z[f.param] = null; });
     document.querySelectorAll('#f-posten input[data-param]').forEach((i) => { z[i.dataset.param] = null; });
     z.s_extra_kosten = null; z.s_extra_posten = null;
@@ -2551,6 +2571,29 @@ dash.calc('samenvatting', {
     } else { thead.replaceChildren(); tbody.replaceChildren(); }
 
     setTxt('ass-note', E ? `Standaard-aannames: ${E.bron}, bijgewerkt ${dLong(E.bijgewerkt)}.` : '—');
+
+    // VAT per quarter: amount from the return and a paid tick
+    {
+      const tb = document.querySelector('#f-btw tbody');
+      const act = document.activeElement;
+      if (!(act && tb.contains(act))) {
+        tb.replaceChildren(...(rows.btw || []).map((b) => {
+          const tr = el('tr');
+          if (b.betaald) tr.className = 'lq-paid';
+          const bi = eurInput(Math.round(Math.abs(b.bedrag)));
+          if (b.bron !== 'schatting') bi.classList.add('lq-changed');
+          bi.title = 'Geschat: ' + eur0.format(Math.abs(b.geschat));
+          bi.addEventListener('change', () => { const v = fromField('eur', bi.value.trim()); dash.setParams({ ['s_btww_' + b.kw]: v == null || v === '' || Number.isNaN(Number(v)) ? null : Math.abs(Number(v)) }); });
+          const cb = el('input'); cb.type = 'checkbox'; cb.className = 'lq-cb'; cb.checked = b.betaald; cb.setAttribute('aria-label', 'BTW ' + b.kw + ' betaald');
+          cb.addEventListener('change', () => dash.setParams({ ['s_btwb_' + b.kw]: cb.checked ? true : null }));
+          const c1 = el('td', '', b.kw), c2 = el('td', '', dLong(b.datum)), c3 = el('td'), c4 = el('td');
+          c3.append(bi, el('div', 'lq-sub', b.bron === 'schatting' ? 'schatting' : b.bron === 'aangifte' ? 'aangifte' : 'ingevuld'));
+          c4.append(cb);
+          tr.append(c1, c2, c3, c4);
+          return tr;
+        }));
+      }
+    }
 
     // one-off items, editable month and amount
     const po = { status: A ? 'ok' : aa.status, data: A ? window.lqPosten(aa.data, P) : [] };
