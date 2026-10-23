@@ -1890,6 +1890,7 @@ window.lqEff = (raw, P) => {
     startdatum: (() => { const d = new Date(window.lqToday() + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); })(), eindmaand: String(A.eindmaand).slice(0, 7),
     saldo_lopend: num('s_saldo_lopend', A.saldo_lopend), saldo_spaar: num('s_saldo_spaar', A.saldo_spaar),
     krediet: num('s_krediet', A.krediet), buffer: 0,
+    ads_handmatig: has('s_marketing'),
     omzetgroei: num('s_groei', A.omzetgroei), marketing_pct: num('s_marketing', window.lqAds28 && window.lqAds28.pct != null ? window.lqAds28.pct : A.marketing_pct), verzend_pct: num('s_verzend', A.verzend_pct),
     brutomarge: num('s_marge', A.brutomarge == null ? 0.48 : A.brutomarge), btw: A.btw == null ? 0.21 : Number(A.btw),
     btw_afdracht: num('s_btw', A.btw_afdracht == null ? 0.21 : A.btw_afdracht),
@@ -2004,7 +2005,9 @@ window.lqPrognose = (aannames, ontvangsten, cp_open, fx, P) => {
     const out = months.map((m) => {
       const mStart = m + '-01', mEnd = lastDay(m), dim = Number(mEnd.slice(8, 10));
       const from = m === today.slice(0, 7) ? today : mStart;
-      const row = { maand: m, deel: from !== mStart, ontvangsten: 0, vast_ex: 0, dagen: [], vast_ex_maand: -E.kosten.reduce((t, c) => t + kost(c, m) / (c.btw ? 1 + E.btw : 1), 0) };
+      // ads share: filled in = every month; else this month the last 28 days, later months as the same month last year
+      const adsPct = E.ads_handmatig || m === today.slice(0, 7) ? E.marketing_pct : (window.lqAdsMaand && window.lqAdsMaand[m.slice(5, 7)] != null ? window.lqAdsMaand[m.slice(5, 7)] : E.marketing_pct);
+      const row = { maand: m, deel: from !== mStart, ads_pct: adsPct, ontvangsten: 0, vast_ex: 0, dagen: [], vast_ex_maand: -E.kosten.reduce((t, c) => t + kost(c, m) / (c.btw ? 1 + E.btw : 1), 0) };
       CATS.forEach((c) => { row[c] = 0; });
       const begin = saldo;
       let minS = Infinity, minD = from;
@@ -2012,7 +2015,7 @@ window.lqPrognose = (aannames, ontvangsten, cp_open, fx, P) => {
         const o = est(s);
         // ads and shipping as % of revenue excl. VAT (receipts are incl. VAT)
         const oEx = o / (1 + E.btw);
-        const evs = [{ cat: 'marketing', label: 'Ads', v: -oEx * E.marketing_pct }, { cat: 'verzend', label: 'Verzendkosten', v: -oEx * E.verzend_pct }];
+        const evs = [{ cat: 'marketing', label: 'Ads', v: -oEx * adsPct }, { cat: 'verzend', label: 'Verzendkosten', v: -oEx * E.verzend_pct }];
         // costs without a payment day are spread evenly over the days of the month
         for (const c of E.kosten) if (!c.betaaldag) { const v = -kost(c, m) / dim; if (v) evs.push({ cat: grpCat[c.groep] || 'overig', label: c.naam, v, spread: true }); }
         for (const e of ev.get(s) || []) evs.push(e);
@@ -2250,7 +2253,7 @@ dash.calc('samenvatting', {
       ['s_marge', 'Brutomarge (omzet excl. btw)', 'pct', 'brutomarge', '%'],
     ]],
     ['Kosten als % van de omzet', [
-      ['s_marketing', 'Ads (van omzet excl. btw; standaard werkelijk laatste 28 dagen)', 'pct', 'marketing_pct', '%'],
+      ['s_marketing', 'Ads (van omzet excl. btw). Leeg = automatisch: deze maand de laatste 28 dagen, daarna per maand zoals dezelfde maand vorig jaar', 'pct', 'marketing_pct', '%'],
       ['s_verzend', 'Verzendkosten (van omzet excl. btw)', 'pct', 'verzend_pct', '%'],
       ['s_btw', 'BTW-afdracht (omzet excl. btw)', 'pct', 'btw_afdracht', '%'],
     ]],
@@ -2496,7 +2499,7 @@ dash.calc('samenvatting', {
       act.verz = -act.omzet * E.verzend_pct;
       act.vast = r.vast_ex_maand * gone / dim;
     }
-    const keys = [['omzet', 'Omzet excl. btw'], ['bw', act ? 'Brutowinst' : 'Brutowinst (' + pct.format(E.brutomarge) + ' marge)'], ['ads', 'Ads (Meta, Google)'], ['verz', 'Verzendkosten'], ['vast', 'Vaste kosten excl. btw']];
+    const keys = [['omzet', 'Omzet excl. btw'], ['bw', act ? 'Brutowinst' : 'Brutowinst (' + pct.format(E.brutomarge) + ' marge)'], ['ads', 'Ads (Meta, Google)' + (r.ads_pct != null ? ' · prognose ' + pct.format(r.ads_pct) : '')], ['verz', 'Verzendkosten'], ['vast', 'Vaste kosten excl. btw']];
     const winst = (o) => o.bw + o.ads + o.verz + o.vast;
     const tbl = el('table');
     const td = (v, cls) => el('td', (cls || '') + (v < 0 ? ' lq-negc' : ''), eur0.format(v));
@@ -2532,6 +2535,12 @@ dash.calc('samenvatting', {
         const r28 = pmd.data.filter((x) => String(x.d).slice(0, 10) >= from && String(x.d).slice(0, 10) < td);
         const om = r28.reduce((t, x) => t + (Number(x.omzet) || 0), 0), ad = r28.reduce((t, x) => t + (Number(x.ads) || 0), 0);
         window.lqAds28 = om > 0 ? { pct: Math.round((ad / om) * 1000) / 1000, from, dagen: r28.length } : null;
+        // per calendar month: the most recent complete month in ProfitMetrics
+        const per = {};
+        for (const x of pmd.data) { const k = String(x.d).slice(0, 7); if (k >= td.slice(0, 7)) continue; (per[k] = per[k] || [0, 0]); per[k][0] += Number(x.ads) || 0; per[k][1] += Number(x.omzet) || 0; }
+        const mm = {};
+        Object.keys(per).sort().forEach((k) => { const [a, o] = per[k]; const first = pmd.data.some((x) => String(x.d).slice(0, 10) === k + '-01'); if (o > 0 && first) mm[k.slice(5, 7)] = Math.round((a / o) * 1000) / 1000; });
+        window.lqAdsMaand = mm;
       }
     }
     const E = A ? window.lqEff(A, P) : null;
