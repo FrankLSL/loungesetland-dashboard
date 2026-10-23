@@ -12,7 +12,7 @@ import store
 
 COOKIE = 'lsl_dash'
 SESSION_DAYS = 30
-OPEN_PATHS = ('/login', '/logout', '/healthz', '/static/', '/onedrive/callback')
+OPEN_PATHS = ('/login', '/logout', '/healthz', '/static/', '/onedrive/callback', '/profitmetrics/callback')
 ROLES = {'beheerder': 'Beheerder', 'bekijker': 'Bekijker'}
 
 

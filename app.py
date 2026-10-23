@@ -246,6 +246,8 @@ def status(request: Request, msg: str = ''):
     od = ''
     if adm and onedrive.configured():
         od = f'<p>{"Gekoppeld als " + html.escape(msu.get("mail") or "") + ". " if onedrive.connected() else ""}<a class="lsl-btn" href="/onedrive/login">{"Opnieuw koppelen" if onedrive.connected() else "Koppel OneDrive"}</a></p>'
+    if adm and os.getenv('PROFITMETRICS_CLIENT_ID'):
+        od += f'<p>{"ProfitMetrics is gekoppeld. " if store.kv_get("pm_refresh") else ""}<a class="lsl-btn" href="/profitmetrics/login">{"Opnieuw koppelen" if store.kv_get("pm_refresh") else "Koppel ProfitMetrics"}</a></p>'
     last = {r['job']: r for r in store.last_runs_per_job()}
     jr = ''
     for name, (fn, label, ok) in scheduler.JOBS.items():
@@ -289,6 +291,28 @@ def od_callback(request: Request, code: str = '', state: str = '', error: str = 
     me = onedrive.finish_login(_base_url(request), code)
     scheduler.run_async(['containers'], 'koppeling')
     return RedirectResponse('/status?msg=OneDrive gekoppeld als ' + (me.get('mail') or me.get('userPrincipalName') or ''), status_code=303)
+
+
+@app.get('/profitmetrics/login')
+def pm_login(request: Request):
+    _admin(request)
+    st = secrets.token_urlsafe(16)
+    store.kv_set('pm_state', st)
+    return RedirectResponse(profitmetrics.login_url(_base_url(request), st))
+
+
+@app.get('/profitmetrics/callback')
+def pm_callback(request: Request, code: str = '', state: str = '', error: str = '', error_description: str = ''):
+    if error:
+        return auth.page('ProfitMetrics', f'<p class="lsl-err">Koppelen mislukt: {html.escape(error_description or error)}</p><p><a href="/status">Terug</a></p>')
+    if not state or state != store.kv_get('pm_state'):
+        return auth.page('ProfitMetrics', '<p class="lsl-err">Ongeldige aanvraag; probeer opnieuw via Status.</p><p><a href="/status">Terug</a></p>')
+    try:
+        profitmetrics.finish_login(_base_url(request), code)
+    except Exception as e:
+        return auth.page('ProfitMetrics', f'<p class="lsl-err">{html.escape(str(e))}</p><p><a href="/status">Terug</a></p>')
+    scheduler.run_async(['pm_daily'], 'koppeling')
+    return RedirectResponse('/status?msg=ProfitMetrics gekoppeld', status_code=303)
 
 
 @app.get('/{name}', include_in_schema=False)

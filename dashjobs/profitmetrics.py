@@ -42,6 +42,37 @@ def _rpc_parse(r):
         return {'error': {'message': r.text[:200]}}
 
 
+AUTH_BASE = os.getenv('PROFITMETRICS_AUTH_BASE', 'https://my.profitmetrics.io/auth')
+
+
+def _keep(j):
+    import time
+    if j.get('refresh_token'):
+        store.kv_set('pm_refresh', j['refresh_token'])
+    store.kv_set('pm_oauth', {'t': j['access_token'], 'x': time.time() + int(j.get('expires_in', 3600)) - 120})
+    return j['access_token']
+
+
+def login_url(base, state):
+    """Eenmalig inloggen (authorization code + PKCE); daarna ververst de app zelf met het refresh-token."""
+    import secrets, hashlib, base64, urllib.parse
+    ver = secrets.token_urlsafe(48)
+    store.kv_set('pm_pkce', ver)
+    ch = base64.urlsafe_b64encode(hashlib.sha256(ver.encode()).digest()).decode().rstrip('=')
+    q = {'response_type': 'code', 'client_id': os.getenv('PROFITMETRICS_CLIENT_ID', '').strip(), 'redirect_uri': base.rstrip('/') + '/profitmetrics/callback',
+         'scope': 'metrics.read sites.read offline_access', 'state': state, 'code_challenge': ch, 'code_challenge_method': 'S256', 'resource': MCP_URL}
+    return AUTH_BASE + '/oauth2/authorize?' + urllib.parse.urlencode(q)
+
+
+def finish_login(base, code):
+    cid, sec = os.getenv('PROFITMETRICS_CLIENT_ID', '').strip(), os.getenv('PROFITMETRICS_CLIENT_SECRET', '').strip()
+    r = http('POST', AUTH_BASE + '/oauth2/token', data={'grant_type': 'authorization_code', 'code': code, 'redirect_uri': base.rstrip('/') + '/profitmetrics/callback',
+                                                        'code_verifier': store.kv_get('pm_pkce') or '', 'resource': MCP_URL}, auth=(cid, sec), tries=1)
+    if not r.ok:
+        raise RuntimeError(f'ProfitMetrics-login mislukt ({r.status_code}): {r.text[:200]}')
+    return _keep(r.json())
+
+
 def _oauth_token():
     """Client credentials (Agent Connections in ProfitMetrics): token-adres via de OAuth-metadata van de MCP-server."""
     cid, sec = os.getenv('PROFITMETRICS_CLIENT_ID', '').strip(), os.getenv('PROFITMETRICS_CLIENT_SECRET', '').strip()
@@ -73,17 +104,29 @@ def _oauth_token():
                     break
         if not tok_url:
             raise RuntimeError('ProfitMetrics: token-adres niet gevonden via ' + auth_server)
+    rt = store.kv_get('pm_refresh')
+    if rt:
+        r = http('POST', tok_url, data={'grant_type': 'refresh_token', 'refresh_token': rt, 'resource': MCP_URL}, auth=(cid, sec), tries=1)
+        if r.ok:
+            return _keep(r.json())
+    key = os.getenv('PROFITMETRICS_API_KEY', '').strip()
+    if key:
+        r = http('POST', tok_url, data={'grant_type': 'urn:ietf:params:oauth:grant-type:token-exchange', 'subject_token': key,
+                                        'subject_token_type': 'urn:ietf:params:oauth:token-type:access_token',
+                                        'scope': 'metrics.read sites.read', 'resource': MCP_URL}, auth=(cid, sec), tries=1)
+        if r.ok:
+            return _keep(r.json())
     form = {'grant_type': 'client_credentials', 'scope': 'metrics.read sites.read', 'resource': MCP_URL}
     r = http('POST', tok_url, data=form, auth=(cid, sec), tries=1)
     if not r.ok:
         r = http('POST', tok_url, data=dict(form, client_id=cid, client_secret=sec), tries=1)
     if not r.ok:
         r = http('POST', tok_url, data={'grant_type': 'client_credentials'}, auth=(cid, sec), tries=1)
+    if not r.ok and r.status_code == 400 and 'unauthorized_client' in r.text:
+        raise RuntimeError('ProfitMetrics: deze koppeling mag niet automatisch inloggen; klik op Status op "Koppel ProfitMetrics" en log één keer in')
     if not r.ok:
         raise RuntimeError(f'ProfitMetrics-token mislukt ({r.status_code}) bij {tok_url}: {r.text[:200]}')
-    j = r.json()
-    store.kv_set('pm_oauth', {'t': j['access_token'], 'x': time.time() + int(j.get('expires_in', 3600)) - 120})
-    return j['access_token']
+    return _keep(r.json())
 
 
 def _mcp_call(tool, arguments):
