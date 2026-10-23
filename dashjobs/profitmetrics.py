@@ -74,7 +74,17 @@ def finish_login(base, code):
     return _keep(r.json())
 
 
+import threading
+_tok_lock = threading.Lock()
+
+
 def _oauth_token():
+    # one refresh at a time: refresh tokens are single-use, so parallel page requests must not race
+    with _tok_lock:
+        return _oauth_token_locked()
+
+
+def _oauth_token_locked():
     """Client credentials (Agent Connections in ProfitMetrics): token-adres via de OAuth-metadata van de MCP-server."""
     cid, sec = os.getenv('PROFITMETRICS_CLIENT_ID', '').strip(), os.getenv('PROFITMETRICS_CLIENT_SECRET', '').strip()
     if not (cid and sec):
