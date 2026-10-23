@@ -147,8 +147,9 @@
 
     // advies per product
     const actief = (r) => (Number(r.voorraad) || 0) > 0 || (Number(r.onderweg) || 0) > 0 || (Number(r.verkocht_13w) || 0) > 0;
-    const nonActief = dk.filter((r) => !actief(r)).length;
-    const all = dk.filter(actief).map((r) => { r._week0 = week0; r._cpEta = CPETA; const L = leadOf(r.leverancier_id, r.leverancier); const a = advies(r, P, L); const c = cbmOf(r.sku); return { r, a, cbm: c }; });
+    const nonActief = dk.filter((r) => !actief(r) || (HERK[r.sku] && HERK[r.sku].uitlopend)).length;
+    const uitlopend = (r) => !!(HERK[r.sku] && HERK[r.sku].uitlopend);
+    const all = dk.filter((r) => actief(r) && !uitlopend(r)).map((r) => { r._week0 = week0; r._cpEta = CPETA; const L = leadOf(r.leverancier_id, r.leverancier); const a = advies(r, P, L); const c = cbmOf(r.sku); return { r, a, cbm: c }; });
     LAST = all;
     const urgent = (x) => x.a.rank <= 2;
     const fLev = P.vr_lev != null && P.vr_lev !== '' ? String(P.vr_lev) : '';
@@ -193,7 +194,7 @@
     if (fSt === 'laat') list = list.filter((x) => x.a.rank === 0); else if (fSt === 'nu') list = list.filter((x) => x.a.rank === 1); else if (fSt === '4w') list = list.filter((x) => x.a.rank === 2); else list = list.filter((x) => x.a.rank <= 3);
     list.sort((a, b) => a.a.rank - b.a.rank || (a.a.bestelDatum || '9999').localeCompare(b.a.bestelDatum || '9999') || b.r.waarde_52w - a.r.waarde_52w);
     document.getElementById('vr-best-t').textContent = `Bestellijst${fLev ? ' · ' + (levName.get(fLev) || '') : ''} (${list.length})`;
-    document.getElementById('vr-inact').textContent = nonActief ? `${nonActief} producten zonder voorraad, zonder inkooporder en zonder verkoop in de laatste 13 weken staan niet in de lijst (waarschijnlijk uit het assortiment).` : '';
+    document.getElementById('vr-inact').textContent = nonActief ? `${nonActief} producten staan niet in de lijst: uitlopend (niet meer na te bestellen), of zonder voorraad, inkooporder en verkoop in de laatste 13 weken.` : '';
     const tb = document.querySelector('#vr-tbl tbody');
     const stCls = (s) => (s === 'Te laat' ? ' lw-bad' : s === 'Nu bestellen' || s === 'Binnen 4 weken' || s === 'Tekort tot levering' ? ' lw-warn' : ' lw-ok');
     tb.replaceChildren(...list.slice(0, 400).map((x) => {
