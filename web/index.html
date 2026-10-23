@@ -339,6 +339,7 @@
 #dash-root #f-btw tr.lq-paid td { color: var(--color-fg-muted); }
 #dash-root #f-btw tr.lq-paid input:not([type=checkbox]) { text-decoration: line-through; }
 #dash-root .lq-link { background: none; border: 0; padding: 0; color: var(--ls-green); text-decoration: underline; cursor: pointer; font: inherit; }
+#dash-root #f-kosten td.lq-exc { text-align: right; color: var(--ls-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 #dash-root #f-btw .lq-sub { font-size: 11px; color: var(--color-fg-muted); }
 #dash-root #f-btw td:first-child { text-align: left; }
 #dash-root #f-posten input[type=date] { min-width: 0; width: 9.5rem; }
@@ -752,7 +753,7 @@
       <div class="lq-card">
         <h3>Vaste kosten per maand</h3>
         <p class="lq-note">Bedrag per maand en de dag waarop het betaald wordt (leeg = verspreid over de maand); bij een wijziging het nieuwe bedrag en de maand waarin het ingaat. Deze maand tellen alleen betalingen die nog moeten komen.</p>
-        <div class="lq-tablebox"><table class="lq-table lq-edit" id="f-kosten"><thead><tr><th>Kostenpost</th><th>Per maand incl. btw</th><th>Dag</th><th>Btw</th><th>Nieuw bedrag</th><th>Vanaf</th></tr></thead><tbody></tbody><tbody id="f-kosten-extra"></tbody><tfoot><tr><td>Totaal per maand nu</td><td id="f-kosten-tot">—</td><td></td><td></td><td></td><td></td></tr></tfoot></table></div>
+        <div class="lq-tablebox"><table class="lq-table lq-edit" id="f-kosten"><thead><tr><th>Kostenpost</th><th>Per maand incl. btw</th><th>Excl. btw</th><th>Dag</th><th>Btw</th><th>Nieuw bedrag</th><th>Vanaf</th></tr></thead><tbody></tbody><tbody id="f-kosten-extra"></tbody><tfoot><tr><td>Totaal per maand nu</td><td id="f-kosten-tot">—</td><td id="f-kosten-tot-ex" class="lq-exc">—</td><td></td><td></td><td></td><td></td></tr></tfoot></table></div>
         <button type="button" class="lq-btn lq-add" id="add-kost">+ Kostenpost toevoegen</button>
       </div>
     </div>
@@ -2331,7 +2332,7 @@ dash.calc('samenvatting', {
     let lastGroep = '';
     const rowsK = [];
     for (const c of kosten) {
-      if (c.groep !== lastGroep) { const gr = el('tr', 'lq-grp'); const td = el('td', '', c.groep); td.colSpan = 6; gr.append(td); rowsK.push(gr); lastGroep = c.groep; }
+      if (c.groep !== lastGroep) { const gr = el('tr', 'lq-grp'); const td = el('td', '', c.groep); td.colSpan = 7; gr.append(td); rowsK.push(gr); lastGroep = c.groep; }
       const tr = el('tr');
       const t1 = el('td', '', c.naam), t2 = el('td'), t5 = el('td'), t3 = el('td'), t4 = el('td');
       t2.append(mkInput('s_k_' + c.id + '_b', 'eur', Number(c.bedrag || 0)));
@@ -2342,7 +2343,8 @@ dash.calc('samenvatting', {
       cb.dataset.param = 's_k_' + c.id + '_t'; cb.dataset.def = String(c.btw !== false && c.btw !== 'false');
       cb.addEventListener('change', () => dash.setParams({ [cb.dataset.param]: String(cb.checked) === cb.dataset.def ? null : cb.checked }));
       t6.append(cb);
-      tr.append(t1, t2, t5, t6, t3, t4);
+      const tx = el('td', 'lq-exc', '—'); tx.dataset.kid = c.id;
+      tr.append(t1, t2, tx, t5, t6, t3, t4);
       rowsK.push(tr);
     }
     tb.replaceChildren(...rowsK);
@@ -2359,7 +2361,7 @@ dash.calc('samenvatting', {
     const host = document.getElementById('f-kosten-extra');
     if (host.contains(document.activeElement)) return;
     const arr = getList('s_extra_kosten');
-    host.replaceChildren(...(arr.length ? [Object.assign(el('tr', 'lq-grp'), {}).appendChild(Object.assign(el('td', '', 'Toegevoegd'), { colSpan: 6 })).parentNode] : []), ...arr.map((x, i) => {
+    host.replaceChildren(...(arr.length ? [Object.assign(el('tr', 'lq-grp'), {}).appendChild(Object.assign(el('td', '', 'Toegevoegd'), { colSpan: 7 })).parentNode] : []), ...arr.map((x, i) => {
       const tr = el('tr');
       const n = el('input'); n.type = 'text'; n.value = x.n || ''; n.className = 'lq-changed'; n.addEventListener('change', () => editList('s_extra_kosten', i, { n: n.value }));
       const g = el('select'); ['Huisvesting', 'Lonen', 'Overig'].forEach((o) => g.append(new Option(o, o, false, (x.g || 'Overig') === o))); g.addEventListener('change', () => editList('s_extra_kosten', i, { g: g.value }));
@@ -2368,7 +2370,8 @@ dash.calc('samenvatting', {
       const t1 = el('td'); t1.append(n, g); t1.className = 'lq-namecell';
       const t2 = el('td'); t2.append(b); const t3 = el('td'); t3.append(d); const t4 = el('td'); const t5 = el('td'); t5.append(delBtn(() => dropFromList('s_extra_kosten', i)));
       const t6 = el('td'); const cb = el('input'); cb.type = 'checkbox'; cb.className = 'lq-cb'; cb.checked = x.t !== false; cb.addEventListener('change', () => editList('s_extra_kosten', i, { t: cb.checked })); t6.append(cb);
-      tr.append(t1, t2, t3, t6, t4, t5);
+      const tx = el('td', 'lq-exc', '—'); tx.dataset.kid = 'x' + i;
+      tr.append(t1, t2, tx, t3, t6, t4, t5);
       return tr;
     }));
   }
@@ -2387,8 +2390,12 @@ dash.calc('samenvatting', {
       f.inp.value = toField(f.kind, set ? P[f.param] : f.def);
       f.inp.classList.toggle('lq-changed', set);
     }
-    const tot = E.kosten.reduce((t, c) => t + (c.nieuw != null && c.vanaf && window.lqToday().slice(0, 7) >= c.vanaf ? c.nieuw : c.bedrag), 0);
+    const nu = (c) => (c.nieuw != null && c.vanaf && window.lqToday().slice(0, 7) >= c.vanaf ? c.nieuw : c.bedrag);
+    const ex = (c) => nu(c) / (c.btw ? 1 + E.btw : 1);
+    const tot = E.kosten.reduce((t, c) => t + nu(c), 0);
     setTxt('f-kosten-tot', eur0.format(tot));
+    setTxt('f-kosten-tot-ex', eur0.format(E.kosten.reduce((t, c) => t + ex(c), 0)));
+    for (const c of E.kosten) { const n = document.querySelector(`#f-kosten td.lq-exc[data-kid="${c.id}"]`); if (n) n.textContent = eur0.format(ex(c)); }
   }
   document.getElementById('p-reset')?.addEventListener('click', () => {
     const z = {};
