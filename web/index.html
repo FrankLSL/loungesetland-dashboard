@@ -1962,7 +1962,7 @@ window.lqPrognose = (aannames, ontvangsten, cp_open, fx, P) => {
       // known actual VAT returns override the estimate for that quarter only
       const geschat = -((ontvQ / (1 + E.btw)) * E.btw_afdracht - voor);
       // an amount filled in on the page wins, then a known actual return, then the estimate
-      const ing = P && P['s_btww_' + kw] != null && P['s_btww_' + kw] !== '' && !Number.isNaN(Number(P['s_btww_' + kw])) ? Math.abs(Number(P['s_btww_' + kw])) : null;
+      const ing = P && P['s_btww_' + kw.replace('-', '_')] != null && P['s_btww_' + kw.replace('-', '_')] !== '' && !Number.isNaN(Number(P['s_btww_' + kw.replace('-', '_')])) ? Math.abs(Number(P['s_btww_' + kw.replace('-', '_')])) : null;
       if (ing != null) return { bedrag: -ing, kwartaal: kw + ' (werkelijk)', kw, geschat, bron: 'ingevuld' };
       if (window.LQ_BTW_WERKELIJK[kw] != null) return { bedrag: -window.LQ_BTW_WERKELIJK[kw], kwartaal: kw + ' (werkelijk)', kw, geschat, bron: 'aangifte' };
       return { bedrag: geschat, kwartaal: kw, kw, geschat, bron: 'schatting' };
@@ -1993,7 +1993,7 @@ window.lqPrognose = (aannames, ontvangsten, cp_open, fx, P) => {
       }
       const b = btwFor(m);
       if (b) {
-        const betaald = !!P && (P['s_btwb_' + b.kw] === true || P['s_btwb_' + b.kw] === 'true');
+        const betaald = !!P && (P['s_btwb_' + b.kw.replace('-', '_')] === true || P['s_btwb_' + b.kw.replace('-', '_')] === 'true');
         btwLijst.push({ kw: b.kw, datum: lastDay(m), bedrag: b.bedrag, geschat: b.geschat, bron: b.bron, betaald });
         btwInfo[m] = b.kwartaal + (betaald ? ' (betaald)' : '');
         if (!betaald) push(lastDay(m), 'btw', 'BTW ' + b.kwartaal, b.bedrag);
@@ -2583,9 +2583,9 @@ dash.calc('samenvatting', {
           const bi = eurInput(Math.round(Math.abs(b.bedrag)));
           if (b.bron !== 'schatting') bi.classList.add('lq-changed');
           bi.title = 'Geschat: ' + eur0.format(Math.abs(b.geschat));
-          bi.addEventListener('change', () => { const v = fromField('eur', bi.value.trim()); dash.setParams({ ['s_btww_' + b.kw]: v == null || v === '' || Number.isNaN(Number(v)) ? null : Math.abs(Number(v)) }); });
+          bi.addEventListener('change', () => { const v = fromField('eur', bi.value.trim()); dash.setParams({ ['s_btww_' + b.kw.replace('-', '_')]: v == null || v === '' || Number.isNaN(Number(v)) ? null : Math.abs(Number(v)) }); });
           const cb = el('input'); cb.type = 'checkbox'; cb.className = 'lq-cb'; cb.checked = b.betaald; cb.setAttribute('aria-label', 'BTW ' + b.kw + ' betaald');
-          cb.addEventListener('change', () => dash.setParams({ ['s_btwb_' + b.kw]: cb.checked ? true : null }));
+          cb.addEventListener('change', () => dash.setParams({ ['s_btwb_' + b.kw.replace('-', '_')]: cb.checked ? true : null }));
           const c1 = el('td', '', b.kw), c2 = el('td', '', dLong(b.datum)), c3 = el('td'), c4 = el('td');
           c3.append(bi, el('div', 'lq-sub', b.bron === 'schatting' ? 'schatting' : b.bron === 'aangifte' ? 'aangifte' : 'ingevuld'));
           c4.append(cb);
