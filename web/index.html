@@ -1755,7 +1755,7 @@ dash.calc('debit_sorted', {
     const tTop = document.getElementById('tbl-top');
     if (top.status === 'ok') {
       renderTable(tTop, top.data, [
-        ['product_title', (v) => (v ? v : 'Losse regels zonder productnaam')], ['net_items_sold', (v) => int.format(v), 'lw-num'], ['orders', (v) => int.format(v), 'lw-num'], ['net_sales', (v) => eur0.format(v), 'lw-num'],
+        ['product_title', (v) => (v ? v : 'Handmatige regels (kassa- of conceptorder, geen product gekoppeld)')], ['net_items_sold', (v) => int.format(v), 'lw-num'], ['orders', (v) => int.format(v), 'lw-num'], ['net_sales', (v) => eur0.format(v), 'lw-num'],
       ]);
     } else { tTop.querySelector('tbody').replaceChildren(); }
 

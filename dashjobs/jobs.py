@@ -74,11 +74,41 @@ def shop_products_recent():
     rows = shopify.shopifyql('FROM sales SHOW net_items_sold, orders, net_sales GROUP BY product_title TIMESERIES day SINCE -6d UNTIL today LIMIT 5000')
     out = [{'day': _d10(shopify.day_of(r)), 'product_title': r.get('product_title') or '', 'net_items_sold': i0(r.get('net_items_sold')),
             'orders': i0(r.get('orders')), 'net_sales': r2(r.get('net_sales'))} for r in rows]
+    # Regels zonder product (handmatige regels in kassa- of conceptorders) hebben geen productnaam in ShopifyQL:
+    # de namen van die regels uit de orders zelf halen en per dag aan de lege regel hangen.
+    try:
+        namen = _custom_lines(days_ago(6))
+        for r in out:
+            if not r['product_title'] and r['orders'] > 0 and namen.get(r['day']):
+                r['product_title'] = 'Handmatige regel: ' + ', '.join(namen[r['day']])
+    except Exception:
+        pass
     store.save_dataset('shop_products_recent', out)
     return f'{len(out)} rijen'
 
 
 OPEN_Q = '''query($first:Int!, $after:String){ orders(first:$first, after:$after, sortKey:CREATED_AT, query:"NOT status:cancelled AND (financial_status:pending OR financial_status:partially_paid OR financial_status:authorized)") { pageInfo { hasNextPage endCursor } nodes { name createdAt displayFinancialStatus displayFulfillmentStatus cancelledAt closed note tags totalPriceSet { shopMoney { amount } } currentTotalPriceSet { shopMoney { amount } } totalOutstandingSet { shopMoney { amount } } totalReceivedSet { shopMoney { amount } } customAttributes { key value } } } }'''
+
+
+CUSTOM_Q = '''query($q:String!, $after:String){ orders(first:100, after:$after, query:$q) { pageInfo { hasNextPage endCursor } nodes { name createdAt lineItems(first:50) { nodes { name product { id } } } } } }'''
+
+
+def _custom_lines(since):
+    """Dag (Amsterdam) → namen van orderregels zonder gekoppeld product, voor orders vanaf `since`."""
+    from .common import utc_hour_to_ams_day
+    out, after = collections.defaultdict(list), None
+    for _ in range(10):
+        o = shopify.graphql(CUSTOM_Q, {'q': f'created_at:>={since.isoformat()}', 'after': after})['orders']
+        for n in o['nodes']:
+            for li in n['lineItems']['nodes']:
+                if not li.get('product') and li.get('name'):
+                    d = utc_hour_to_ams_day(n['createdAt'])
+                    if li['name'] not in out[d]:
+                        out[d].append(li['name'])
+        if not o['pageInfo']['hasNextPage']:
+            break
+        after = o['pageInfo']['endCursor']
+    return out
 
 
 def shop_open():
