@@ -17,7 +17,7 @@ SUM = ['turnover', 'number_of_orders', 'gross_profit', 'contribution_margin', 'n
 
 
 def configured():
-    return bool(os.getenv('PROFITMETRICS_API_KEY', '').strip())
+    return bool(os.getenv('PROFITMETRICS_API_KEY', '').strip() or os.getenv('PROFITMETRICS_CLIENT_ID', '').strip())
 
 
 # ---------- ophalen ----------
@@ -42,10 +42,52 @@ def _rpc_parse(r):
         return {'error': {'message': r.text[:200]}}
 
 
+def _oauth_token():
+    """Client credentials (Agent Connections in ProfitMetrics): token-adres via de OAuth-metadata van de MCP-server."""
+    cid, sec = os.getenv('PROFITMETRICS_CLIENT_ID', '').strip(), os.getenv('PROFITMETRICS_CLIENT_SECRET', '').strip()
+    if not (cid and sec):
+        return None
+    import time, urllib.parse
+    c = store.kv_get('pm_oauth') or {}
+    if c.get('t') and c.get('x', 0) > time.time():
+        return c['t']
+    u = urllib.parse.urlparse(MCP_URL)
+    base = f'{u.scheme}://{u.netloc}'
+    tok_url = os.getenv('PROFITMETRICS_TOKEN_URL', '').strip()
+    if not tok_url:
+        auth_server = base
+        for meta in (base + '/.well-known/oauth-protected-resource' + u.path, base + '/.well-known/oauth-protected-resource'):
+            r = http('GET', meta, tries=1)
+            if r.ok and r.headers.get('content-type', '').startswith('application/json'):
+                srv = (r.json().get('authorization_servers') or [None])[0]
+                if srv:
+                    auth_server = srv.rstrip('/'); break
+        for meta in (auth_server + '/.well-known/oauth-authorization-server', auth_server + '/.well-known/openid-configuration'):
+            r = http('GET', meta, tries=1)
+            if r.ok:
+                try:
+                    tok_url = r.json().get('token_endpoint')
+                except ValueError:
+                    tok_url = None
+                if tok_url:
+                    break
+        if not tok_url:
+            raise RuntimeError('ProfitMetrics: token-adres niet gevonden via ' + auth_server)
+    r = http('POST', tok_url, data={'grant_type': 'client_credentials', 'client_id': cid, 'client_secret': sec}, tries=1)
+    if not r.ok:
+        r = http('POST', tok_url, data={'grant_type': 'client_credentials'}, auth=(cid, sec), tries=1)
+    if not r.ok:
+        raise RuntimeError(f'ProfitMetrics-token mislukt ({r.status_code}) bij {tok_url}: {r.text[:200]}')
+    j = r.json()
+    store.kv_set('pm_oauth', {'t': j['access_token'], 'x': time.time() + int(j.get('expires_in', 3600)) - 120})
+    return j['access_token']
+
+
 def _mcp_call(tool, arguments):
-    """Roept een tool aan op de ProfitMetrics MCP-server met de API-sleutel (scope 'MCP Server Access')."""
+    """Roept een tool aan op de ProfitMetrics MCP-server: met een OAuth-token (client ID/secret) of de API-sleutel."""
     key = os.getenv('PROFITMETRICS_API_KEY', '').strip()
-    styles = [{'Authorization': 'Bearer ' + key}, {'X-API-Key': key}, {'Authorization': key}]
+    tok = _oauth_token()
+    styles = ([{'Authorization': 'Bearer ' + tok}] if tok else []) + ([{'Authorization': 'Bearer ' + key}, {'X-API-Key': key}, {'Authorization': key}] if key else [])
     if os.getenv('PROFITMETRICS_AUTH_HEADER'):
         styles.insert(0, {os.getenv('PROFITMETRICS_AUTH_HEADER'): os.getenv('PROFITMETRICS_AUTH_PREFIX', '') + key})
     notes = []
@@ -54,7 +96,7 @@ def _mcp_call(tool, arguments):
         r = http('POST', MCP_URL, headers=h, json={'jsonrpc': '2.0', 'id': 1, 'method': 'initialize', 'params': {
             'protocolVersion': '2025-06-18', 'capabilities': {}, 'clientInfo': {'name': 'loungesetland-dashboard', 'version': '1'}}}, tries=1)
         if r.status_code in (401, 403):
-            notes.append(f'{list(auth)[0]}: {r.status_code}'); continue
+            notes.append(f"{list(auth)[0]}: {r.status_code} {r.headers.get('www-authenticate', '')[:120]}"); continue
         if not r.ok:
             notes.append(f'{list(auth)[0]}: {r.status_code} {r.text[:120]}'); continue
         sid = r.headers.get('mcp-session-id')
@@ -82,8 +124,8 @@ def _mcp_call(tool, arguments):
 def fetch_daily(date_from, date_to_excl):
     """[{d, turnover, ...}] per dag, via de ProfitMetrics MCP-server (of een REST-adres in PROFITMETRICS_API_URL)."""
     key = os.getenv('PROFITMETRICS_API_KEY', '').strip()
-    if not key:
-        raise RuntimeError('ProfitMetrics is nog niet gekoppeld (PROFITMETRICS_API_KEY ontbreekt)')
+    if not key and not os.getenv('PROFITMETRICS_CLIENT_ID'):
+        raise RuntimeError('ProfitMetrics is nog niet gekoppeld (PROFITMETRICS_CLIENT_ID/SECRET of PROFITMETRICS_API_KEY ontbreekt)')
     body = {'publicIds': [PUBLIC_ID], 'resolution': 'DAY', 'timezone': 'Europe/Amsterdam', 'fromIncl': str(date_from),
             'toExcl': str(date_to_excl), 'metrics': [m.upper() for m in SUM]}
     url = os.getenv('PROFITMETRICS_API_URL', '').strip()
