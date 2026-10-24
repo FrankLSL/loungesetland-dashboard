@@ -48,17 +48,24 @@ def _req(method, path, json_body=None):
     return r
 
 
-def probe(path, body):
-    r = _req('POST', path, body)
-    try:
-        return r.status_code, r.json()
-    except Exception:
-        return r.status_code, r.text[:2000]
 
 
-def options(path):
-    r = _req('OPTIONS', path)
-    try:
-        return r.status_code, r.json()
-    except Exception:
-        return r.status_code, r.text[:2000]
+def create_draft_po(contact_id, lines, notes=''):
+    """Maakt een concept-inkooporder (draft) met regels [{product_id, quantity, cost}]. Geeft (id, nummer)."""
+    import store
+    wh = store.kv_get('po_warehouse')
+    if not wh:
+        raise RuntimeError('Geen magazijn bekend; draai eerst de voorraadanalyse')
+    r = _req('POST', 'purchases/orders/', {'contact_id': int(contact_id), 'warehouse_id': int(wh), 'notes': notes[:500]})
+    if r.status_code >= 300:
+        raise RuntimeError(f'Sumtracker weigerde de inkooporder ({r.status_code}): {r.text[:300]}')
+    po = r.json()
+    fout = []
+    for l in lines:
+        body = {'product_id': int(l['product_id']), 'quantity': int(l['quantity'])}
+        if l.get('cost') is not None:
+            body['cost'] = round(float(l['cost']), 4)
+        rr = _req('POST', f"purchases/orders/{po['id']}/lines/", body)
+        if rr.status_code >= 300:
+            fout.append(f"{l.get('sku') or l['product_id']}: {rr.text[:160]}")
+    return po.get('id'), po.get('number'), po.get('status'), fout

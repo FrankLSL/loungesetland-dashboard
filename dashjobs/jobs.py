@@ -608,6 +608,16 @@ def voorraad_analyse():
             c = {'u': p.get('updated'), 'lines': lines}
         nieuw[k] = c
     store.kv_set('po_lines', nieuw)
+    # laatste inkoopprijs per product (voor concept-PO's vanuit het dashboard) en het gebruikelijke magazijn
+    lc = {}
+    for p in sorted(allpos, key=lambda p: str(p.get('confirmation_date') or p.get('created') or '')):
+        for l in nieuw[str(p['id'])]['lines']:
+            if l['pid'] and l['c'] > 0:
+                lc[str(l['pid'])] = {'c': l['c'], 'po': p.get('number'), 'contact': p.get('contact_id')}
+    store.kv_set('last_cost', lc)
+    whs = [p.get('warehouse_id') for p in sorted(allpos, key=lambda p: str(p.get('created') or '')) if p.get('warehouse_id')]
+    if whs:
+        store.kv_set('po_warehouse', whs[-1])
     try:
         sup = {c['id']: (c.get('company_name') or c.get('code') or str(c['id'])).strip() for c in sumtracker.paged('purchases/contacts/')}
     except Exception:

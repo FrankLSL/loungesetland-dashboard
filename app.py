@@ -312,23 +312,25 @@ async def ab_koppel(request: Request):
     return RedirectResponse('/status?msg=' + urllib.parse.quote(msg), status_code=303)
 
 
-@app.get('/api/st-options')
-def st_options(request: Request, path: str):
+@app.post('/api/st/concept-po')
+async def st_concept_po(request: Request):
     _admin(request)
-    if not path.startswith('purchases/'):
-        raise HTTPException(400)
-    code, body = sumtracker.options(path)
-    return {'status': code, 'body': body}
-
-
-@app.get('/api/st-probe')
-def st_probe(request: Request, path: str):
-    _admin(request)
-    if not path.startswith('purchases/'):
-        raise HTTPException(400)
-    # ongeldige waarden: de API valideert en weigert (maakt niets aan), maar noemt de velden
-    code, body = sumtracker.probe(path, {'contact_id': 'x', 'warehouse_id': 'x', 'product_id': 'x', 'quantity': 'x', 'status': 'x', 'lines': 'x'})
-    return {'status': code, 'body': body}
+    b = await request.json()
+    lc = store.kv_get('last_cost') or {}
+    lines = []
+    for l in b.get('lines') or []:
+        q = int(l.get('quantity') or 0)
+        if q <= 0 or not l.get('product_id'):
+            continue
+        c = (lc.get(str(l['product_id'])) or {}).get('c')
+        lines.append({'product_id': l['product_id'], 'quantity': q, 'cost': c, 'sku': l.get('sku')})
+    if not lines or not b.get('contact_id'):
+        raise HTTPException(400, 'Geen regels of geen leverancier')
+    try:
+        pid, nr, st, fout = sumtracker.create_draft_po(b['contact_id'], lines, b.get('notes') or 'Concept vanuit het Loungesetland-dashboard')
+    except Exception as e:
+        raise HTTPException(502, str(e))
+    return {'id': pid, 'nummer': nr, 'status': st, 'regels': len(lines) - len(fout), 'fouten': fout}
 
 
 @app.post('/status/run-all')

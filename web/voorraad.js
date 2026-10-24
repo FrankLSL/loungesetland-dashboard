@@ -600,6 +600,46 @@
   }
 
   const excl0 = () => new Set(String(dash.params().vr_cx || '').split(',').filter(Boolean));
+  // zelf aangepaste aantallen: param vr_qo = 'SKU:aantal|SKU:aantal'
+  const qoMap = () => new Map(String(dash.params().vr_qo || '').split('|').filter(Boolean).map((p) => { const i = p.lastIndexOf(':'); return [p.slice(0, i), Math.max(0, parseInt(p.slice(i + 1), 10) || 0)]; }));
+  const qoSet = (m) => dash.setParams({ vr_qo: [...m.entries()].map(([k, v]) => `${k}:${v}`).join('|') || null });
+  function qtyCel(x) {
+    const td = el('td', 'lw-num');
+    if (x.uit) { td.textContent = `(${int.format(x.q0)})`; return td; }
+    const i = el('input', 'vr-qty'); i.type = 'number'; i.min = 0; i.step = 1; i.value = x.q; i.title = 'Aantal zelf aanpassen';
+    i.addEventListener('change', () => { const o = qoMap(); const v = Math.max(0, parseInt(i.value, 10) || 0); o.set(x.r.sku, v); qoSet(o); });
+    td.append(i);
+    const ref = x.qv != null ? x.qv : x.q0;
+    if (x.qv != null) td.append(el('div', 'vr-qty-s', `voorstel ${int.format(x.qv)}`));
+    else if (x.q !== x.q0) td.append(el('div', 'vr-qty-s', x.q > x.q0 ? `+${x.q - x.q0} t.o.v. advies` : `advies ${x.q0}`));
+    return td;
+  }
+  // concept-inkooporder in Sumtracker met de aantallen uit dit voorstel
+  function poKnop(items) {
+    const wrap = el('div', 'vr-po');
+    const regels = items.filter((x) => x.q > 0 && !x.uit && x.r.pid);
+    if (!regels.length) return wrap;
+    const ids = {}; for (const x of regels) { const id = x.origine ? 20084 : x.r.leverancier_id; if (id != null) ids[id] = (ids[id] || 0) + x.q; }
+    const contact = Object.entries(ids).sort((a, b) => b[1] - a[1])[0];
+    const levNaam = (rows('vr_leveranciers') || []).find((l) => String(l.leverancier_id) === String(contact && contact[0]));
+    const st = regels.reduce((t, x) => t + x.q, 0), eu = regels.reduce((t, x) => t + x.q * (x.r.kostprijs || 0), 0);
+    const b = el('button', 'vr-btn', 'Maak concept-PO in Sumtracker'); b.type = 'button';
+    const info = el('span', 'vr-po-s', `${regels.length} producten · ${int.format(st)} stuks · leverancier ${levNaam ? levNaam.leverancier : contact ? contact[0] : '?'}`);
+    wrap.append(b, info);
+    if (!contact) { b.disabled = true; info.textContent = 'Geen leverancier bekend voor deze producten'; return wrap; }
+    b.addEventListener('click', async () => {
+      if (!b.dataset.zeker) { b.dataset.zeker = '1'; b.textContent = `Ja, maak concept-PO (${int.format(st)} st, ± ${eur0.format(eu)})`; b.classList.add('vr-btn-warn'); return; }
+      b.disabled = true; b.textContent = 'Bezig…';
+      try {
+        const r = await fetch('/api/st/concept-po', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contact_id: Number(contact[0]), notes: `Concept vanuit het dashboard (${dNl(today())}), ${regels.length} regels`, lines: regels.map((x) => ({ product_id: x.r.pid, quantity: x.q, sku: x.r.sku })) }) });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.detail || r.status);
+        b.textContent = `Concept-PO ${j.nummer} aangemaakt`; b.classList.remove('vr-btn-warn');
+        info.textContent = `${j.regels} regels in Sumtracker als concept (draft). Controleer en bevestig hem in Sumtracker.` + (j.fouten && j.fouten.length ? ` Niet gelukt: ${j.fouten.join('; ')}` : '');
+      } catch (e) { b.disabled = false; delete b.dataset.zeker; b.textContent = 'Maak concept-PO in Sumtracker'; info.textContent = 'Mislukt: ' + e.message; }
+    });
+    return wrap;
+  }
   function group(items) {
     const P = dash.params(); const fill = !!P.vr_fill;
     const T0 = items.reduce((t, x) => t + (x.cbm ? x.q * x.cbm : 0), 0);
@@ -640,7 +680,10 @@
         if (!best) break; best.q += 1; free -= best.cbm; added += best.cbm;
       }
     }
-    const T = maxC ? items.reduce((t, x) => t + (x.cbm ? x.q * x.cbm : 0), 0) : T0 + added; C = containers(T, P, maxC ? false : m20);
+    // zelf aangepaste aantallen (alleen voor jou, in de link) gaan boven het voorstel
+    const QO = qoMap(); let aangepast = 0;
+    for (const x of items) if (QO.has(x.r.sku) && !x.uit) { x.qv = x.q; x.q = QO.get(x.r.sku); aangepast++; }
+    const T = items.reduce((t, x) => t + (x.cbm ? x.q * x.cbm : 0), 0); C = containers(T, P, maxC ? false : m20);
     const noCbm = items.filter((x) => !x.cbm && x.q > 0);
     const eur = items.reduce((t, x) => t + x.q * (x.r.kostprijs || 0), 0);
     const box = el('div', 'vr-cbox');
@@ -664,13 +707,13 @@
     const tbl = el('table', 'lw-table lw-stocktable'); const th = el('thead'); const hr = el('tr');
     ['Product', 'SKU · art.nr leverancier', 'Status', 'Bestellen', 'CBM/stuk', 'CBM', 'Inkoop', 'Voorraad tot', ''].forEach((h, i) => hr.append(el('th', i >= 3 && i !== 7 && i !== 8 ? 'lw-num' : '', h))); th.append(hr); tbl.append(th);
     const tb = el('tbody');
-    for (const x of items.filter((x) => x.q > 0 || (x.uit && x.q0 > 0) || (x.q0 > 0 && (!x.cbm || maxC))).sort((a, b) => a.uit - b.uit || a.a.rank - b.a.rank || b.q - a.q)) {
+    for (const x of items.filter((x) => x.q > 0 || QO.has(x.r.sku) || (x.uit && x.q0 > 0) || (x.q0 > 0 && (!x.cbm || maxC))).sort((a, b) => a.uit - b.uit || a.a.rank - b.a.rank || b.q - a.q)) {
       const tr = el('tr', x.uit ? 'vr-uitrow' : '');
       const cbTd = el('td', 'lw-num');
       if (isAdmin()) { const i = el('input'); i.type = 'number'; i.step = '0.01'; i.min = 0; i.value = x.cbm ?? ''; i.placeholder = '?'; i.addEventListener('change', () => saveCbm(x.r.sku, i.value === '' ? null : Number(i.value))); cbTd.append(i); }
       else cbTd.textContent = x.cbm ? n2.format(x.cbm) : '?';
       const dt = x.a.perWk > 0 ? dektTot(x, x.q) : null;
-      tr.append(el('td', 'lw-wrap', vol(x.r.naam)), el('td', '', x.r.sku + (HERK[x.r.sku] ? ' · ' + HERK[x.r.sku].artikel : '')), el('td', '', x.a.status), el('td', 'lw-num', x.uit ? `(${int.format(x.q0)})` : int.format(x.q) + (x.q > x.q0 ? ` (+${x.q - x.q0})` : x.q < x.q0 ? ` (advies ${x.q0})` : '')), cbTd,
+      tr.append(el('td', 'lw-wrap', vol(x.r.naam)), el('td', '', x.r.sku + (HERK[x.r.sku] ? ' · ' + HERK[x.r.sku].artikel : '')), el('td', '', x.a.status), qtyCel(x), cbTd,
         el('td', 'lw-num', x.cbm ? n1.format(x.q * x.cbm) : '—'), el('td', 'lw-num', eur0.format(x.q * (x.r.kostprijs || 0))), el('td', '', x.uit ? 'eruit' : x.a.perWk > 0 ? (dt ? dNl(dt) : 'ruim (na 60 wk)') : '—'));
       const act = el('td'); const ab = el('button', 'vr-link', x.uit ? 'terugzetten' : 'eruit'); ab.type = 'button'; ab.title = x.uit ? 'Weer meenemen in dit voorstel' : 'Tijdelijk uit dit containervoorstel halen; de ruimte wordt aangevuld';
       ab.addEventListener('click', () => { const e = excl0(); if (x.uit) e.delete(x.r.sku); else e.add(x.r.sku); dash.setParams({ vr_cx: [...e].join(',') || null }); });
@@ -678,6 +721,8 @@
       tb.append(tr);
     }
     tbl.append(tb); const tbx = el('div', 'lw-tablebox lw-tablebox-20'); tbx.append(tbl); parts.push(tbx);
+    if (aangepast) { const n = el('p', 'lw-note'); const b = el('button', 'vr-link', 'zelf aangepaste aantallen wissen'); b.type = 'button'; b.addEventListener('click', () => { const o = qoMap(); for (const x of items) o.delete(x.r.sku); qoSet(o); }); n.append(document.createTextNode(`${aangepast} aantal${aangepast === 1 ? '' : 'len'} zelf aangepast. `), b); parts.push(n); }
+    if (isAdmin()) parts.push(poKnop(items));
     return parts;
   }
 
