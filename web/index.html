@@ -403,7 +403,17 @@
 #dash-root .dk-box td.dk-low { background: #fdf3dc !important; }
 #dash-root .dk-box td.dk-neg { background: #fbe3e0 !important; color: #c0392b; }
 #dash-root .lw-pill.dk-hold { border-color: #9aa7a4; color: #6f7f7c; }
-#dash-root .vr-acts { margin-top: .15rem; }
+#dash-root .vr-acts { margin-top: .45rem; display: flex; flex-wrap: wrap; gap: .3rem; }
+#dash-root .vr-acts .vr-link { text-decoration: none; border: 1px solid var(--ls-line, #e4dfd6); background: #fff; border-radius: 999px; padding: .2rem .65rem; font-size: .74rem; line-height: 1.3; white-space: nowrap; }
+#dash-root .vr-acts .vr-link:hover { background: var(--ls-lime-soft, #e9f3dc); border-color: #b9d79a; }
+#dash-root .vr-acts .vr-link.vr-in-v { background: #eef5e4; border-color: #b9d79a; }
+#dash-root #vr-tbl th { white-space: nowrap; padding: .6rem .75rem; }
+#dash-root #vr-tbl td { padding: .65rem .75rem; vertical-align: top; }
+#dash-root #vr-tbl tbody tr.dk-row > td { border-bottom: 1px solid var(--ls-line, #e4dfd6); }
+#dash-root #vr-tbl td:first-child { min-width: 20rem; }
+#dash-root #vr-tbl td:nth-child(2) { white-space: nowrap; }
+#dash-root #vr-tbl td:last-child, #dash-root #vr-tbl th:last-child { min-width: 15rem; }
+#dash-root #vr-tbl .vr-mag { margin-top: .3rem; font-size: .74rem; }
 #dash-root .vr-link { font: inherit; font-size: .72rem; color: var(--ls-green, #1f4b47); background: none; border: 0; padding: 0 .5rem 0 0; cursor: pointer; text-decoration: underline; }
 #dash-root h3.vr-loc { margin: 1.2rem 0 .2rem; font-size: 1rem; }
 #dash-root .vr-sub th { background: var(--ls-lime-soft, #eef5e4); color: var(--ls-green, #1f4b47); }
