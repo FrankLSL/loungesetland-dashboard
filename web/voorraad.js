@@ -40,21 +40,34 @@
   // 'Leverancier 20734' was een verzamelaccount (bestaat niet meer): dan op merk/containersheet indelen
   // producten zonder leverancier in Sumtracker (nooit op een inkooporder, of het oude verzamelaccount 20734):
   // leverancier afleiden van de andere producten uit dezelfde collectie en hetzelfde materiaal (bv. Daan teak → Republic, Daan alu → Ningbo)
-  const PREP = new WeakSet();
+  // leverancier per product: handmatig gekozen (gedeeld document voorraad/leverancier) > uit Sumtracker-inkooporders > afgeleid van de collectie
+  // Apple Bee Containers en Apple Bee Magazijn tonen we als één leverancier: Apple Bee
+  const PREP = new WeakMap(); let LEVVER = 0, LEVO = {};
   const onbekendeLev = (r) => !r.leverancier || r.leverancier === 'Onbekend' || /^Leverancier \d+$/.test(r.leverancier);
   function prepDk(dk) {
-    if (!dk || PREP.has(dk)) return; PREP.add(dk);
+    if (!dk || PREP.get(dk) === LEVVER) return; PREP.set(dk, LEVVER);
+    for (const r of dk) {
+      if (!('_l0' in r)) { r._l0 = r.leverancier; r._i0 = r.leverancier_id; }
+      r.leverancier = r._l0; r.leverancier_id = r._i0; delete r.lev_afgeleid; delete r.lev_handmatig; delete r.lev_origineel;
+      const o = LEVO[r.sku]; if (o && o.naam) { r.leverancier = o.naam; r.leverancier_id = o.id ?? null; r.lev_handmatig = true; }
+    }
     const mat = (r) => (/teak/i.test(r.naam || '') && !/alumin/i.test(r.naam || '') ? 'teak' : /alumin/i.test(r.naam || '') ? 'alu' : /rope|wicker/i.test(r.naam || '') ? 'rope' : '');
     const tel = new Map();
     const add = (k, r) => { const m = tel.get(k) || new Map(); const id = r.leverancier_id; const o = m.get(id) || { n: 0, naam: r.leverancier }; o.n += 1 + (Number(r.verkocht_52w) || 0); m.set(id, o); tel.set(k, m); };
     for (const r of dk) if (!onbekendeLev(r) && r.leverancier_id != null) { const c = collectie(r).model; add(c + '|' + mat(r), r); add(c, r); }
     for (const r of dk) {
-      if (!onbekendeLev(r) || (HERK[r.sku] && HERK[r.sku].leverancier)) continue;
+      if (r.lev_handmatig || !onbekendeLev(r) || (HERK[r.sku] && HERK[r.sku].leverancier)) continue;
       if (/dienblad/i.test(r.naam || '')) continue; // losse accessoires: blijven bij Overige
       const c = collectie(r).model; const m = tel.get(c + '|' + mat(r)) || tel.get(c); if (!m) continue;
       const [id, o] = [...m.entries()].sort((p, q) => q[1].n - p[1].n)[0];
       r.lev_origineel = r.leverancier; r.leverancier = o.naam; r.leverancier_id = id; r.lev_afgeleid = true;
     }
+    for (const r of dk) if (/apple ?bee/i.test(r.leverancier || '')) r.leverancier = 'Apple Bee';
+  }
+  async function saveLev(sku, v) {
+    LEVO = Object.assign({}, LEVO); if (v == null) delete LEVO[sku]; else LEVO[sku] = v; LEVVER++;
+    try { if (db) { const g = await db.doc('voorraad/leverancier').get(); const w = Object.assign({}, g.exists ? g.data().waarden || {} : {}); if (v == null) delete w[sku]; else w[sku] = v; await db.doc('voorraad/leverancier').set({ waarden: w, at: new Date().toISOString() }); } } catch (e) { /* lokaal */ }
+    keepPos(() => { render(); dkDecorate(); });
   }
   const grpProd = (r) => { const g = grpNaam(r.leverancier); if (g !== 'overig') return g; if (HERK[r.sku] && HERK[r.sku].leverancier) return grpNaam(HERK[r.sku].leverancier); return r.merk === 'Apple Bee' ? 'ab' : 'overig'; };
   const isAdmin = () => !!(dash.user && dash.user.r === 'beheerder');
@@ -104,6 +117,8 @@
     try { if (db) { const h = await db.doc('voorraad/herkomst').get(); HERK = h.exists ? (h.data().waarden || {}) : {}; } } catch (e) { HERK = {}; }
     try { if (db) { const g = await db.doc('voorraad/groei').get(); GROEI = g.exists ? (g.data().waarden || {}) : {}; } } catch (e) { GROEI = {}; }
     try { if (db) { const g = await db.doc('voorraad/bestelstatus').get(); STAT = g.exists ? (g.data().waarden || {}) : {}; } } catch (e) { STAT = {}; }
+    try { if (db) { const g = await db.doc('voorraad/leverancier').get(); LEVO = g.exists ? (g.data().waarden || {}) : {}; } } catch (e) { LEVO = {}; }
+    LEVVER++;
     cbmLoaded = true; COLCACHE.clear(); render(); try { dkDecorate(); } catch (e) { /* */ }
   })();
   async function saveCbm(sku, v) {
@@ -714,6 +729,7 @@
     cbmPaneel(list);
   }
   // cbm per product bekijken en invullen (zelfde filters als de tabel)
+  const levLijst = () => (rows('vr_leveranciers') || []).filter((l) => l.leverancier_id != null).map((l) => ({ id: l.leverancier_id, naam: l.leverancier })).sort((a, b) => a.naam.localeCompare(b.naam));
   function cbmPaneel(list) {
     const host = document.getElementById('dk-cbm-body'); if (!host) return;
     if (host.contains(document.activeElement) && /^(INPUT|SELECT)$/.test(document.activeElement.tagName)) return;
@@ -745,7 +761,15 @@
       td.append(inp);
       const bron = c ? (HERK[r.sku] ? 'Apple Bee containersheet' : 'ingevuld') : 'ontbreekt';
       const fys = Math.max(0, Number(r.in_stock ?? r.voorraad) || 0);
-      tr.append(nm, el('td', '', r.leverancier + (r.lev_afgeleid ? ' *' : '')), td, el('td', c ? '' : 'lw-bad', bron), el('td', 'lw-num', int.format(fys)), el('td', 'lw-num', c && fys ? n1.format(c * fys) : ''));
+      const levTd = el('td', '');
+      if (isAdmin() && (onbekendeLev({ leverancier: r._l0 }) || r.lev_handmatig)) {
+        const sl = el('select', 'dk-cbm-levsel'); sl.append(new Option(r.lev_afgeleid ? `${r.leverancier} (afgeleid)` : r.lev_handmatig ? '— automatisch —' : 'Onbekend', ''));
+        for (const l of levLijst()) sl.append(new Option(l.naam, String(l.id)));
+        sl.value = r.lev_handmatig ? String(r.leverancier_id ?? '') : '';
+        sl.addEventListener('change', () => { const l = levLijst().find((x) => String(x.id) === sl.value); saveLev(r.sku, l ? { id: l.id, naam: l.naam } : null); });
+        levTd.append(sl);
+      } else levTd.textContent = r.leverancier + (r.lev_afgeleid ? ' *' : '');
+      tr.append(nm, levTd, td, el('td', c ? '' : 'lw-bad', bron), el('td', 'lw-num', int.format(fys)), el('td', 'lw-num', c && fys ? n1.format(c * fys) : ''));
       tb.append(tr);
     }
     t.append(tb); const box = el('div', 'lw-tablebox'); box.append(t);
