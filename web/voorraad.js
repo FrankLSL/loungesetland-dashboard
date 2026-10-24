@@ -431,7 +431,7 @@
     if (uit.length) { const b = el('button', 'vr-link', P.vr_uit ? 'terug naar de bestellijst' : `${uit.length} producten uitgezet (niet meer bestellen of aankijken) — bekijk`); b.type = 'button'; b.addEventListener('click', () => dash.setParams({ vr_uit: P.vr_uit ? null : 1 })); inact.append(b, document.createTextNode(' ')); }
     if (nonActief) inact.append(document.createTextNode(`${nonActief} producten staan niet in de lijst: uitlopend, of zonder voorraad, inkooporder en verkoop in de laatste 13 weken.`));
     const tb = document.querySelector('#vr-tbl tbody');
-    const metDongen = fLev === 'ab'; document.querySelectorAll('#vr-tbl .vr-dongen').forEach((e) => { e.hidden = !metDongen; });
+    const metDongen = false; // Dongen alleen bij Voorraad per product document.querySelectorAll('#vr-tbl .vr-dongen').forEach((e) => { e.hidden = !metDongen; });
     const stCls = (s) => (s === 'Te laat' ? ' lw-bad' : s === 'Nu bestellen' || s === 'Binnen 4 weken' || s === 'Tekort tot levering' ? ' lw-warn' : ' lw-ok');
     if (!tb._vrClick) { tb._vrClick = true; tb.addEventListener('click', (e) => { if (e.target.closest('.dk-detail, button, input, select')) return; const tr = e.target.closest('tr.dk-row'); if (!tr) return; const k = tr.dataset.key; const was = OPENB.has(k); const top = tr.getBoundingClientRect().top; OPENB.clear(); if (!was) OPENB.add(k); render(); const n = tb.querySelector(`tr.dk-row[data-key="${CSS.escape(k)}"]`); if (n) window.scrollBy(0, n.getBoundingClientRect().top - top); }); }
     if (tb.closest('.lw-tablebox')) tb.closest('.lw-tablebox').classList.toggle('dk-open', OPENB.size > 0);
@@ -448,7 +448,7 @@
       const st = el('td'); const h = holdOf(r.sku);
       if (h) st.append(el('span', 'lw-pill dk-hold', holdTxt(h))); else st.append(el('span', 'lw-pill' + stCls(a.status), a.status));
       if (x.mag && !h) { const m = el('div', 'vr-mag', `magazijn: ${int.format(x.mag)} st tot de container er is`); st.append(m); }
-      if (!metDongen) { const ai = abInfo(r.sku); if (ai) { const d = el('div', 'vr-mag' + (x.mag && ai.mag < x.mag ? ' lw-bad' : ''), `Dongen: ${ai.mag > 0 ? int.format(ai.mag) + ' st' : 'niet op voorraad'} · ${eur0.format(ai.prijs)}`); d.title = `Apple Bee-magazijn Dongen (portaal), artikel ${ai.artikel}. Magazijnprijs ${eur0.format(ai.prijs)}, FOB $ ${int.format(ai.fob)}${ai.moq > 1 ? ', min. ' + ai.moq + ' st' : ''}.`; st.append(d); } }
+      if (false) { const ai = abInfo(r.sku); if (ai) { const d = el('div', 'vr-mag' + (x.mag && ai.mag < x.mag ? ' lw-bad' : ''), `Dongen: ${ai.mag > 0 ? int.format(ai.mag) + ' st' : 'niet op voorraad'} · ${eur0.format(ai.prijs)}`); d.title = `Apple Bee-magazijn Dongen (portaal), artikel ${ai.artikel}. Magazijnprijs ${eur0.format(ai.prijs)}, FOB $ ${int.format(ai.fob)}${ai.moq > 1 ? ', min. ' + ai.moq + ' st' : ''}.`; st.append(d); } }
       const lnk = el('div', 'vr-acts');
       const mkl = (t, l) => { const b = el('button', 'vr-link', l); b.type = 'button'; b.addEventListener('click', () => saveStat(r.sku, t ? { type: t, tot: t === 'wacht' ? addD(today(), 28) : null, at: today() } : null)); return b; };
       if (h) lnk.append(mkl(null, 'weer meenemen')); else lnk.append(mkl('wacht', 'aankijken'), mkl('stop', 'niet meer bestellen'));
