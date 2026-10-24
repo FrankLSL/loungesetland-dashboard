@@ -896,7 +896,7 @@
       const t2 = document.getElementById('op-pos'); const th2 = el('thead'); const hr2 = el('tr');
       ['#', per === 'p' ? 'Product' : 'Collectie', 'Leverancier', 'Stuks', 'cbm', 'm² hal', 'Aandeel', '', 'Komt erbij'].forEach((h, i) => hr2.append(el('th', i === 0 || (i >= 3 && i !== 7) ? 'lw-num' : '', h))); th2.append(hr2);
       const tb2 = el('tbody'); let cum = 0;
-      groepen.slice(0, 150).forEach((g, i) => {
+      groepen.slice(0, P.op_alles ? 300 : 20).forEach((g, i) => {
         cum += g.cbm;
         const tr = el('tr', g.items ? 'op-grp' : '');
         const nm = el('td', 'lw-wrap'); if (g.items) nm.append(el('span', 'dk-caret', OPG.has(g.naam) ? '▾ ' : '▸ ')); nm.append(document.createTextNode(g.naam + (g.est ? ' *' : '')), el('div', 'dk-sku', g.sub));
@@ -912,9 +912,10 @@
           tb2.append(s2);
         }
       });
+      if (groepen.length > 20) { const tr = el('tr'); const td = el('td'); td.colSpan = 9; const b = el('button', 'vr-link', P.op_alles ? 'alleen top 20 tonen' : `alle ${groepen.length} tonen`); b.type = 'button'; b.addEventListener('click', () => dash.setParams({ op_alles: P.op_alles ? null : 1 })); td.append(b); tr.append(td); tb2.append(tr); }
       t2.replaceChildren(th2, tb2);
-      const top10 = groepen.slice(0, 10).reduce((t, g) => t + g.cbm, 0);
-      document.getElementById('op-pos-h').textContent = `Grootste posities in de hallen · top 10 = ${pct0.format(top10 / tot)} van de voorraad`;
+      const top20 = groepen.slice(0, 20).reduce((t, g) => t + g.cbm, 0);
+      document.getElementById('op-pos-h').textContent = `Top 20 grootste posities in de hallen · samen ${pct0.format(top20 / tot)} van de voorraad`;
     }
     const pk = months.slice(1).reduce((b, m) => { const v = eind.get(m)[0] + eind.get(m)[1]; return v > b.v ? { m, v } : b; }, { m: null, v: 0 });
     const inTot = months.reduce((a, m) => a + inM.get(m)[0] + inM.get(m)[1], 0);
