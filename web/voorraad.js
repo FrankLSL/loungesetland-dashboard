@@ -615,7 +615,7 @@
     mh.append(el('th', 'lw-num', 'Totaal')); const mth = el('thead'); mth.append(mh); mt.append(mth);
     const mtb = el('tbody');
     const rowOf = (label, get, cls, tot = true) => { const tr = el('tr', cls || ''); tr.append(el('td', '', label)); let t = 0; pm.forEach((m) => { const x2 = get(m); if (x2 != null) t += x2; const td = el('td', 'lw-num', x2 == null || (cls === 'dk-in' && !x2) ? '' : (cls === 'dk-in' ? '+' : '') + int.format(Math.round(x2))); if (cls === 'dk-eind' && x2 != null) td.classList.add(x2 < 0 ? 'dk-neg' : x2 < (v[0] || 0) * 2 ? 'dk-low' : 'dk-pos'); tr.append(td); }); tr.append(el('td', 'lw-num', tot && !(cls === 'dk-in' && !t) ? (cls === 'dk-in' ? '+' : '') + int.format(Math.round(t)) : '')); mtb.append(tr); };
-    for (const kk of [2, 1]) { const f = shift(pm[0], -12 * kk); if (!Object.keys(M).some((m) => m >= f && m <= shift(f, 11))) continue; rowOf(`Verkocht seizoen ${sz(f)}`, (m) => { const key = shift(m, -12 * kk); return key in M ? M[key] : null; }, 'dk-hist'); }
+    for (const kk of [1]) { const f = shift(pm[0], -12 * kk); if (!Object.keys(M).some((m) => m >= f && m <= shift(f, 11))) continue; rowOf(`Verkocht seizoen ${sz(f)}`, (m) => { const key = shift(m, -12 * kk); return key in M ? M[key] : null; }, 'dk-hist'); }
     rowOf(`Verwacht ${sz(pm[0])} (${scenNaam(k)})`, (m) => prog.get(m), 'dk-prog');
     rowOf('Inkomend', (m) => inM.get(m) || 0, 'dk-in');
     if (magM.size) rowOf('Uit Apple Bee-magazijn', (m) => magM.get(m) || 0, 'dk-in');
