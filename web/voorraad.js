@@ -176,9 +176,11 @@
     const uitlopend = (r) => !!(HERK[r.sku] && HERK[r.sku].uitlopend);
     const all = dk.filter((r) => actief(r) && !uitlopend(r)).map((r) => { r._week0 = week0; r._cpEta = CPETA; const g = grpProd(r);
       // Apple Bee: altijd uit origine (meer marge) met de containerlevertijd; het magazijn alleen om het gat tot de container te overbruggen
-      const L = g === 'ab' ? leadOf(20084, 'Apple Bee Containers') : leadOf(r.leverancier_id, r.leverancier);
+      // (alleen producten die in de containersheet staan; de rest komt alleen uit het magazijn)
+      const origine = g === 'ab' && !!HERK[r.sku];
+      const L = origine ? leadOf(20084, 'Apple Bee Containers') : g === 'ab' ? leadOf(21362, 'Apple Bee Magazijn') : leadOf(r.leverancier_id, r.leverancier);
       const a = advies(r, P, L); const c = cbmOf(r.sku);
-      return { r, a, cbm: c, g, mag: g === 'ab' && a.tekortVoor > 0 ? Math.ceil(a.tekortVoor) : 0 }; });
+      return { r, a, cbm: c, g, origine, mag: origine && a.tekortVoor > 0 ? Math.ceil(a.tekortVoor) : 0 }; });
     LAST = all;
     const urgent = (x) => x.a.rank <= 2;
     const fLev = P.vr_lev != null && P.vr_lev !== '' ? String(P.vr_lev) : '';
