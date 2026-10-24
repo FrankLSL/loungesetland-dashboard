@@ -448,7 +448,8 @@
     }));
     // filters: leverancier, collectie, zoeken
     const fb = document.getElementById('dk-filters');
-    if (fb && !fb.contains(document.activeElement)) {
+    const typing = fb && fb.contains(document.activeElement) && /^(INPUT|SELECT)$/.test(document.activeElement.tagName);
+    if (fb && !typing) {
       const chips = el('div', 'lw-mini');
       const mk = (k, l) => { const b = el('button', '', l); b.type = 'button'; b.setAttribute('aria-pressed', String(fLev === k)); b.addEventListener('click', () => dash.setParams({ dk_lev: k || null, dk_col: null })); return b; };
       chips.append(mk('', 'Alle leveranciers'), ...Object.entries(GNAAM).map(([k, n]) => mk(k, k === 'overig' ? 'Overige' : n)));
@@ -487,7 +488,7 @@
       const om = el('td', 'lw-num'); om.append(document.createTextNode(r.omzet_52w ? eur0.format(r.omzet_52w) : '—'), el('span', 'dk-share', r.omzet_52w ? new Intl.NumberFormat(nl, { style: 'percent', maximumFractionDigits: 1 }).format(r.omzet_52w / totOmzet) : ''));
       const lev = (r.leveringen || []).slice().sort((p, q) => (etaOf(p) < etaOf(q) ? -1 : 1));
       const inc = el('td', '');
-      if (lev.length) { for (const l of lev) inc.append(el('div', 'dk-po', `+${int.format(l.stuks)} · ${dNl(etaOf(l))} · ${l.po}`)); } else inc.textContent = '—';
+      inc.className = 'lw-num'; inc.textContent = lev.length ? '+' + int.format(lev.reduce((t, l) => t + (Number(l.stuks) || 0), 0)) : '—';
       const tot = el('td', ''); tot.textContent = totTxt(ti);
       if (k !== 'b') tot.append(el('span', 'dk-scen', ' ' + scenNaam(k)));
       if (ti.tijdelijk) tot.append(el('div', 'vr-mag', `${ti.nuOp ? 'nu op' : 'op vanaf ' + dNl(ti.van)}, weer binnen ${dNl(ti.terug)}`));
