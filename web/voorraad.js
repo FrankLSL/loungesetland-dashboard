@@ -80,8 +80,29 @@
   }
   const guess = (name) => (/mod|foshan|ningbo|cathrine|container|tierra|republic/i.test(name || '') ? 13 : 2);
 
+  // ---------- Chinees Nieuwjaar ----------
+  // Chinese fabrieken werken tot ± half januari, starten weer eind februari; eerste verschepingen pas weer begin/half maart.
+  // Levertijd L = productie (± de helft) + verschepen/varen (de rest). Valt de productie in de stop, dan schuift die op;
+  // is de container klaar in de stop, dan vertrekt hij pas begin maart.
+  const CNY = (y) => ({ stop: `${y}-01-15`, start: `${y}-02-28`, varen: `${y}-03-10` });
+  function aankomstNa(besteld, L, china) {
+    const prod = Math.round(L / 2), vaar = L - prod;
+    let klaar = addD(besteld, prod * 7);
+    if (!china) return { datum: addD(klaar, vaar * 7), cny: false };
+    let cny = false;
+    for (const y of [Number(besteld.slice(0, 4)), Number(besteld.slice(0, 4)) + 1]) {
+      const c = CNY(y);
+      if (besteld < c.start && klaar > c.stop) { // productie loopt door de stop heen: stilstand erbij
+        const stil = Math.round((P0(c.start) - P0(besteld > c.stop ? besteld : c.stop)) / DAY);
+        klaar = addD(klaar, stil); cny = true;
+      }
+      if (klaar >= c.stop && klaar < c.varen) { klaar = c.varen; cny = true; } // klaar in de stop: vertrek pas begin maart
+    }
+    return { datum: addD(klaar, vaar * 7), cny };
+  }
+
   // ---------- advies per product ----------
-  function advies(r, P, L, vOverride) {
+  function advies(r, P, L, vOverride, china) {
     const D = Math.max(1, num(P.vr_dek, 16)), B = Math.max(0, num(P.vr_buf, 2));
     const v = vOverride || window.vrVraag(r), H = v.length;
     const t0 = r._week0;
@@ -93,10 +114,15 @@
     // bestelmoment: eerste week vanaf de levertijd (eerder kan een nieuwe bestelling niet binnen zijn) waarin de voorraad
     // onder de veiligheidsvoorraad zakt; bestellen uiterlijk = die week − levertijd
     const bufAt = (i) => v.slice(i + 1, i + 1 + B).reduce((a, b) => a + b, 0);
-    const a = Math.min(L, H - 1);
+    // aankomst (weekindex) als je in week o bestelt, met Chinees Nieuwjaar voor Chinese leveranciers
+    const arrOf = (o) => { const x = aankomstNa(addD(t0 < today() ? today() : t0, o * 7), L, china); return { i: Math.min(H - 1, Math.max(0, Math.ceil((P0(x.datum) - P0(t0)) / DAY / 7))), cny: x.cny }; };
+    const nu = arrOf(0);
+    const a = nu.i;
     let rp = null;
     for (let i = a; i < H; i++) if (proj[i] < bufAt(i)) { rp = i; break; }
-    const orderBy = rp === null ? null : rp - L;
+    // laatste bestelweek waarvan de levering nog vóór het bestelpunt binnen is
+    let orderBy = null;
+    if (rp !== null) { orderBy = -1; for (let o = 0; o <= rp; o++) { if (arrOf(o).i <= rp) orderBy = o; } if (orderBy < 0) orderBy = 0; }
     // hoeveelheid als je nu bestelt: verkoop vanaf aankomst t/m dekking + veiligheidsvoorraad − wat er dan ligt − wat er in die periode binnenkomt
     const atArr = a > 0 ? proj[a - 1] : Number(r.voorraad) || 0;
     const need = v.slice(a, a + D + B).reduce((x, y) => x + y, 0);
@@ -114,7 +140,7 @@
     const wkTo = (i) => addD(t0, i * 7);
     const perWk = v.slice(a, a + D).reduce((x, y) => x + y, 0) / D;
     const tekortVoor = Math.max(0, -Math.min(0, ...proj.slice(0, Math.max(1, a))));
-    return { tekortVoor, kortVoor, L, opDatum: opIdx === null ? null : wkTo(opIdx), bestelDatum: orderBy === null ? null : wkTo(Math.max(0, orderBy)), orderBy, qty: rank <= 2 || P.vr_alles ? qty : 0, qtyNu: qty, status, rank, atArr, perWk, aankomst: wkTo(a) };
+    return { cny: nu.cny, china: !!china, tekortVoor, kortVoor, L, opDatum: opIdx === null ? null : wkTo(opIdx), bestelDatum: orderBy === null ? null : wkTo(Math.max(0, orderBy)), orderBy, qty: rank <= 2 || P.vr_alles ? qty : 0, qtyNu: qty, status, rank, atArr, perWk, aankomst: wkTo(a) };
   }
 
   // ---------- containers ----------
@@ -179,7 +205,9 @@
       // (alleen producten die in de containersheet staan; de rest komt alleen uit het magazijn)
       const origine = g === 'ab' && !!HERK[r.sku];
       const L = origine ? leadOf(20084, 'Apple Bee Containers') : g === 'ab' ? leadOf(21362, 'Apple Bee Magazijn') : leadOf(r.leverancier_id, r.leverancier);
-      const a = advies(r, P, L, vOverride); const c = cbmOf(r.sku);
+      const herLoc = HERK[r.sku] && HERK[r.sku].locatie;
+      const china = origine ? ['C', 'I', 'J', 'E'].includes(herLoc) : g === 'mod' || g === 'tierra' || /foshan|ningbo|cathrine|mod outdoor|tierra/i.test(r.leverancier || '');
+      const a = advies(r, P, L, vOverride, china); const c = cbmOf(r.sku);
       if (origine && a.rank === 0) { a.rank = 1; a.status = 'Nu bestellen'; } // tekort tot de container vangt het magazijn op
       return { r, a, cbm: c, g, origine, mag: origine && a.tekortVoor > 0 ? Math.ceil(a.tekortVoor) : 0 }; };
     const all = dk.filter((r) => actief(r) && !uitlopend(r)).map((r) => MKX(r));
@@ -515,7 +543,7 @@
     card('Inkomend', lev.length ? '+' + int.format(lev.reduce((t, l) => t + (Number(l.stuks) || 0), 0)) : '—', lst);
     const ti = totInfo(r, window.vrVraag(r), x.origine);
     card('Voorraad tot', totTxt(ti), `scenario ${scenNaam(k)}` + (ti.tijdelijk ? ` · ${ti.nuOp ? 'nu op' : 'op vanaf ' + dNl(ti.van)}, weer binnen ${dNl(ti.terug)}` : '') + (ti.magTot ? ` · tot de container ${int.format(ti.magTot)} st uit het Apple Bee-magazijn` : ''), ti.tijdelijk ? 'dk-warnc' : '');
-    card(actieTxt(x.a), x.a.rank <= 1 ? 'Nu bestellen' : x.a.bestelDatum ? 'uiterlijk ' + dNl(x.a.bestelDatum) : 'geen actie', x.a.qtyNu ? `advies ${int.format(x.a.qtyNu)} st · levertijd ${x.a.L} wk · bestel je nu, dan binnen ± ${dNl(x.a.aankomst)}` + (x.mag ? ` · eerst ${int.format(x.mag)} st uit magazijn` : '') : `levertijd ${x.a.L} wk`, x.a.rank <= 1 ? 'dk-bad' : x.a.rank === 2 ? 'dk-warnc' : '');
+    card(actieTxt(x.a), x.a.rank <= 1 ? 'Nu bestellen' : x.a.bestelDatum ? 'uiterlijk ' + dNl(x.a.bestelDatum) : 'geen actie', x.a.qtyNu ? `advies ${int.format(x.a.qtyNu)} st · levertijd ${x.a.L} wk · bestel je nu, dan binnen ± ${dNl(x.a.aankomst)}${x.a.cny ? ' (incl. Chinees Nieuwjaar)' : ''}` + (x.mag ? ` · eerst ${int.format(x.mag)} st uit magazijn` : '') : `levertijd ${x.a.L} wk`, x.a.rank <= 1 ? 'dk-bad' : x.a.rank === 2 ? 'dk-warnc' : '');
     box.append(cards);
     // groei: standaard begroting, of 0%, of een eigen percentage
     const bar = el('div', 'lw-mini'); bar.append(el('span', 'dk-lbl', 'Verwachte groei:'));
