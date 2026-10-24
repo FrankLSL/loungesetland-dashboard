@@ -231,7 +231,7 @@
     tb.replaceChildren(...list.slice(0, 400).map((x) => {
       const tr = el('tr'); const r = x.r, a = x.a;
       const nm = el('td', 'lw-wrap', short(r.naam)); nm.title = `${r.sku} · ${int.format(r.verkocht_52w)} verkocht in 52 weken · verwacht ${n1.format(a.perWk)}/week na aankomst`;
-      const ond = el('td', 'lw-num', r.onderweg ? int.format(r.onderweg) : '—'); if (r.leveringen && r.leveringen.length) ond.title = r.leveringen.map((l) => `${l.po}: ${int.format(l.stuks)} op ${dNl(l.datum)}`).join('\n');
+      const ond = el('td', 'lw-num', r.onderweg ? int.format(r.onderweg) : '—'); if (r.leveringen && r.leveringen.length) ond.title = r.leveringen.map((l) => { const e = CPETA.get(pon(l.po)) || l.datum; return `${l.po}: ${int.format(l.stuks)} op ${dNl(e)}`; }).join('\n');
       tr.append(nm, el('td', '', r.leverancier), el('td', 'lw-num', int.format(r.voorraad)), ond,
         el('td', a.kortVoor ? 'lw-bad' : '', a.opDatum ? dNl(a.opDatum) + (a.kortVoor && r.onderweg ? ' (tot levering)' : '') : 'na 60 wk'), el('td', 'lw-num', a.L + ' wk'),
         el('td', a.rank <= 1 ? 'lw-bad' : '', a.bestelDatum ? (a.orderBy <= 0 ? 'nu' : dNl(a.bestelDatum)) : '—'),
@@ -417,7 +417,7 @@
       const nm = el('td', 'lw-wrap'); nm.append(el('span', 'dk-caret', OPEN.has(r.sku) ? '▾ ' : '▸ '), document.createTextNode(short(r.naam)));
       const lev = (r.leveringen || []).slice().sort((p, q) => (etaOf(p) < etaOf(q) ? -1 : 1));
       const inc = el('td', '');
-      if (lev.length) { const tot = lev.reduce((t, l) => t + (Number(l.stuks) || 0), 0); inc.textContent = `+${int.format(tot)} · eerste ${dNl(etaOf(lev[0]))}`; inc.title = lev.map((l) => `${l.po}: ${int.format(l.stuks)} st op ${dNl(etaOf(l))}`).join('\n'); } else inc.textContent = '—';
+      if (lev.length) { for (const l of lev) inc.append(el('div', 'dk-po', `+${int.format(l.stuks)} · ${dNl(etaOf(l))} · ${l.po}`)); } else inc.textContent = '—';
       const ti = totInfo(r, window.vrVraag(r));
       const tot = el('td', ''); tot.textContent = totTxt(ti);
       if (k !== 'b') tot.append(el('span', 'dk-scen', ' ' + scenNaam(k)));
@@ -436,13 +436,14 @@
     const mnd = (s) => P0(s + '-01').toLocaleDateString(nl, { month: 'short', timeZone: 'UTC' }).replace('.', '');
     // kaartjes: voorraad, inkomend, voorraad tot, bestellen
     const cards = el('div', 'dk-cards');
-    const card = (label, val, sub, cls) => { const c = el('div', 'dk-card' + (cls ? ' ' + cls : '')); c.append(el('div', 'dk-cl', label), el('div', 'dk-cv', val)); if (sub) c.append(el('div', 'dk-cs', sub)); cards.append(c); };
+    const card = (label, val, sub, cls) => { const c = el('div', 'dk-card' + (cls ? ' ' + cls : '')); c.append(el('div', 'dk-cl', label), el('div', 'dk-cv', val)); if (sub instanceof Node) c.append(sub); else if (sub) c.append(el('div', 'dk-cs', sub)); cards.append(c); };
     const lev = (r.leveringen || []).slice().sort((p, q) => (etaOf(p) < etaOf(q) ? -1 : 1));
     card('Voorraad nu', int.format(r.voorraad), `${int.format(r.in_stock ?? r.voorraad)} op voorraad, ${int.format((r.in_stock ?? r.voorraad) - r.voorraad)} al verkocht`);
-    card('Inkomend', lev.length ? '+' + int.format(lev.reduce((t, l) => t + (Number(l.stuks) || 0), 0)) : '—', lev.length ? lev.map((l) => `${l.po}: ${int.format(l.stuks)} st op ${dNl(etaOf(l))}`).join(' · ') : 'niets besteld');
+    const lst = el('div', 'dk-cs'); if (lev.length) { const t = el('table', 'dk-potab'); for (const l of lev) { const tr = el('tr'); tr.append(el('td', '', l.po), el('td', 'lw-num', `${int.format(l.stuks)} st`), el('td', '', dNl(etaOf(l)))); t.append(tr); } lst.append(t, el('div', '', 'aankomst = ETA uit de containerplanning')); } else lst.textContent = 'niets besteld';
+    card('Inkomend', lev.length ? '+' + int.format(lev.reduce((t, l) => t + (Number(l.stuks) || 0), 0)) : '—', lst);
     const ti = totInfo(r, window.vrVraag(r));
     card('Voorraad tot', totTxt(ti), `scenario ${scenNaam(k)}` + (ti.tijdelijk ? ` · ${ti.nuOp ? 'nu op' : 'op vanaf ' + dNl(ti.van)}, weer binnen ${dNl(ti.terug)}` : ''), ti.tijdelijk ? 'dk-warnc' : '');
-    card(actieTxt(x.a), x.a.rank <= 1 ? 'Nu bestellen' : x.a.bestelDatum ? 'uiterlijk ' + dNl(x.a.bestelDatum) : 'geen actie', x.a.qtyNu ? `advies ${int.format(x.a.qtyNu)} st · levertijd ${x.a.L} wk · aankomst ± ${dNl(x.a.aankomst)}` + (x.mag ? ` · eerst ${int.format(x.mag)} st uit magazijn` : '') : `levertijd ${x.a.L} wk`, x.a.rank <= 1 ? 'dk-bad' : x.a.rank === 2 ? 'dk-warnc' : '');
+    card(actieTxt(x.a), x.a.rank <= 1 ? 'Nu bestellen' : x.a.bestelDatum ? 'uiterlijk ' + dNl(x.a.bestelDatum) : 'geen actie', x.a.qtyNu ? `advies ${int.format(x.a.qtyNu)} st · levertijd ${x.a.L} wk · bestel je nu, dan binnen ± ${dNl(x.a.aankomst)}` + (x.mag ? ` · eerst ${int.format(x.mag)} st uit magazijn` : '') : `levertijd ${x.a.L} wk`, x.a.rank <= 1 ? 'dk-bad' : x.a.rank === 2 ? 'dk-warnc' : '');
     box.append(cards);
     // scenario's
     const sw = el('div', 'dk-scenbox'); const bar = el('div', 'lw-mini'); bar.append(el('span', 'dk-lbl', 'Groeiscenario t.o.v. vorig jaar'));
@@ -491,7 +492,8 @@
     let tot = null; for (let i = Math.max(0, last); i < p.proj.length; i++) if (p.proj[i] < 0) { tot = i; break; }
     const tijdelijk = p.op !== null && (tot === null || p.op < tot) && p.op <= last;
     const terug = tijdelijk ? p.arr.findIndex((q, i) => q > 0 && i >= p.op) : -1;
-    return { tot: tot === null ? null : p.wk(tot), tijdelijk, nuOp: p.op === 0, van: tijdelijk ? p.wk(p.op) : null, terug: terug >= 0 ? p.wk(terug) : null };
+    const terugDt = tijdelijk ? (r.leveringen || []).map(etaOf).filter((d) => d >= addD(p.wk(p.op), -6)).sort()[0] : null;
+    return { tot: tot === null ? null : p.wk(tot), tijdelijk, nuOp: p.op === 0, van: tijdelijk ? p.wk(p.op) : null, terug: terugDt || (terug >= 0 ? p.wk(terug) : null) };
   };
   const totTxt = (t) => (t.tot ? dNl(t.tot) : 'ruim (na 60 wk)');
   const projectie = (r, v) => {
