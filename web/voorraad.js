@@ -180,6 +180,7 @@
       const origine = g === 'ab' && !!HERK[r.sku];
       const L = origine ? leadOf(20084, 'Apple Bee Containers') : g === 'ab' ? leadOf(21362, 'Apple Bee Magazijn') : leadOf(r.leverancier_id, r.leverancier);
       const a = advies(r, P, L, vOverride); const c = cbmOf(r.sku);
+      if (origine && a.rank === 0) { a.rank = 1; a.status = 'Nu bestellen'; } // tekort tot de container vangt het magazijn op
       return { r, a, cbm: c, g, origine, mag: origine && a.tekortVoor > 0 ? Math.ceil(a.tekortVoor) : 0 }; };
     const all = dk.filter((r) => actief(r) && !uitlopend(r)).map((r) => MKX(r));
     LAST = all;
@@ -425,7 +426,7 @@
     const sz = SEIZ(); const stand = sz[0] ? sz[0].stand : null;
     const sEl = document.getElementById('dk-stand'); if (sEl) sEl.textContent = stand ? dNl(stand.slice(0, 10)) + ' ' + stand.slice(11, 16) : '—';
     // alle producten, belangrijkste (omzet 12 mnd) eerst
-    const X = dk.filter((r) => !(HERK[r.sku] && HERK[r.sku].uitlopend)).map((r) => { const x = MKX(r); x.ti = totInfo(r, window.vrVraag(r)); x.c = collectie(r); return x; })
+    const X = dk.filter((r) => !(HERK[r.sku] && HERK[r.sku].uitlopend)).map((r) => { const x = MKX(r); x.ti = totInfo(r, window.vrVraag(r), x.origine); x.c = collectie(r); return x; })
       .sort((a, b) => (b.r.omzet_52w || 0) - (a.r.omzet_52w || 0) || (b.r.waarde_52w || 0) - (a.r.waarde_52w || 0));
     const totOmzet = X.reduce((t, x) => t + (x.r.omzet_52w || 0), 0) || 1;
     X.forEach((x, i) => { x.rang = i + 1; });
@@ -476,7 +477,7 @@
       tb.addEventListener('click', (e) => {
         if (e.target.closest('.dk-detail')) return;
         const tr = e.target.closest('tr.dk-row'); if (!tr) return;
-        const k = tr.dataset.key; if (OPEN.has(k)) OPEN.delete(k); else OPEN.add(k); dkDecorate();
+        const k = tr.dataset.key; const was = OPEN.has(k); OPEN.clear(); if (!was) OPEN.add(k); dkDecorate();
       });
     }
     if (tbl.parentElement) tbl.parentElement.classList.toggle('dk-open', OPEN.size > 0);
@@ -492,6 +493,7 @@
       const tot = el('td', ''); tot.textContent = totTxt(ti);
       if (k !== 'b') tot.append(el('span', 'dk-scen', ' ' + scenNaam(k)));
       if (ti.tijdelijk) tot.append(el('div', 'vr-mag', `${ti.nuOp ? 'nu op' : 'op vanaf ' + dNl(ti.van)}, weer binnen ${dNl(ti.terug)}`));
+      if (ti.magTot) tot.append(el('div', 'vr-mag', `tot de container ${int.format(ti.magTot)} st uit het Apple Bee-magazijn`));
       const best = el('td', a.rank <= 1 ? 'lw-bad dk-strong' : a.rank === 2 ? 'dk-warn' : '', a.rank <= 1 ? 'nu' : a.bestelDatum ? dNl(a.bestelDatum) : '—');
       const act = el('td'); act.append(el('span', 'lw-pill' + stCls2(actieTxt(a)), actieTxt(a))); if (x.mag) act.append(el('div', 'vr-mag', `magazijn: ${int.format(x.mag)} st tot de container er is`));
       tr.append(el('td', 'lw-num', String(x.rang)), nm, el('td', 'lw-num' + ((Number(r.voorraad) || 0) <= 0 ? ' lw-bad' : ''), int.format(r.voorraad)), inc, tot, best,
@@ -511,8 +513,8 @@
     card('Voorraad nu', int.format(r.voorraad), `${int.format(r.in_stock ?? r.voorraad)} op voorraad, ${int.format((r.in_stock ?? r.voorraad) - r.voorraad)} al verkocht`);
     const lst = el('div', 'dk-cs'); if (lev.length) { const t = el('table', 'dk-potab'); for (const l of lev) { const tr = el('tr'); tr.append(el('td', '', l.po), el('td', 'lw-num', `${int.format(l.stuks)} st`), el('td', '', dNl(etaOf(l)))); t.append(tr); } lst.append(t, el('div', '', 'aankomst = ETA uit de containerplanning')); } else lst.textContent = 'niets besteld';
     card('Inkomend', lev.length ? '+' + int.format(lev.reduce((t, l) => t + (Number(l.stuks) || 0), 0)) : '—', lst);
-    const ti = totInfo(r, window.vrVraag(r));
-    card('Voorraad tot', totTxt(ti), `scenario ${scenNaam(k)}` + (ti.tijdelijk ? ` · ${ti.nuOp ? 'nu op' : 'op vanaf ' + dNl(ti.van)}, weer binnen ${dNl(ti.terug)}` : ''), ti.tijdelijk ? 'dk-warnc' : '');
+    const ti = totInfo(r, window.vrVraag(r), x.origine);
+    card('Voorraad tot', totTxt(ti), `scenario ${scenNaam(k)}` + (ti.tijdelijk ? ` · ${ti.nuOp ? 'nu op' : 'op vanaf ' + dNl(ti.van)}, weer binnen ${dNl(ti.terug)}` : '') + (ti.magTot ? ` · tot de container ${int.format(ti.magTot)} st uit het Apple Bee-magazijn` : ''), ti.tijdelijk ? 'dk-warnc' : '');
     card(actieTxt(x.a), x.a.rank <= 1 ? 'Nu bestellen' : x.a.bestelDatum ? 'uiterlijk ' + dNl(x.a.bestelDatum) : 'geen actie', x.a.qtyNu ? `advies ${int.format(x.a.qtyNu)} st · levertijd ${x.a.L} wk · bestel je nu, dan binnen ± ${dNl(x.a.aankomst)}` + (x.mag ? ` · eerst ${int.format(x.mag)} st uit magazijn` : '') : `levertijd ${x.a.L} wk`, x.a.rank <= 1 ? 'dk-bad' : x.a.rank === 2 ? 'dk-warnc' : '');
     box.append(cards);
     // groei: standaard begroting, of 0%, of een eigen percentage
@@ -523,9 +525,9 @@
     bar.append(inp, el('span', 'dk-lbl', '%'));
     box.append(bar);
     // per maand: verkocht vorige seizoenen, prognose, inkomend, voorraad eind maand
-    const v = window.vrVraag(r), p = projectie(r, v);
-    const prog = new Map(), eind = new Map(), inM = new Map();
-    for (let i = 0; i < v.length; i++) { const m = addD(p.wk(i), 3).slice(0, 7); prog.set(m, (prog.get(m) || 0) + v[i]); eind.set(m, p.proj[i]); if (p.arr[i]) inM.set(m, (inM.get(m) || 0) + p.arr[i]); }
+    const v = window.vrVraag(r), p = projectie(r, v, x.origine);
+    const prog = new Map(), eind = new Map(), inM = new Map(), magM = new Map();
+    for (let i = 0; i < v.length; i++) { const m = addD(p.wk(i), 3).slice(0, 7); prog.set(m, (prog.get(m) || 0) + v[i]); eind.set(m, p.proj[i]); if (p.arr[i]) inM.set(m, (inM.get(m) || 0) + p.arr[i]); if (p.mag[i]) magM.set(m, (magM.get(m) || 0) + p.mag[i]); }
     const M = r.maanden || {};
     const pm = [...prog.keys()].slice(0, 12);
     const shift = (m, n) => { const d = new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1 + n, 1)); return d.toISOString().slice(0, 7); };
@@ -538,28 +540,36 @@
     for (const kk of [2, 1]) { const f = shift(pm[0], -12 * kk); if (!Object.keys(M).some((m) => m >= f && m <= shift(f, 11))) continue; rowOf(`Verkocht seizoen ${sz(f)}`, (m) => { const key = shift(m, -12 * kk); return key in M ? M[key] : null; }, 'dk-hist'); }
     rowOf(`Verwacht ${sz(pm[0])} (${scenNaam(k)})`, (m) => prog.get(m), 'dk-prog');
     rowOf('Inkomend', (m) => inM.get(m) || 0, 'dk-in');
+    if (magM.size) rowOf('Uit Apple Bee-magazijn', (m) => magM.get(m) || 0, 'dk-in');
     rowOf('Voorraad eind maand', (m) => eind.get(m), 'dk-eind', false);
     mt.append(mtb); const mb = el('div', 'lw-tablebox'); mb.append(mt); box.append(mb);
     box.append(el('p', 'lw-note', `* rest van deze maand. Verwacht = ${r.vraag_eigen ? 'verkoop van dit product in dezelfde maand vorig seizoen' : 'gemiddelde verkoop per week (product loopt nog geen jaar) verdeeld volgens het seizoenspatroon van de winkel'} × (1 + groei). Maanden waarin het product uitverkocht was tellen als lage verkoop: kies dan een hoger scenario. Je keuze wordt per product opgeslagen en geldt ook voor de bestellijst.`));
     return box;
   }
   // tot wanneer is er voorraad: eerste tekort ná de laatste levering; een tekort vóór een levering is tijdelijk ('nu op, weer binnen …')
-  const totInfo = (r, v) => {
-    const p = projectie(r, v); let last = -1; p.arr.forEach((q, i) => { if (q > 0) last = i; });
+  const totInfo = (r, v, ab) => {
+    const p = projectie(r, v, ab); const magTot = Math.ceil(p.mag.reduce((a, b) => a + b, 0)); let last = -1; p.arr.forEach((q, i) => { if (q > 0) last = i; });
     let tot = null; for (let i = Math.max(0, last); i < p.proj.length; i++) if (p.proj[i] < 0) { tot = i; break; }
     const tijdelijk = p.op !== null && (tot === null || p.op < tot) && p.op <= last;
     const terug = tijdelijk ? p.arr.findIndex((q, i) => q > 0 && i >= p.op) : -1;
     const terugDt = tijdelijk ? (r.leveringen || []).map(etaOf).filter((d) => d >= addD(p.wk(p.op), -6)).sort()[0] : null;
-    return { tot: tot === null ? null : p.wk(tot), tijdelijk, nuOp: p.op === 0, van: tijdelijk ? p.wk(p.op) : null, terug: terugDt || (terug >= 0 ? p.wk(terug) : null) };
+    return { magTot, tot: tot === null ? null : p.wk(tot), tijdelijk, nuOp: p.op === 0, van: tijdelijk ? p.wk(p.op) : null, terug: terugDt || (terug >= 0 ? p.wk(terug) : null) };
   };
   const totTxt = (t) => (t.tot ? dNl(t.tot) : 'ruim (na 60 wk)');
-  const projectie = (r, v) => {
+  // ab = Apple Bee uit origine: een tekort vóór de laatste container wordt aangevuld uit het Apple Bee-magazijn
+  const projectie = (r, v, ab) => {
     const H = v.length, t0 = (SEIZ()[0] || {}).week || today();
     const arr = new Array(H).fill(0);
     for (const x of r.leveringen || []) { const i = Math.max(0, Math.floor((P0(etaOf(x)) - P0(t0)) / DAY / 7)); if (i < H) arr[i] += Number(x.stuks) || 0; }
-    let s = Number(r.voorraad) || 0, op = null; const proj = [];
-    for (let i = 0; i < H; i++) { s += arr[i] - v[i]; proj.push(s); if (op === null && s < 0) op = i; }
-    return { proj, op, arr, t0, wk: (i) => addD(t0, i * 7) };
+    let last = -1; arr.forEach((q, i) => { if (q > 0) last = i; });
+    let s = Number(r.voorraad) || 0, op = null; const proj = [], mag = new Array(H).fill(0);
+    if (ab && s < 0) { mag[0] += -s; s = 0; }
+    for (let i = 0; i < H; i++) {
+      s += arr[i] - v[i];
+      if (ab && s < 0 && i < last) { mag[i] += -s; s = 0; }
+      proj.push(s); if (op === null && s < 0) op = i;
+    }
+    return { proj, op, arr, mag, t0, wk: (i) => addD(t0, i * 7) };
   };
   dash.onData(() => { try { render(); } catch (e) { console.error('[voorraad]', e); } try { dkDecorate(); } catch (e) { console.error('[voorraad] detail', e); } });
 })();
