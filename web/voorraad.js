@@ -52,7 +52,7 @@
     try { if (db) { const s = await db.doc('voorraad/cbm').get(); CBM = s.exists ? (s.data().waarden || {}) : {}; } } catch (e) { CBM = {}; }
     try { if (db) { const h = await db.doc('voorraad/herkomst').get(); HERK = h.exists ? (h.data().waarden || {}) : {}; } } catch (e) { HERK = {}; }
     try { if (db) { const g = await db.doc('voorraad/groei').get(); GROEI = g.exists ? (g.data().waarden || {}) : {}; } } catch (e) { GROEI = {}; }
-    cbmLoaded = true; render();
+    cbmLoaded = true; COLCACHE.clear(); render(); try { dkDecorate(); } catch (e) { /* */ }
   })();
   async function saveCbm(sku, v) {
     if (!db) return;
