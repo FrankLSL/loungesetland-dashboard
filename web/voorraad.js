@@ -19,6 +19,11 @@
   const short = (s) => String(s || '').split('|').slice(0, 2).map((x) => x.trim()).join(' · ');
   const pon = (x) => String(x || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
   let OPEN_PO = new Set();
+  // hoofdleveranciers; Apple Bee (containers) en Apple Bee Magazijn zijn één bedrijf
+  const GROEPEN = [['mod', 'MOD Outdoor', /\bmod\b/i], ['ab', 'Apple Bee', /apple ?bee/i], ['tierra', 'Tierra Outdoor', /tierra/i], ['republic', 'Republic', /republic/i]];
+  const GNAAM = Object.fromEntries(GROEPEN.map(([k, n]) => [k, n]).concat([['overig', 'Overige leveranciers']]));
+  const grpNaam = (n) => { for (const [k, , re] of GROEPEN) if (re.test(String(n || ''))) return k; return 'overig'; };
+  const grpProd = (r) => { const g = grpNaam(r.leverancier); if (g !== 'overig') return g; if (HERK[r.sku] && HERK[r.sku].leverancier) return grpNaam(HERK[r.sku].leverancier); return r.merk === 'Apple Bee' ? 'ab' : 'overig'; };
   const isAdmin = () => !!(dash.user && dash.user.r === 'beheerder');
 
   // ---------- CBM per product (gedeeld document voorraad/cbm) ----------
@@ -167,18 +172,19 @@
     const actief = (r) => (Number(r.voorraad) || 0) > 0 || (Number(r.onderweg) || 0) > 0 || (Number(r.verkocht_13w) || 0) > 0;
     const nonActief = dk.filter((r) => !actief(r) || (HERK[r.sku] && HERK[r.sku].uitlopend)).length;
     const uitlopend = (r) => !!(HERK[r.sku] && HERK[r.sku].uitlopend);
-    const all = dk.filter((r) => actief(r) && !uitlopend(r)).map((r) => { r._week0 = week0; r._cpEta = CPETA; const L = leadOf(r.leverancier_id, r.leverancier); const a = advies(r, P, L); const c = cbmOf(r.sku); return { r, a, cbm: c }; });
+    const all = dk.filter((r) => actief(r) && !uitlopend(r)).map((r) => { r._week0 = week0; r._cpEta = CPETA; const L = leadOf(r.leverancier_id, r.leverancier); const a = advies(r, P, L); const c = cbmOf(r.sku); return { r, a, cbm: c, g: grpProd(r) }; });
     LAST = all;
     const urgent = (x) => x.a.rank <= 2;
     const fLev = P.vr_lev != null && P.vr_lev !== '' ? String(P.vr_lev) : '';
     const fSt = P.vr_st || '';
-    const inLev = (x) => !fLev || String(x.r.leverancier_id) === fLev;
+    const inLev = (x) => !fLev || x.g === fLev;
+    for (const p of IN) p.g = grpNaam(p.leverancier);
 
     // tegels
     const T = el('div'); const tiles = document.getElementById('vr-tiles');
     const cnt = (rk) => all.filter((x) => inLev(x) && x.a.rank === rk);
     const val = (a) => a.reduce((t, x) => t + x.a.qty * (x.r.kostprijs || 0), 0);
-    const openPos = IN.filter((p) => !fLev || String(p.leverancier_id) === fLev);
+    const openPos = IN.filter((p) => !fLev || p.g === fLev);
     const nxt = openPos.find((p) => p.eta && p.eta >= today());
     const tileDefs = [
       ['laat', 'Te laat', cnt(0), (a) => `op vóór een bestelling van nu binnen kan zijn · advies ${eur0.format(val(a))}`],
@@ -200,12 +206,10 @@
     })());
 
     // leverancier-filter
-    const levIds = [...new Set(all.map((x) => String(x.r.leverancier_id)))];
-    const levName = new Map(all.map((x) => [String(x.r.leverancier_id), x.r.leverancier]));
-    for (const l of lev) levName.set(String(l.leverancier_id), l.leverancier);
+    const levName = new Map(Object.entries(GNAAM));
     const bar = document.getElementById('vr-levf');
     const mk = (id, label) => { const b = el('button', '', label); b.type = 'button'; b.setAttribute('aria-pressed', String(fLev === (id == null ? '' : id))); b.addEventListener('click', () => dash.setParams({ vr_lev: id })); return b; };
-    bar.replaceChildren(mk(null, 'Alle leveranciers'), ...levIds.sort((a, b) => String(levName.get(a)).localeCompare(String(levName.get(b)))).map((id) => mk(id, levName.get(id) || 'Onbekend')));
+    bar.replaceChildren(mk(null, 'Alle leveranciers'), ...Object.entries(GNAAM).map(([k, n]) => mk(k, k === 'overig' ? 'Overige' : n)));
 
     // bestellijst
     let list = all.filter(inLev);
@@ -234,16 +238,20 @@
 
     // per leverancier
     const lb = document.querySelector('#vr-lev tbody');
-    lb.replaceChildren(...lev.filter((l) => l.inkoop_12m || l.open_pos || l.skus).map((l) => {
-      const mine = all.filter((x) => x.r.leverancier_id === l.leverancier_id && urgent(x));
+    const agg = Object.keys(GNAAM).map((k) => {
+      const ls = lev.filter((l) => grpNaam(l.leverancier) === k);
+      return { k, naam: GNAAM[k], inkoop_jaar: ls.reduce((t, l) => t + l.inkoop_jaar, 0), inkoop_12m: ls.reduce((t, l) => t + l.inkoop_12m, 0) };
+    });
+    lb.replaceChildren(...agg.map((l) => {
+      const mine = all.filter((x) => x.g === l.k && urgent(x));
       const cb = mine.reduce((t, x) => t + (x.cbm ? x.a.qty * x.cbm : 0), 0);
       const eur = mine.reduce((t, x) => t + x.a.qty * (x.r.kostprijs || 0), 0);
-      const tr = el('tr'); tr.setAttribute('aria-pressed', String(fLev === String(l.leverancier_id)));
-      tr.append(el('td', '', l.leverancier), el('td', 'lw-num', eur0.format(l.inkoop_jaar)), el('td', 'lw-num', eur0.format(l.inkoop_12m)), el('td', 'lw-num', int.format(IN.filter((p) => p.leverancier_id === l.leverancier_id).length)),
-        ...(() => { const m = IN.filter((p) => p.leverancier_id === l.leverancier_id); const q = m.reduce((a, p) => a + (p.stuks || 0), 0), e = m.reduce((a, p) => a + p.totaal, 0); const nx = m.find((p) => p.eta && p.eta >= today());
-          return [el('td', 'lw-num', q ? int.format(q) : '—'), el('td', 'lw-num', e ? eur0.format(e) : '—'), el('td', '', nx ? dNl(nx.eta) : '—')]; })(),
-        el('td', 'lw-num', mine.length ? `${mine.length} · ${eur0.format(eur)}` : '—'), el('td', 'lw-num', cb ? n1.format(cb) + ' cbm' : '—'), el('td', '', cb ? containers(cb, P).txt : '—'));
-      tr.addEventListener('click', () => dash.setParams({ vr_lev: fLev === String(l.leverancier_id) ? null : String(l.leverancier_id) }));
+      const m = IN.filter((p) => p.g === l.k); const q = m.reduce((a, p) => a + (p.stuks || 0), 0), e = m.reduce((a, p) => a + p.totaal, 0); const nx = m.find((p) => p.eta && p.eta >= today());
+      const tr = el('tr', l.k === 'overig' ? 'vr-overig' : ''); tr.setAttribute('aria-pressed', String(fLev === l.k));
+      tr.append(el('td', '', l.naam), el('td', 'lw-num', eur0.format(l.inkoop_jaar)), el('td', 'lw-num', eur0.format(l.inkoop_12m)), el('td', 'lw-num', int.format(m.length)),
+        el('td', 'lw-num', q ? int.format(q) : '—'), el('td', 'lw-num', e ? eur0.format(e) : '—'), el('td', '', nx ? dNl(nx.eta) : '—'),
+        el('td', 'lw-num', mine.length ? `${mine.length} · ${eur0.format(eur)}` : '—'), el('td', 'lw-num', cb && l.k !== 'overig' ? n1.format(cb) + ' cbm' : '—'), el('td', '', cb && l.k !== 'overig' ? (l.k === 'ab' ? 'per productielocatie, zie voorstel' : containers(cb, P).txt) : '—'));
+      tr.addEventListener('click', () => dash.setParams({ vr_lev: fLev === l.k ? null : l.k }));
       return tr;
     }));
 
@@ -251,7 +259,7 @@
     renderCont(all, P, fLev, levName);
 
     // inkomend
-    const inp = IN.filter((p) => !fLev || String(p.leverancier_id) === fLev);
+    const inp = IN.filter((p) => !fLev || p.g === fLev);
     const ib = document.querySelector('#vr-in tbody');
     const open = new Set(String(P.vr_po || '').split(',').filter(Boolean));
     const out = [];
@@ -300,8 +308,8 @@
     const id = fLev;
     tt.textContent = 'Containervoorstel · ' + (levName.get(id) || '');
     const fill = !!P.vr_fill;
-    const lnm = String(levName.get(id) || '').toLowerCase();
-    const ofLev = (x) => String(x.r.leverancier_id) === fLev || (HERK[x.r.sku] && HERK[x.r.sku].leverancier && lnm.includes(String(HERK[x.r.sku].leverancier).toLowerCase()) && /container/.test(lnm));
+    if (fLev === 'overig') { host.replaceChildren(el('p', 'lw-note', 'Geen containervoorstel voor de overige leveranciers; kies MOD Outdoor, Apple Bee, Tierra Outdoor of Republic.')); return; }
+    const ofLev = (x) => x.g === fLev;
     const items = all.filter((x) => ofLev(x) && (x.a.rank <= 2 || (fill && x.cbm && x.a.qtyNu >= 0 && x.r.verkocht_52w > 0))).map((x) => ({ ...x, q: x.a.rank <= 2 ? x.a.qty : 0 }));
     const tg = el('div', 'lw-mini');
     const b1 = el('button', '', 'Alleen het advies'); b1.type = 'button'; b1.setAttribute('aria-pressed', String(!fill)); b1.addEventListener('click', () => dash.setParams({ vr_fill: null }));
