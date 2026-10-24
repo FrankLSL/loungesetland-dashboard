@@ -38,6 +38,7 @@
 #dash-root [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
 #dash-root .lw-src { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
 #dash-root .lw-tablebox-20 { max-height: calc(11 * 2rem + 2.4rem); }
+#dash-root .vr-bestbox { max-height: 44rem; }
 #dash-root .lw-stocktable td { white-space: nowrap; height: 2rem; padding-top: 0; padding-bottom: 0; }
 #dash-root .lw-stocktable td:nth-child(2) { max-width: 28rem; overflow: hidden; text-overflow: ellipsis; }
 #dash-root .lw-stocktable tfoot td { position: sticky; bottom: 0; background: var(--color-panel); font-weight: var(--cds-font-weight-medium); border-top: 2px solid var(--color-border-line); }
@@ -924,7 +925,7 @@
       <h3 id="vr-best-t">Bestellijst</h3>
       <p class="lw-note">Per product: tot wanneer de voorraad genoeg is (mét wat er al onderweg is; "tijdelijk op" = op vóór de volgende levering binnen is), wanneer je uiterlijk moet bestellen (op-datum − levertijd − veiligheidsvoorraad) en hoeveel: verwachte verkoop vanaf aankomst tot de gekozen dekking plus de veiligheidsvoorraad, min wat er dan nog ligt en wat er in die periode al binnenkomt. Apple Bee rekent altijd met inkoop uit origine (container, meer marge); als het product op raakt vóór een container binnen kan zijn, staat erbij hoeveel je uit het Apple Bee-magazijn moet halen om dat gat te overbruggen. Gesorteerd op urgentie (te laat, nu, binnen 4 weken, later) en daarbinnen op omzet van de laatste 12 maanden van de collectie (bv. alle Lotte-delen samen), belangrijkste bovenaan. Klik op een tegel om te filteren, klik op een regel voor de uitleg.</p>
       <p class="lw-note" id="vr-inact"></p>
-      <div class="lw-tablebox lw-tablebox-20"><table class="lw-table lw-stocktable" id="vr-tbl"><thead><tr>
+      <div class="lw-tablebox vr-bestbox"><table class="lw-table lw-stocktable" id="vr-tbl"><thead><tr>
         <th>Product</th><th>Leverancier</th><th class="lw-num">Voorraad</th><th class="lw-num">Onderweg</th><th title="Tot wanneer de voorraad (incl. wat onderweg is) genoeg is zonder nieuwe bestelling">Voorraad tot</th><th class="lw-num">Levertijd</th><th>Bestellen uiterlijk</th><th class="lw-num">Advies</th><th class="lw-num">CBM</th><th class="lw-num">Inkoop</th><th>Status</th>
       </tr></thead><tbody></tbody><tfoot><tr><td id="vr-ft-l">Totaal</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="lw-num" id="vr-ft-q">—</td><td class="lw-num" id="vr-ft-c">—</td><td class="lw-num" id="vr-ft-e">—</td><td></td></tr></tfoot></table></div>
     </div>
