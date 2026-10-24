@@ -18,6 +18,18 @@
   const num = (v, d) => { const n = Number(String(v ?? '').replace(',', '.')); return v === undefined || v === null || v === '' || Number.isNaN(n) ? d : n; };
   const vol = (s) => String(s || '').split('|').map((x) => x.trim()).filter(Boolean).join(' · ');
   const naamCel = (td, r, caret) => { if (caret) td.append(caret); td.append(document.createTextNode(vol(r.naam)), el('div', 'dk-sku', r.sku)); return td; };
+  // opnieuw tekenen zonder te verspringen: houd de opengeklapte regel (of anders de scrollpositie) op dezelfde plek in beeld
+  function keepPos(fn) {
+    const root = document.getElementById('pg-vr');
+    const anc = root && root.querySelector('tr.dk-row[aria-expanded="true"]');
+    const tid = anc && anc.closest('table') ? anc.closest('table').id : null, key = anc ? anc.dataset.key : null, top = anc ? anc.getBoundingClientRect().top : null;
+    const boxes = root ? [...root.querySelectorAll('.lw-tablebox')].map((b) => [b, b.scrollTop]) : [];
+    const y = window.scrollY;
+    fn();
+    for (const [b, t] of boxes) if (b.isConnected) b.scrollTop = t;
+    window.scrollTo(0, y);
+    if (key && tid) { const n = document.querySelector(`#${tid} tr.dk-row[data-key="${CSS.escape(key)}"]`); if (n) window.scrollBy(0, n.getBoundingClientRect().top - top); }
+  }
   const short = (s) => String(s || '').split('|').slice(0, 2).map((x) => x.trim()).join(' · ');
   const pon = (x) => String(x || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
   let OPEN_PO = new Set();
@@ -36,7 +48,7 @@
   async function saveStat(sku, v) {
     STAT = Object.assign({}, STAT); if (v == null) delete STAT[sku]; else STAT[sku] = v;
     try { if (db) { const g = await db.doc('voorraad/bestelstatus').get(); const w = Object.assign({}, g.exists ? g.data().waarden || {} : {}); if (v == null) delete w[sku]; else w[sku] = v; await db.doc('voorraad/bestelstatus').set({ waarden: w, at: new Date().toISOString() }); } } catch (e) { /* lokaal */ }
-    render(); dkDecorate();
+    keepPos(() => { render(); dkDecorate(); });
   }
   const holdTxt = (h) => (h.type === 'stop' ? 'Niet meer bestellen' : `Aankijken t/m ${dNl(h.tot)}`);
   function holdKnoppen(sku) {
@@ -65,7 +77,7 @@
   async function saveGroei(sku, v) {
     GROEI = Object.assign({}, GROEI); if (v == null) delete GROEI[sku]; else GROEI[sku] = v;
     try { if (db) { const g = await db.doc('voorraad/groei').get(); const w = Object.assign({}, g.exists ? g.data().waarden || {} : {}); if (v == null) delete w[sku]; else w[sku] = v; await db.doc('voorraad/groei').set({ waarden: w, at: new Date().toISOString() }); } } catch (e) { /* alleen lokaal */ }
-    render(); dkDecorate();
+    keepPos(() => { render(); dkDecorate(); });
   }
   const LOCNAAM = { I: 'China', J: 'China', C: 'China', E: 'China', A: 'Indonesië', B: 'Indonesië' };
   (async () => {
@@ -351,7 +363,7 @@
     if (nonActief) inact.append(document.createTextNode(`${nonActief} producten staan niet in de lijst: uitlopend, of zonder voorraad, inkooporder en verkoop in de laatste 13 weken.`));
     const tb = document.querySelector('#vr-tbl tbody');
     const stCls = (s) => (s === 'Te laat' ? ' lw-bad' : s === 'Nu bestellen' || s === 'Binnen 4 weken' || s === 'Tekort tot levering' ? ' lw-warn' : ' lw-ok');
-    if (!tb._vrClick) { tb._vrClick = true; tb.addEventListener('click', (e) => { if (e.target.closest('.dk-detail, button, input, select')) return; const tr = e.target.closest('tr.dk-row'); if (!tr) return; const k = tr.dataset.key; const was = OPENB.has(k); OPENB.clear(); if (!was) OPENB.add(k); render(); }); }
+    if (!tb._vrClick) { tb._vrClick = true; tb.addEventListener('click', (e) => { if (e.target.closest('.dk-detail, button, input, select')) return; const tr = e.target.closest('tr.dk-row'); if (!tr) return; const k = tr.dataset.key; const was = OPENB.has(k); const top = tr.getBoundingClientRect().top; OPENB.clear(); if (!was) OPENB.add(k); render(); const n = tb.querySelector(`tr.dk-row[data-key="${CSS.escape(k)}"]`); if (n) window.scrollBy(0, n.getBoundingClientRect().top - top); }); }
     if (tb.closest('.lw-tablebox')) tb.closest('.lw-tablebox').classList.toggle('dk-open', OPENB.size > 0);
     tb.replaceChildren(...list.slice(0, 400).flatMap((x) => {
       const r = x.r, a = x.a; const tr = el('tr', 'dk-row'); tr.dataset.key = r.sku; tr.setAttribute('aria-expanded', String(OPENB.has(r.sku)));
@@ -609,7 +621,7 @@
       tb.addEventListener('click', (e) => {
         if (e.target.closest('.dk-detail')) return;
         const tr = e.target.closest('tr.dk-row'); if (!tr) return;
-        const k = tr.dataset.key; const was = OPEN.has(k); OPEN.clear(); if (!was) OPEN.add(k); dkDecorate();
+        const k = tr.dataset.key; const was = OPEN.has(k); const top = tr.getBoundingClientRect().top; OPEN.clear(); if (!was) OPEN.add(k); dkDecorate(); const n = tb.querySelector(`tr.dk-row[data-key="${CSS.escape(k)}"]`); if (n) window.scrollBy(0, n.getBoundingClientRect().top - top);
       });
     }
     if (tbl.parentElement) tbl.parentElement.classList.toggle('dk-open', OPEN.size > 0);
@@ -732,5 +744,5 @@
     }
     return { proj, op, arr, mag, t0, wk: (i) => addD(t0, i * 7) };
   };
-  dash.onData(() => { try { renderBg(); } catch (e) { console.error('[voorraad] begroting', e); } try { render(); } catch (e) { console.error('[voorraad]', e); } try { dkDecorate(); } catch (e) { console.error('[voorraad] detail', e); } });
+  dash.onData(() => keepPos(() => { try { renderBg(); } catch (e) { console.error('[voorraad] begroting', e); } try { render(); } catch (e) { console.error('[voorraad]', e); } try { dkDecorate(); } catch (e) { console.error('[voorraad] detail', e); } }));
 })();
