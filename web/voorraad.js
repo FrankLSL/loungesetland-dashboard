@@ -154,6 +154,7 @@
   function dongenCel(r, nodig) {
     const td = el('td', 'ab-dongen'); const ai = abInfo(r.sku);
     if (!ai) { td.textContent = HERK[r.sku] || /^AB-/.test(r.sku) ? '—' : ''; td.title = HERK[r.sku] ? 'Nog geen gegevens uit het Apple Bee-portaal' : ''; return td; }
+    if (!(ai.prijs > 0)) { td.append(el('b', '', '—'), el('small', '', 'niet via magazijn')); td.title = `Artikel ${ai.artikel} is niet via het Apple Bee-magazijn te bestellen, alleen per container (FOB $ ${int.format(ai.fob)}).`; return td; }
     if (nodig && ai.mag < nodig) td.classList.add('ab-kort');
     td.append(el('b', '', ai.mag > 0 ? `${int.format(ai.mag)} st` : 'op'));
     const later = (ai.later || []).find((l) => l && l.available > 0);
