@@ -683,20 +683,24 @@ def voorraad_analyse():
     idx = [seizoen(d) * f for d, f in zip(fut, fgr)]
 
     rows = []
-    for pid, ws in vraag.items():
+    # ook producten die (nog) niet of nauwelijks verkocht zijn maar wel op voorraad liggen of onderweg zijn (nemen ruimte in, hebben cbm nodig)
+    alle = set(vraag) | {pid for pid, st in stock.items() if (st.get('in_stock') or 0) > 0 or (st.get('available') or 0) > 0} | set(arrivals)
+    for pid in alle:
+        ws = vraag.get(pid, {})
         p = prods.get(pid) or {}
-        if (p.get('bundle_type') or 'NONE') != 'NONE':
+        if not p or (p.get('bundle_type') or 'NONE') != 'NONE':
             continue
         first = min((w for w, q in ws.items() if q > 0), default=None)
-        if not first:
-            continue
-        n_w = sum(1 for w in last52 if w >= first)
+        n_w = sum(1 for w in last52 if first and w >= first)
         verkocht52 = sum(ws.get(w, 0) for w in last52)
         if verkocht52 <= 0 or n_w < 4:
-            continue
-        # basis: gemiddelde per week over de weken dat het product verkocht werd (max 52), gecorrigeerd voor seizoen in die weken
-        seiz_in = sum(seizoen(datetime.date.fromisoformat(w) + datetime.timedelta(weeks=52)) for w in last52 if w >= first) or n_w
-        basis = verkocht52 / seiz_in
+            # nieuw of geen verkoop: voorzichtige basis (verkocht ÷ minimaal 4 weken), geen eigen maandpatroon
+            basis = verkocht52 / max(4, n_w) if verkocht52 > 0 else 0.0
+            first = first or cur.isoformat()
+        else:
+            # basis: gemiddelde per week over de weken dat het product verkocht werd (max 52), gecorrigeerd voor seizoen in die weken
+            seiz_in = sum(seizoen(datetime.date.fromisoformat(w) + datetime.timedelta(weeks=52)) for w in last52 if w >= first) or n_w
+            basis = verkocht52 / seiz_in
         st = stock.get(pid, {'in_stock': 0, 'available': 0, 'incoming': 0})
         voorraad = st['available']
         arr = sorted(arrivals.get(pid, []))
