@@ -16,6 +16,8 @@
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
   const rows = (id) => { const d = dash.data(id); return d && d.status === 'ok' && Array.isArray(d.data) ? d.data : null; };
   const num = (v, d) => { const n = Number(String(v ?? '').replace(',', '.')); return v === undefined || v === null || v === '' || Number.isNaN(n) ? d : n; };
+  const vol = (s) => String(s || '').split('|').map((x) => x.trim()).filter(Boolean).join(' · ');
+  const naamCel = (td, r, caret) => { if (caret) td.append(caret); td.append(document.createTextNode(vol(r.naam)), el('div', 'dk-sku', r.sku)); return td; };
   const short = (s) => String(s || '').split('|').slice(0, 2).map((x) => x.trim()).join(' · ');
   const pon = (x) => String(x || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
   let OPEN_PO = new Set();
@@ -353,7 +355,7 @@
     if (tb.closest('.lw-tablebox')) tb.closest('.lw-tablebox').classList.toggle('dk-open', OPENB.size > 0);
     tb.replaceChildren(...list.slice(0, 400).flatMap((x) => {
       const r = x.r, a = x.a; const tr = el('tr', 'dk-row'); tr.dataset.key = r.sku; tr.setAttribute('aria-expanded', String(OPENB.has(r.sku)));
-      const nm = el('td', 'lw-wrap'); nm.append(el('span', 'dk-caret', OPENB.has(r.sku) ? '▾ ' : '▸ '), document.createTextNode(short(r.naam))); nm.title = `${r.sku} · ${int.format(r.verkocht_52w)} verkocht in 52 weken · verwacht ${n1.format(a.perWk)}/week na aankomst`;
+      const nm = naamCel(el('td', 'lw-wrap'), r, el('span', 'dk-caret', OPENB.has(r.sku) ? '▾ ' : '▸ ')); nm.title = `${r.sku} · ${int.format(r.verkocht_52w)} verkocht in 52 weken · verwacht ${n1.format(a.perWk)}/week na aankomst`;
       const ond = el('td', 'lw-num', r.onderweg ? int.format(r.onderweg) : '—'); if (r.leveringen && r.leveringen.length) ond.title = r.leveringen.map((l) => { const e = CPETA.get(pon(l.po)) || l.datum; return `${l.po}: ${int.format(l.stuks)} op ${dNl(e)}`; }).join('\n');
       tr.append(nm, el('td', '', r.leverancier), el('td', 'lw-num', int.format(r.voorraad)), ond,
         el('td', a.kortVoor ? 'lw-bad' : '', a.opDatum ? dNl(a.opDatum) + (a.kortVoor && r.onderweg ? ' (tijdelijk op tot levering)' : '') : 'na 60 wk'), el('td', 'lw-num', a.L + ' wk'),
@@ -502,7 +504,7 @@
       if (isAdmin()) { const i = el('input'); i.type = 'number'; i.step = '0.01'; i.min = 0; i.value = x.cbm ?? ''; i.placeholder = '?'; i.addEventListener('change', () => saveCbm(x.r.sku, i.value === '' ? null : Number(i.value))); cbTd.append(i); }
       else cbTd.textContent = x.cbm ? n2.format(x.cbm) : '?';
       const wk = x.a.perWk > 0 ? (Math.max(0, x.a.atArr) + x.q) / x.a.perWk : null;
-      tr.append(el('td', 'lw-wrap', short(x.r.naam)), el('td', '', x.r.sku + (HERK[x.r.sku] ? ' · ' + HERK[x.r.sku].artikel : '')), el('td', '', x.a.status), el('td', 'lw-num', int.format(x.q)), cbTd,
+      tr.append(el('td', 'lw-wrap', vol(x.r.naam)), el('td', '', x.r.sku + (HERK[x.r.sku] ? ' · ' + HERK[x.r.sku].artikel : '')), el('td', '', x.a.status), el('td', 'lw-num', int.format(x.q)), cbTd,
         el('td', 'lw-num', x.cbm ? n1.format(x.q * x.cbm) : '—'), el('td', 'lw-num', eur0.format(x.q * (x.r.kostprijs || 0))), el('td', '', wk == null ? '—' : n1.format(wk) + ' wk'));
       tb.append(tr);
     }
@@ -615,7 +617,7 @@
     for (const x of list.slice(0, 500)) {
       const r = x.r, a = x.a, k = keuze(r.sku), ti = x.ti;
       const tr = el('tr', 'dk-row'); tr.dataset.key = r.sku; tr.setAttribute('aria-expanded', String(OPEN.has(r.sku)));
-      const nm = el('td', 'lw-wrap'); nm.append(el('span', 'dk-caret', OPEN.has(r.sku) ? '▾ ' : '▸ '), document.createTextNode(String(r.naam || '').split('|').slice(0, 3).map((t) => t.trim()).join(' · '))); nm.title = `${r.sku} · ${x.c.col}`;
+      const nm = naamCel(el('td', 'lw-wrap'), r, el('span', 'dk-caret', OPEN.has(r.sku) ? '▾ ' : '▸ ')); nm.title = x.c.col;
       const om = el('td', 'lw-num'); om.append(document.createTextNode(r.omzet_52w ? eur0.format(r.omzet_52w) : '—'), el('span', 'dk-share', r.omzet_52w ? new Intl.NumberFormat(nl, { style: 'percent', maximumFractionDigits: 1 }).format(r.omzet_52w / totOmzet) : ''));
       const lev = (r.leveringen || []).slice().sort((p, q) => (etaOf(p) < etaOf(q) ? -1 : 1));
       const inc = el('td', '');
