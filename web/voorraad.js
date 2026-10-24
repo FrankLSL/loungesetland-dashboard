@@ -91,6 +91,7 @@
     }
     const out = new Map();
     for (const [k, a] of by) { a.sort((x, y) => x - y); out.set(k, Math.round(a[Math.floor(a.length / 2)])); }
+    out.n = new Map([...by].map(([k, a]) => [k, a.length]));
     return out;
   }
   const guess = (name) => (/mod|foshan|ningbo|cathrine|container|tierra|republic/i.test(name || '') ? 13 : 2);
@@ -165,7 +166,7 @@
     const wkTo = (i) => addD(t0, i * 7);
     const perWk = v.slice(a, a + D).reduce((x, y) => x + y, 0) / D;
     const tekortVoor = Math.max(0, -Math.min(0, ...proj.slice(0, Math.max(1, a))));
-    return { cny: nu.cny, leb: nu.leb, land, tekortVoor, kortVoor, L, opDatum: opIdx === null ? null : wkTo(opIdx), bestelDatum: orderBy === null ? null : wkTo(Math.max(0, orderBy)), orderBy, qty: rank <= 2 || P.vr_alles ? qty : 0, qtyNu: qty, status, rank, atArr, perWk, aankomst: wkTo(a) };
+    return { cny: nu.cny, leb: nu.leb, land, tekortVoor, kortVoor, L, opDatum: opIdx === null ? null : wkTo(opIdx), bestelDatum: orderBy === null ? null : wkTo(Math.max(0, orderBy)), orderBy, qty: rank <= 2 || P.vr_alles ? qty : 0, qtyNu: qty, status, rank, atArr, perWk, aankomst: wkTo(a), D, B, need, inWin, bp: rp === null ? null : wkTo(rp), bufNu: rp === null ? 0 : bufAt(rp) };
   }
 
   // ---------- containers ----------
@@ -182,7 +183,7 @@
     return { txt, cap, list };
   }
 
-  let LAST = null, MKX = null;
+  let LAST = null, MKX = null; const OPENB = new Set();
   function render() {
     const root = document.getElementById('pg-vr');
     if (!root) return;
@@ -233,6 +234,9 @@
       const herLoc = HERK[r.sku] && HERK[r.sku].locatie;
       const land = origine ? (['A', 'B'].includes(herLoc) ? 'indo' : 'china') : g === 'republic' ? 'indo' : g === 'mod' || g === 'tierra' || /foshan|ningbo|cathrine|mod outdoor|tierra/i.test(r.leverancier || '') ? 'china' : null;
       const a = advies(r, P, L, vOverride, land); const c = cbmOf(r.sku);
+      const lid = origine ? 20084 : g === 'ab' ? 21362 : r.leverancier_id;
+      a.ltBron = P['lt_' + lid] != null && P['lt_' + lid] !== '' ? 'handmatig ingesteld bij Instellingen' : hist.has(lid) ? `mediaan van ${hist.n.get(lid)} eigen inkooporders (besteld → aankomst)` : 'schatting (nog geen inkooporders met datum)';
+      a.ltLev = origine ? 'Apple Bee uit origine (container)' : g === 'ab' ? 'Apple Bee-magazijn' : r.leverancier;
       if (origine && a.rank === 0) { a.rank = 1; a.status = 'Nu bestellen'; } // tekort tot de container vangt het magazijn op
       return { r, a, cbm: c, g, origine, mag: origine && a.tekortVoor > 0 ? Math.ceil(a.tekortVoor) : 0 }; };
     const allIncl = dk.filter((r) => actief(r) && !uitlopend(r)).map((r) => MKX(r));
@@ -287,9 +291,11 @@
     if (nonActief) inact.append(document.createTextNode(`${nonActief} producten staan niet in de lijst: uitlopend, of zonder voorraad, inkooporder en verkoop in de laatste 13 weken.`));
     const tb = document.querySelector('#vr-tbl tbody');
     const stCls = (s) => (s === 'Te laat' ? ' lw-bad' : s === 'Nu bestellen' || s === 'Binnen 4 weken' || s === 'Tekort tot levering' ? ' lw-warn' : ' lw-ok');
-    tb.replaceChildren(...list.slice(0, 400).map((x) => {
-      const tr = el('tr'); const r = x.r, a = x.a;
-      const nm = el('td', 'lw-wrap', short(r.naam)); nm.title = `${r.sku} · ${int.format(r.verkocht_52w)} verkocht in 52 weken · verwacht ${n1.format(a.perWk)}/week na aankomst`;
+    if (!tb._vrClick) { tb._vrClick = true; tb.addEventListener('click', (e) => { if (e.target.closest('.dk-detail, button, input, select')) return; const tr = e.target.closest('tr.dk-row'); if (!tr) return; const k = tr.dataset.key; const was = OPENB.has(k); OPENB.clear(); if (!was) OPENB.add(k); render(); }); }
+    if (tb.closest('.lw-tablebox')) tb.closest('.lw-tablebox').classList.toggle('dk-open', OPENB.size > 0);
+    tb.replaceChildren(...list.slice(0, 400).flatMap((x) => {
+      const r = x.r, a = x.a; const tr = el('tr', 'dk-row'); tr.dataset.key = r.sku; tr.setAttribute('aria-expanded', String(OPENB.has(r.sku)));
+      const nm = el('td', 'lw-wrap'); nm.append(el('span', 'dk-caret', OPENB.has(r.sku) ? '▾ ' : '▸ '), document.createTextNode(short(r.naam))); nm.title = `${r.sku} · ${int.format(r.verkocht_52w)} verkocht in 52 weken · verwacht ${n1.format(a.perWk)}/week na aankomst`;
       const ond = el('td', 'lw-num', r.onderweg ? int.format(r.onderweg) : '—'); if (r.leveringen && r.leveringen.length) ond.title = r.leveringen.map((l) => { const e = CPETA.get(pon(l.po)) || l.datum; return `${l.po}: ${int.format(l.stuks)} op ${dNl(e)}`; }).join('\n');
       tr.append(nm, el('td', '', r.leverancier), el('td', 'lw-num', int.format(r.voorraad)), ond,
         el('td', a.kortVoor ? 'lw-bad' : '', a.opDatum ? dNl(a.opDatum) + (a.kortVoor && r.onderweg ? ' (tot levering)' : '') : 'na 60 wk'), el('td', 'lw-num', a.L + ' wk'),
@@ -303,7 +309,9 @@
       const mkl = (t, l) => { const b = el('button', 'vr-link', l); b.type = 'button'; b.addEventListener('click', () => saveStat(r.sku, t ? { type: t, tot: t === 'wacht' ? addD(today(), 28) : null, at: today() } : null)); return b; };
       if (h) lnk.append(mkl(null, 'weer meenemen')); else lnk.append(mkl('wacht', 'aankijken'), mkl('stop', 'niet meer bestellen'));
       st.append(lnk); tr.append(st);
-      return tr;
+      if (!OPENB.has(r.sku)) return [tr];
+      const d = el('tr', 'dk-detail'); const td = el('td'); td.colSpan = 11; td.append(detail(r, x, true)); d.append(td);
+      return [tr, d];
     }));
     const sq = list.reduce((t, x) => t + x.a.qty, 0), sc = list.reduce((t, x) => t + (x.cbm ? x.a.qty * x.cbm : 0), 0), se = list.reduce((t, x) => t + x.a.qty * (x.r.kostprijs || 0), 0);
     document.getElementById('vr-ft-q').textContent = int.format(sq);
@@ -567,8 +575,9 @@
     }
     tb.replaceChildren(...out);
   }
-  function detail(r, x) {
+  function detail(r, x, metWaarom) {
     const box = el('div', 'dk-box'); const k = keuze(r.sku);
+    if (metWaarom) box.append(waarom(r, x));
     const mnd = (s) => P0(s + '-01').toLocaleDateString(nl, { month: 'short', timeZone: 'UTC' }).replace('.', '');
     // kaartjes: voorraad, inkomend, voorraad tot, bestellen
     const cards = el('div', 'dk-cards');
@@ -615,6 +624,28 @@
     mt.append(mtb); const mb = el('div', 'lw-tablebox'); mb.append(mt); box.append(mb);
     box.append(el('p', 'lw-note', `* rest van deze maand. Verwacht = ${r.vraag_eigen ? 'verkoop van dit product in dezelfde maand vorig seizoen' : 'gemiddelde verkoop per week (product loopt nog geen jaar) verdeeld volgens het seizoenspatroon van de winkel'} × (1 + groei). Maanden waarin het product uitverkocht was tellen als lage verkoop: kies dan een hoger scenario. Je keuze wordt per product opgeslagen en geldt ook voor de bestellijst.`));
     return box;
+  }
+  // uitleg bij het advies: waarom, wanneer we anders uitlopen en op welke aannames het rust
+  function waarom(r, x) {
+    const a = x.a, k = keuze(r.sku), v = window.vrVraag(r);
+    const w = el('div', 'dk-why'); w.append(el('h4', '', 'Waarom dit advies'));
+    const ol = el('ol');
+    const li = (html, sub) => { const l = el('li'); l.innerHTML = html; if (sub) l.append(el('div', 'dk-why-s', sub)); ol.append(l); };
+    const f = (n) => int.format(Math.round(n)), d = (s) => (s ? dNl(s) : '—'), esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    const v13 = v.slice(0, 13).reduce((t, y) => t + y, 0);
+    li(`<b>Verwachte verkoop:</b> ${f(v13)} st in de komende 13 weken, rond de aankomst van een nieuwe bestelling ± ${n1.format(a.perWk)} st per week.`,
+      `Basis: ${r.vraag_eigen ? 'verkoop van dit product in dezelfde maanden vorig seizoen' : 'gemiddelde weekverkoop (product loopt nog geen jaar) × seizoenspatroon van de winkel'}, × groei ${scenNaam(k)}${k === 'b' ? ' (de begrote groei per maand)' : ''}. Vorig jaar 52 weken: ${f(r.verkocht_52w || 0)} st verkocht, laatste 13 weken ${f(r.verkocht_13w || 0)} st.`);
+    const lev = (r.leveringen || []).slice().sort((p, q) => (etaOf(p) < etaOf(q) ? -1 : 1));
+    li(`<b>Voorraad en onderweg:</b> nu ${f(r.voorraad)} st (vrij, na al verkochte orders)${lev.length ? ', onderweg ' + lev.map((l) => `${f(l.stuks)} st (${esc(l.po)}, ${d(etaOf(l))})`).join(', ') : ', niets onderweg'}.`,
+      a.opDatum ? `Zonder nieuwe bestelling ${a.kortVoor && lev.length ? 'raak je op ' + d(a.opDatum) + ' tijdelijk op, nog vóór de volgende levering' : 'loop je uit op ± ' + d(a.opDatum)}.` : 'Zonder nieuwe bestelling heb je de komende 60 weken genoeg.');
+    li(`<b>Levertijd:</b> ${a.L} weken (${esc(a.ltLev)}): ${a.ltBron}. Bestel je nu, dan binnen ± ${d(a.aankomst)}.`,
+      a.cny ? 'Inclusief Chinees Nieuwjaar: fabrieken dicht ± 15 jan – eind feb, eerste schepen ± 10 maart; na 1 december besteld ± 3 weken later weg door drukte.' : a.leb ? 'Inclusief Lebaran: Indonesische fabrieken ± 2 weken dicht rond Idul Fitri.' : '');
+    if (a.bp) li(`<b>Bestelpunt:</b> ${d(a.bp)} zakt de voorraad onder de veiligheidsvoorraad van ${a.B} weken verkoop (${f(a.bufNu)} st). De levering moet dan binnen zijn, dus <b>bestellen uiterlijk ${a.rank <= 1 ? 'nu' : d(a.bestelDatum)}</b>.`,
+      a.kortVoor ? `Je raakt al eerder op (${d(a.opDatum)}) dan een bestelling van nu binnen kan zijn (${d(a.aankomst)})${x.mag ? `; ${f(x.mag)} st uit het Apple Bee-magazijn overbrugt dat gat` : ''}.` : '');
+    else li('<b>Bestelpunt:</b> niet binnen 60 weken, dus geen bestelling nodig.');
+    if (a.qtyNu) li(`<b>Hoeveelheid ${f(a.qtyNu)} st:</b> verkoop vanaf aankomst over ${a.D} weken dekking + ${a.B} weken veiligheid = ${f(a.need)} st, min ${f(Math.max(0, a.atArr))} st die er bij aankomst nog ligt${a.inWin ? `, min ${f(a.inWin)} st die in die periode al binnenkomt` : ''}.`,
+      `Dekking en veiligheidsvoorraad pas je aan bij Instellingen${x.cbm ? ` · ${n1.format(a.qtyNu * x.cbm)} cbm` : ''}${r.kostprijs ? ` · inkoop ± ${eur0.format(a.qtyNu * r.kostprijs)}` : ''}.`);
+    w.append(ol); return w;
   }
   // tot wanneer is er voorraad: eerste tekort ná de laatste levering; een tekort vóór een levering is tijdelijk ('nu op, weer binnen …')
   const totInfo = (r, v, ab) => {

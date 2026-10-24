@@ -260,15 +260,15 @@
 #dash-root #vr-lev tbody tr, #dash-root #vr-in tr.vr-po { cursor: pointer; }
 #dash-root #vr-in tr.vr-detail > td { background: #fff; padding: .2rem .5rem .8rem 1.5rem; }
 #dash-root .vr-sub { font-size: .8rem; margin: .3rem 0; }
-#dash-root #tbl-dk tr.dk-row { cursor: pointer; }
-#dash-root #tbl-dk tr.dk-row:hover td { background: var(--ls-lime-soft); }
-#dash-root #tbl-dk tr.dk-row[aria-expanded="true"] td { background: var(--ls-lime-soft); font-weight: 600; }
-#dash-root #tbl-dk .dk-caret { color: var(--color-fg-muted); font-size: .75rem; }
+#dash-root :is(#tbl-dk,#vr-tbl) tr.dk-row { cursor: pointer; }
+#dash-root :is(#tbl-dk,#vr-tbl) tr.dk-row:hover td { background: var(--ls-lime-soft); }
+#dash-root :is(#tbl-dk,#vr-tbl) tr.dk-row[aria-expanded="true"] td { background: var(--ls-lime-soft); font-weight: 600; }
+#dash-root :is(#tbl-dk,#vr-tbl) .dk-caret { color: var(--color-fg-muted); font-size: .75rem; }
 #dash-root #tbl-dk .dk-scen { font-size: .72rem; color: var(--color-fg-muted); font-weight: 400; }
 #dash-root #tbl-dk td.dk-strong { font-weight: 700; }
 #dash-root #tbl-dk td.dk-warn { color: #8a5d00; font-weight: 600; }
 #dash-root .lw-tablebox.dk-open { max-height: none; }
-#dash-root #tbl-dk tr.dk-detail > td, #dash-root #tbl-dk tr.dk-detail:hover > td { background: #fbfaf7; padding: .8rem 1rem 1.2rem 2rem; white-space: normal; border-bottom: 2px solid var(--ls-line, #e4dfd6); }
+#dash-root :is(#tbl-dk,#vr-tbl) tr.dk-detail > td, #dash-root :is(#tbl-dk,#vr-tbl) tr.dk-detail:hover > td { background: #fbfaf7; padding: .8rem 1rem 1.2rem 2rem; white-space: normal; border-bottom: 2px solid var(--ls-line, #e4dfd6); }
 #dash-root .dk-filters { display: flex; flex-wrap: wrap; gap: .5rem .9rem; align-items: center; margin-bottom: .6rem; }
 #dash-root .dk-filters select, #dash-root .dk-filters input { font: inherit; font-size: .85rem; padding: .25rem .6rem; border: 1px solid var(--ls-line, #e4dfd6); border-radius: 999px; background: #fff; }
 #dash-root .dk-filters select { max-width: 22rem; }
@@ -277,6 +277,11 @@
 #dash-root #tbl-dk .dk-po { font-size: .8rem; white-space: nowrap; }
 #dash-root .dk-potab { border-collapse: collapse; margin-top: .2rem; font-size: .8rem; }
 #dash-root .dk-potab td { padding: .05rem .8rem .05rem 0; background: transparent !important; color: var(--color-fg); }
+#dash-root .dk-why { background: #fff; border: 1px solid var(--ls-line, #e4dfd6); border-radius: 10px; padding: .7rem 1rem; font-size: .85rem; max-width: 60rem; }
+#dash-root .dk-why h4 { margin: 0 0 .4rem; font-size: .9rem; }
+#dash-root .dk-why ol { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: .35rem; }
+#dash-root .dk-why b { color: var(--ls-green, #1f4b47); }
+#dash-root .dk-why .dk-why-s { color: var(--color-fg-muted); font-size: .78rem; }
 #dash-root .dk-box { display: flex; flex-direction: column; gap: .9rem; }
 #dash-root .dk-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: .6rem; }
 #dash-root .dk-card { background: #fff; border: 1px solid var(--ls-line, #e4dfd6); border-top: 3px solid #84bd3f; border-radius: 8px; padding: .5rem .8rem; }
