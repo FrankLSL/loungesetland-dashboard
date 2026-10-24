@@ -731,15 +731,14 @@ def voorraad_analyse():
         vraag0 = [round(basis * x, 2) for x in seiz0]
         vraag_eigen = None
         if first <= last52[-1]:
-            vraag_eigen = []
-            for d in fut:
-                dm = d + datetime.timedelta(days=3)
-                y = dm.year - 1
-                while datetime.date(y, dm.month, 28) >= cur and y > 2000:
+            # per dag: verkoop van die kalendermaand in het laatste volle jaar ÷ dagen in de maand; week = som van 7 dagen
+            def per_dag(day):
+                y = day.year - 1
+                while datetime.date(y, day.month, 28) >= cur and y > 2000:
                     y -= 1
-                key = f'{y}-{dm.month:02d}'
-                dim = (datetime.date(y + (dm.month == 12), dm.month % 12 + 1, 1) - datetime.timedelta(days=1)).day
-                vraag_eigen.append(round(max(0.0, mnd.get(key, 0.0)) / (dim / 7), 2))
+                dim = (datetime.date(y + (day.month == 12), day.month % 12 + 1, 1) - datetime.timedelta(days=1)).day
+                return max(0.0, mnd.get(f'{y}-{day.month:02d}', 0.0)) / dim
+            vraag_eigen = [round(sum(per_dag(d + datetime.timedelta(days=j)) for j in range(7)), 3) for d in fut]
         weken = None
         if voorraad <= 0:
             weken = 0.0

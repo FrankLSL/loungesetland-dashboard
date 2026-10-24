@@ -527,7 +527,12 @@
     // per maand: verkocht vorige seizoenen, prognose, inkomend, voorraad eind maand
     const v = window.vrVraag(r), p = projectie(r, v, x.origine);
     const prog = new Map(), eind = new Map(), inM = new Map(), magM = new Map();
-    for (let i = 0; i < v.length; i++) { const m = addD(p.wk(i), 3).slice(0, 7); prog.set(m, (prog.get(m) || 0) + v[i]); eind.set(m, p.proj[i]); if (p.arr[i]) inM.set(m, (inM.get(m) || 0) + p.arr[i]); if (p.mag[i]) magM.set(m, (magM.get(m) || 0) + p.mag[i]); }
+    // per maand op dagbasis: een week die over twee maanden loopt telt naar rato van de dagen mee
+    for (let i = 0; i < v.length; i++) {
+      for (let j = 0; j < 7; j++) { const m = addD(p.wk(i), j).slice(0, 7); prog.set(m, (prog.get(m) || 0) + v[i] / 7); if (p.mag[i]) magM.set(m, (magM.get(m) || 0) + p.mag[i] / 7); }
+      eind.set(addD(p.wk(i), 6).slice(0, 7), p.proj[i]);
+    }
+    for (const l of r.leveringen || []) { const m = etaOf(l).slice(0, 7); inM.set(m, (inM.get(m) || 0) + (Number(l.stuks) || 0)); }
     const M = r.maanden || {};
     const pm = [...prog.keys()].slice(0, 12);
     const shift = (m, n) => { const d = new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1 + n, 1)); return d.toISOString().slice(0, 7); };
