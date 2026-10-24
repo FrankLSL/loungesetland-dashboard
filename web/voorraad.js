@@ -569,7 +569,7 @@
     // basis: het advies (bestelpunt), of 'dekken tot' een gekozen datum
     const tot = /^\d{4}-\d{2}-\d{2}$/.test(P.vr_tot || '') ? P.vr_tot : null;
     const QOc = qoMap();
-    const items = all.filter((x) => ofLev(x) && (x.a.rank <= 2 || QOc.has(x.r.sku) || (x.cbm && x.r.verkocht_52w > 0 && x.a.perWk > 0) || (tot && x.a.perWk > 0))).map((x) => { const q0 = tot ? nodigTot(x, tot) : x.a.rank <= 2 ? x.a.qty : 0, uit = excl.has(x.r.sku); return { ...x, q0, uit, q: uit ? 0 : q0 }; });
+    const items = all.filter((x) => ofLev(x) && (x.a.rank <= 2 || QOc.has(x.r.sku) || (x.cbm && x.r.verkocht_52w > 0 && x.a.perWk > 0) || (tot && x.a.perWk > 0))).map((x) => { const q0 = tot ? nodigTot(x, tot) : x.a.rank <= 2 ? x.a.qty : 0, uit = excl.has(x.r.sku); return { ...x, q0, uit, q: uit ? 0 : q0 }; }).filter((x) => !(x.uit && x.q0 === 0 && QOc.has(x.r.sku)));
     const tg = el('div', 'lw-mini');
     const maxC = Number(P.vr_max) || 0;
     const b1 = el('button', '', 'Alleen het advies'); b1.type = 'button'; b1.setAttribute('aria-pressed', String(!fill && !maxC && !tot)); b1.addEventListener('click', () => dash.setParams({ vr_fill: null, vr_max: null, vr_tot: null }));
@@ -811,7 +811,12 @@
       tr.append(el('td', 'lw-wrap', vol(x.r.naam)), el('td', '', x.r.sku + (HERK[x.r.sku] ? ' · ' + HERK[x.r.sku].artikel : '')), el('td', '', x.a.status), qtyCel(x), cbTd,
         el('td', 'lw-num', x.cbm ? n1.format(x.q * x.cbm) : '—'), el('td', 'lw-num', eur0.format(x.q * (x.r.kostprijs || 0))), el('td', '', x.uit ? 'eruit' : x.a.perWk > 0 ? (dt ? dNl(dt) : 'ruim (na 60 wk)') : '—'));
       const act = el('td'); const ab = el('button', 'vr-link', x.uit ? 'terugzetten' : 'eruit'); ab.type = 'button'; ab.title = x.uit ? 'Weer meenemen in dit voorstel' : 'Tijdelijk uit dit containervoorstel halen; de ruimte wordt aangevuld';
-      ab.addEventListener('click', () => { const e = excl0(); if (x.uit) e.delete(x.r.sku); else e.add(x.r.sku); dash.setParams({ vr_cx: [...e].join(',') || null }); });
+      ab.addEventListener('click', () => {
+        const e = excl0(), o = qoMap();
+        // zelf toegevoegd (geen advies): 'eruit' haalt hem helemaal weg, tot je hem opnieuw toevoegt
+        if (!x.uit && x.q0 === 0 && o.has(x.r.sku)) { o.delete(x.r.sku); e.delete(x.r.sku); dash.setParams({ vr_qo: [...o.entries()].map(([k, v]) => `${k}:${v}`).join('|') || null, vr_cx: [...e].join(',') || null }); return; }
+        if (x.uit) e.delete(x.r.sku); else e.add(x.r.sku); dash.setParams({ vr_cx: [...e].join(',') || null });
+      });
       act.append(ab); tr.append(act);
       tb.append(tr);
     }
