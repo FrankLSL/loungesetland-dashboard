@@ -260,6 +260,20 @@
 #dash-root #vr-lev tbody tr, #dash-root #vr-in tr.vr-po { cursor: pointer; }
 #dash-root #vr-in tr.vr-detail > td { background: #fff; padding: .2rem .5rem .8rem 1.5rem; }
 #dash-root .vr-sub { font-size: .8rem; margin: .3rem 0; }
+#dash-root #tbl-dk tr.dk-row { cursor: pointer; }
+#dash-root #tbl-dk tr.dk-row[aria-expanded="true"] td { background: var(--ls-lime-soft); }
+#dash-root .lw-tablebox.dk-open { max-height: none; }
+#dash-root #tbl-dk tr.dk-detail > td, #dash-root #tbl-dk tr.dk-detail:hover > td { background: #fff; padding: .4rem .6rem 1rem 1.6rem; white-space: normal; }
+#dash-root .dk-box .lw-mini { align-items: center; }
+#dash-root .dk-box .dk-lbl { font-size: .8rem; color: var(--color-fg-muted); margin-right: .2rem; }
+#dash-root .dk-box input[type=number] { font: inherit; font-size: .8rem; width: 6rem; padding: .15rem .4rem; border: 1px solid var(--ls-line, #e4dfd6); border-radius: 999px; }
+#dash-root .dk-box .vr-sub { max-width: 46rem; }
+#dash-root .dk-box .dk-mnd { max-width: none; }
+#dash-root .dk-box tbody tr td { background: #fff; }
+#dash-root .dk-box tbody tr:nth-child(even) td { background: #faf8f4; }
+#dash-root .dk-box tr.dk-sel td { font-weight: 600; background: var(--ls-lime-soft); }
+#dash-root .dk-box tr.dk-prog td { font-weight: 600; color: var(--ls-green, #1f4b47); }
+#dash-root .dk-box .dk-line { margin: .2rem 0 .5rem; font-size: .85rem; }
 #dash-root h3.vr-loc { margin: 1.2rem 0 .2rem; font-size: 1rem; }
 #dash-root .vr-sub th { background: var(--ls-lime-soft, #eef5e4); color: var(--ls-green, #1f4b47); }
 #dash-root #vr-lev tbody tr[aria-pressed="true"] td { background: var(--ls-lime-soft); }
@@ -911,7 +925,7 @@
       <div class="lw-card" id="card-dk">
         <h3 id="dk-title">Top 40 bestsellers</h3>
         <div class="lw-mini" id="dk-scope"><button type="button" data-scope="">Top 40</button><button type="button" data-scope="alles">Alle producten</button></div>
-        <p class="lw-note">Weken voorraad = hoe lang de huidige voorraad meegaat zonder nieuwe levering. ‘Op’ = de week waarin het product uitverkocht raakt, mét de geplande leveringen. Gemist = verwachte verkoop die je niet kunt leveren tot de eerste levering (zonder inkoop: in de komende 26 weken). Klik op een tegel hierboven om alleen die producten te zien.</p>
+        <p class="lw-note">Weken voorraad = hoe lang de huidige voorraad meegaat zonder nieuwe levering. ‘Op’ = de week waarin het product uitverkocht raakt, mét de geplande leveringen. Gemist = verwachte verkoop die je niet kunt leveren tot de eerste levering (zonder inkoop: in de komende 26 weken). Klik op een tegel hierboven om alleen die producten te zien. Klik op een product om de verkoop per maand, de leveringen en de groeiscenario's te zien.</p>
         <div class="lw-tablebox lw-tablebox-20">
           <table class="lw-table lw-stocktable" id="tbl-dk" data-source="st_dekking" data-row-key="sku">
             <thead><tr>

@@ -22,12 +22,30 @@
   const isAdmin = () => !!(dash.user && dash.user.r === 'beheerder');
 
   // ---------- CBM per product (gedeeld document voorraad/cbm) ----------
-  let CBM = {}, HERK = {}, cbmLoaded = false, db = null;
+  let CBM = {}, HERK = {}, GROEI = {}, cbmLoaded = false, db = null;
+  // ---------- verwachte verkoop per product, met gekozen groei ----------
+  // basis = eigen verkoop in dezelfde maand van het laatste volle jaar (als het product ≥ 52 weken loopt), anders winkelpatroon;
+  // groei: getal in % of 'b' = begroting (per maand uit 'Omzet tegen begroting')
+  const SEIZ = () => rows('st_seizoen') || [];
+  const keuze = (sku) => (GROEI[sku] == null ? 'b' : GROEI[sku]);
+  function vraagMet(r, g) {
+    const base = r.vraag_eigen || r.vraag0;
+    if (!base) return r.vraag || [];
+    const sz = SEIZ();
+    return base.map((x, i) => x * (1 + (g === 'b' ? (sz[i] ? Number(sz[i].groei) || 0 : 0) : Number(g) || 0) / 100));
+  }
+  window.vrVraag = (r) => vraagMet(r, keuze(r.sku));
+  async function saveGroei(sku, v) {
+    GROEI = Object.assign({}, GROEI); if (v == null) delete GROEI[sku]; else GROEI[sku] = v;
+    try { if (db) { const g = await db.doc('voorraad/groei').get(); const w = Object.assign({}, g.exists ? g.data().waarden || {} : {}); if (v == null) delete w[sku]; else w[sku] = v; await db.doc('voorraad/groei').set({ waarden: w, at: new Date().toISOString() }); } } catch (e) { /* alleen lokaal */ }
+    render(); dkDecorate();
+  }
   const LOCNAAM = { I: 'China', J: 'China', C: 'China', E: 'China', A: 'Indonesië', B: 'Indonesië' };
   (async () => {
     try { db = window.claude && window.claude.use ? await window.claude.use('db') : null; } catch (e) { db = null; }
     try { if (db) { const s = await db.doc('voorraad/cbm').get(); CBM = s.exists ? (s.data().waarden || {}) : {}; } } catch (e) { CBM = {}; }
     try { if (db) { const h = await db.doc('voorraad/herkomst').get(); HERK = h.exists ? (h.data().waarden || {}) : {}; } } catch (e) { HERK = {}; }
+    try { if (db) { const g = await db.doc('voorraad/groei').get(); GROEI = g.exists ? (g.data().waarden || {}) : {}; } } catch (e) { GROEI = {}; }
     cbmLoaded = true; render();
   })();
   async function saveCbm(sku, v) {
@@ -59,7 +77,7 @@
   // ---------- advies per product ----------
   function advies(r, P, L) {
     const D = Math.max(1, num(P.vr_dek, 16)), B = Math.max(0, num(P.vr_buf, 2));
-    const v = r.vraag || [], H = v.length;
+    const v = window.vrVraag(r), H = v.length;
     const t0 = r._week0;
     const arr = new Array(H).fill(0);
     for (const x of r.leveringen || []) { const dt = (r._cpEta && r._cpEta.get(pon(x.po))) || x.datum; const i = Math.max(0, Math.floor((P0(dt < today() ? today() : dt) - P0(t0)) / DAY / 7)); if (i < H) arr[i] += Number(x.stuks) || 0; }
@@ -353,5 +371,88 @@
 
   // instellingen-velden
   document.querySelectorAll('#vr-set [data-vrp]').forEach((i) => i.addEventListener('change', () => dash.setParams({ [i.dataset.vrp]: i.value === '' ? null : Number(i.value) })));
-  dash.onData(() => { try { render(); } catch (e) { console.error('[voorraad]', e); } });
+  dash.onData(() => { try { render(); } catch (e) { console.error('[voorraad]', e); } try { dkDecorate(); } catch (e) { console.error('[voorraad] detail', e); } });
+
+  // ---------- dekking per product: regel openklappen ----------
+  const OPEN = new Set();
+  const projectie = (r, v) => {
+    const H = v.length, t0 = (SEIZ()[0] || {}).week || today(); const cpEta = CPETA_G;
+    const arr = new Array(H).fill(0);
+    for (const x of r.leveringen || []) { const dt0 = (cpEta && cpEta.get(pon(x.po))) || x.datum; const dt = dt0 < today() ? today() : dt0; const i = Math.max(0, Math.floor((P0(dt) - P0(t0)) / DAY / 7)); if (i < H) arr[i] += Number(x.stuks) || 0; }
+    let s = Number(r.voorraad) || 0, op = null; const proj = [];
+    for (let i = 0; i < H; i++) { s += arr[i] - v[i]; proj.push(s); if (op === null && s < 0) op = i; }
+    return { proj, op, arr, t0, wk: (i) => addD(t0, i * 7) };
+  };
+  let CPETA_G = new Map();
+  function dkDecorate() {
+    const tbl = document.getElementById('tbl-dk'); if (!tbl) return;
+    const tb = tbl.querySelector('tbody'); const dk = rows('st_dekking'); if (!dk || !tb) return;
+    CPETA_G = new Map((rows('cp_open') || []).filter((c) => c.eta).map((c) => [pon(c.po), c.eta]));
+    const bySku = new Map(dk.map((r) => [String(r.sku), r]));
+    if (!tb._vrClick) {
+      tb._vrClick = true;
+      tb.addEventListener('click', (e) => {
+        if (e.target.closest('.dk-detail')) return;
+        const tr = e.target.closest('tr'); if (!tr || !tr.dataset.key) return;
+        const k = tr.dataset.key; if (OPEN.has(k)) OPEN.delete(k); else OPEN.add(k); dkDecorate();
+      });
+    }
+    tb.querySelectorAll('tr.dk-detail').forEach((x) => x.remove());
+    if (tbl.parentElement) tbl.parentElement.classList.toggle('dk-open', OPEN.size > 0);
+    for (const tr of [...tb.children]) {
+      const r = bySku.get(tr.dataset.key); if (!r) continue;
+      tr.classList.add('dk-row'); tr.setAttribute('aria-expanded', String(OPEN.has(tr.dataset.key)));
+      // eigen groeikeuze: 'Op' in de tabel daarop aanpassen
+      if (GROEI[r.sku] != null) {
+        const p = projectie(r, window.vrVraag(r)); const td = tr.children[6];
+        if (td) td.textContent = (p.op === null ? 'na 60 wk' : dNl(p.wk(p.op))) + ` (${GROEI[r.sku] === 'b' ? 'begroting' : (GROEI[r.sku] > 0 ? '+' : '') + GROEI[r.sku] + '%'})`;
+      }
+      if (OPEN.has(tr.dataset.key)) { const d = el('tr', 'dk-detail'); const td = el('td'); td.colSpan = tr.children.length; td.append(detail(r)); d.append(td); tr.after(d); }
+    }
+  }
+  function detail(r) {
+    const box = el('div', 'dk-box'); const sz = SEIZ(); const k = keuze(r.sku);
+    const mnd = (s) => P0(s + '-01').toLocaleDateString(nl, { month: 'short', timeZone: 'UTC' }).replace('.', '');
+    // voorraad en leveringen
+    const lev = (r.leveringen || []).map((x) => { const e = CPETA_G.get(pon(x.po)) || x.datum; return `${x.po}: ${int.format(x.stuks)} st op ${dNl(e < today() ? today() : e)}`; });
+    box.append(el('p', 'dk-line', `Voorraad nu: ${int.format(r.voorraad)} beschikbaar (${int.format(r.in_stock ?? r.voorraad)} op voorraad). ` + (lev.length ? 'Komt binnen: ' + lev.join(' · ') + '.' : 'Geen inkoop onderweg.')));
+    // groeikeuze
+    const opts = [[0, '0%'], [10, '+10%'], [20, '+20%'], [30, '+30%'], ['b', 'Begroting']];
+    const bar = el('div', 'lw-mini'); bar.append(el('span', 'dk-lbl', 'Verwachte groei t.o.v. vorig jaar:'));
+    for (const [v, l] of opts) { const b = el('button', '', l); b.type = 'button'; b.setAttribute('aria-pressed', String(String(k) === String(v))); b.addEventListener('click', (e) => { e.stopPropagation(); saveGroei(r.sku, v === 'b' ? null : v); }); bar.append(b); }
+    const inp = el('input'); inp.type = 'number'; inp.step = 5; inp.placeholder = 'eigen %'; if (typeof k === 'number' && ![0, 10, 20, 30].includes(k)) inp.value = k;
+    inp.addEventListener('click', (e) => e.stopPropagation()); inp.addEventListener('change', () => saveGroei(r.sku, inp.value === '' ? null : Number(inp.value)));
+    bar.append(inp); box.append(bar);
+    // scenario's: wanneer op, tekort t/m eind augustus volgend seizoen
+    const eindSeizoen = `${Number(today().slice(0, 4)) + (today().slice(5, 7) > '08' ? 1 : 0)}-08-31`;
+    const st = el('table', 'lw-table vr-sub'); const h = el('tr'); ['Scenario', 'Op', `Tekort t/m ${dNl(eindSeizoen)}`, 'Verkoop t/m dan'].forEach((x, i) => h.append(el('th', i >= 2 ? 'lw-num' : '', x))); const th = el('thead'); th.append(h); st.append(th);
+    const stb = el('tbody');
+    for (const [v, l] of opts) {
+      const vv = vraagMet(r, v), p = projectie(r, vv);
+      let n = 0, verk = 0, min = 0; for (let i = 0; i < vv.length; i++) { if (p.wk(i) > eindSeizoen) break; verk += vv[i]; min = Math.min(min, p.proj[i]); n = i; }
+      const tr = el('tr'); if (String(k) === String(v)) tr.className = 'dk-sel';
+      tr.append(el('td', '', l), el('td', p.op !== null && p.wk(p.op) <= eindSeizoen ? 'lw-bad' : '', p.op === null ? 'na 60 weken' : dNl(p.wk(p.op))), el('td', 'lw-num', min < 0 ? int.format(Math.ceil(-min)) + ' st' : '—'), el('td', 'lw-num', int.format(Math.round(verk))));
+      stb.append(tr);
+    }
+    st.append(stb); box.append(st);
+    // verkoop per maand + prognose + voorraad eind maand
+    const v = window.vrVraag(r), p = projectie(r, v);
+    const prog = new Map(), eind = new Map();
+    for (let i = 0; i < v.length; i++) { const m = addD(p.wk(i), 3).slice(0, 7); prog.set(m, (prog.get(m) || 0) + v[i]); eind.set(m, p.proj[i]); }
+    const M = r.maanden || {};
+    const pm = [...prog.keys()].slice(0, 12);
+    const shift = (m, n) => { const d = new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1 + n, 1)); return d.toISOString().slice(0, 7); };
+    const yy = (m) => `’${m.slice(2, 4)}`;
+    const mt = el('table', 'lw-table vr-sub dk-mnd'); const mh = el('tr'); mh.append(el('th', '', ''));
+    pm.forEach((m, i) => mh.append(el('th', 'lw-num', mnd(m) + (i === 0 ? ' (rest)' : ''))));
+    mh.append(el('th', 'lw-num', 'Totaal')); const mth = el('thead'); mth.append(mh); mt.append(mth);
+    const mtb = el('tbody');
+    const rowOf = (label, get, cls) => { const tr = el('tr', cls || ''); tr.append(el('td', '', label)); let t = 0, any = false; pm.forEach((m) => { const x = get(m); if (x != null) { t += x; any = true; } const td = el('td', 'lw-num', x == null ? '' : int.format(Math.round(x))); if (cls === 'dk-eind' && x != null && x < 0) td.classList.add('lw-bad'); tr.append(td); }); tr.append(el('td', 'lw-num', any && cls !== 'dk-eind' ? int.format(Math.round(t)) : '')); mtb.append(tr); };
+    for (const k of [2, 1]) { const f = shift(pm[0], -12 * k), l = shift(pm[pm.length - 1], -12 * k); if (!Object.keys(M).some((m) => m >= f && m <= l)) continue; rowOf(`Verkocht ${mnd(f)} ${yy(f)} – ${mnd(l)} ${yy(l)}`, (m) => { const key = shift(m, -12 * k); return key in M ? M[key] : null; }); }
+    rowOf(`Prognose ${mnd(pm[0])} ${yy(pm[0])} – ${mnd(pm[pm.length - 1])} ${yy(pm[pm.length - 1])}`, (m) => prog.get(m), 'dk-prog');
+    rowOf('Voorraad eind maand', (m) => eind.get(m), 'dk-eind');
+    mt.append(mtb); const mb = el('div', 'lw-tablebox'); mb.append(mt); box.append(mb);
+    box.append(el('p', 'lw-note', (r.vraag_eigen ? 'Prognose = verkoop van dit product in dezelfde maand van het laatste volle jaar' : 'Prognose = gemiddelde verkoop van de afgelopen 52 weken verdeeld volgens het seizoenspatroon van de winkel (product loopt nog geen jaar)') + ' × (1 + gekozen groei). Maanden waarin het product uitverkocht was tellen mee als lage verkoop. De keuze wordt per product opgeslagen en geldt ook voor de bestellijst.'));
+    return box;
+  }
 })();

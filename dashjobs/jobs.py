@@ -714,6 +714,25 @@ def voorraad_analyse():
                 op_zonder = d
         nxt = next(((d, q, n) for d, q, n in arr), None)
         per_week_nu = basis * sum(idx[:4]) / 4
+        # verkoop per maand (week → maand van de donderdag) en verwachte verkoop zonder groei:
+        # eigen patroon (zelfde maand in het laatste volle jaar) als het product ≥ 52 weken loopt, anders winkelpatroon
+        mnd = collections.defaultdict(float)
+        for w, q in ws.items():
+            mnd[(datetime.date.fromisoformat(w) + datetime.timedelta(days=3)).strftime('%Y-%m')] += q
+        mnd_keep = {m: round(q, 1) for m, q in sorted(mnd.items()) if m >= (td.replace(day=1) - datetime.timedelta(days=760)).strftime('%Y-%m')}
+        seiz0 = [seizoen(d) for d in fut]
+        vraag0 = [round(basis * x, 2) for x in seiz0]
+        vraag_eigen = None
+        if first <= last52[-1]:
+            vraag_eigen = []
+            for d in fut:
+                dm = d + datetime.timedelta(days=3)
+                y = dm.year - 1
+                while datetime.date(y, dm.month, 28) >= cur and y > 2000:
+                    y -= 1
+                key = f'{y}-{dm.month:02d}'
+                dim = (datetime.date(y + (dm.month == 12), dm.month % 12 + 1, 1) - datetime.timedelta(days=1)).day
+                vraag_eigen.append(round(max(0.0, mnd.get(key, 0.0)) / (dim / 7), 2))
         weken = None
         if voorraad <= 0:
             weken = 0.0
@@ -753,7 +772,7 @@ def voorraad_analyse():
                      'pid': pid, 'kostprijs': r2(cost(pid)), 'verkocht_13w': i0(sum(ws.get(w, 0) for w in last52[:13])), 'in_stock': i0(st['in_stock']),
                      'leverancier_id': (lev_van.get(pid) or (None, None))[1],
                      'leverancier': sup.get((lev_van.get(pid) or (None, None))[1]) or (f'Leverancier {(lev_van.get(pid) or (None, None))[1]}' if lev_van.get(pid) and lev_van[pid][1] else 'Onbekend'),
-                     'vraag': [round(basis * x, 2) for x in idx]})
+                     'vraag': [round(basis * x, 2) for x in idx], 'vraag0': vraag0, 'vraag_eigen': vraag_eigen, 'maanden': mnd_keep})
     rows.sort(key=lambda r: -r['waarde_52w'])
     for i, r in enumerate(rows):
         r['rang'] = i + 1
