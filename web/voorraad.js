@@ -825,13 +825,15 @@
     const dk = rows('st_dekking'), sz = SEIZ(); if (!dk || !sz.length) return;
     prepDk(dk);
     const P = dash.params();
-    const m2 = num(P.vr_m2, 1100), hoog = num(P.vr_hoog, 2), benut = num(P.vr_benut, 60);
+    const m2 = num(P.vr_m2, 1100), hoog = num(P.vr_hoog, 2.5), benut = num(P.vr_benut, 60);
     document.querySelectorAll('#vr-op-set [data-op]').forEach((i) => {
-      const d = { vr_m2: 1100, vr_hoog: 2, vr_benut: 60 }[i.dataset.op];
+      const d = { vr_m2: 1100, vr_hoog: 2.5, vr_benut: 60 }[i.dataset.op];
       if (document.activeElement !== i) i.value = num(P[i.dataset.op], d);
       if (!i._op) { i._op = 1; i.addEventListener('change', () => dash.setParams({ [i.dataset.op]: i.value === '' ? null : Number(i.value) })); }
     });
     const cap = m2 * hoog * benut / 100;
+    const vloer = (c) => (hoog > 0 && benut > 0 ? c / hoog / (benut / 100) : 0); // m² hal nodig, inclusief looppaden
+    const M = (c) => `${int.format(c)} cbm (± ${int.format(vloer(c))} m²)`;
     const se = document.getElementById('op-stand'), st0 = (SEIZ()[0] || {}).stand; if (se) se.textContent = st0 ? dNl(st0.slice(0, 10)) + ' ' + st0.slice(11, 16) : '—';
     // cbm per product; zonder cbm: schatting via cbm per euro inkoop van de producten waar het wel bekend is
     let kc = 0, ke = 0; for (const r of dk) { const c = cbmOf(r.sku), k = Number(r.kostprijs) || 0; if (c && k) { kc += c; ke += k; } }
@@ -859,10 +861,10 @@
     const tiles = document.getElementById('vr-op-tiles');
     const tile = (l, v, sub, bad) => { const d = el('div', 'lw-tile'); const vv = el('div', 'lw-value', v); if (bad) vv.classList.add('lw-bad'); d.append(el('div', 'lw-label', l), vv, el('div', 'lw-delta', sub)); return d; };
     tiles.replaceChildren(
-      tile('Nu op voorraad', `${int.format(nu)} cbm`, `${pct0.format(nu / cap)} van de ruimte · ${int.format(nuK)} cbm gemeten, ${int.format(nuS)} cbm geschat`, nu > cap),
-      tile('Komt eraan (12 mnd)', `${int.format(inTot)} cbm`, 'containers met ETA uit de containerplanning'),
-      tile('Hoogste stand', pk.m ? `${int.format(pk.v)} cbm` : '—', pk.m ? `eind ${mNl(pk.m)} · ${pct0.format(pk.v / cap)} van de ruimte` : '', pk.v > cap),
-      tile('Ruimte in de hallen', `${int.format(cap)} cbm`, `${int.format(m2)} m² × ${n1.format(hoog)} m × ${benut}% benut`));
+      tile('Nu op voorraad', M(nu), `${pct0.format(nu / cap)} van de ruimte · ${int.format(nuK)} cbm gemeten, ${int.format(nuS)} cbm geschat`, nu > cap),
+      tile('Komt eraan (12 mnd)', M(inTot), 'containers met ETA uit de containerplanning'),
+      tile('Hoogste stand', pk.m ? M(pk.v) : '—', pk.m ? `eind ${mNl(pk.m)} · ${pct0.format(pk.v / cap)} van de ruimte` : '', pk.v > cap),
+      tile('Ruimte in de hallen', M(cap), `${int.format(m2)} m² hal × ${n1.format(hoog)} m hoog × ${benut}% vloer (rest looppaden)`));
     // grafiek
     const box = document.getElementById('vr-op-chart'); box.replaceChildren();
     const W = Math.max(320, box.clientWidth || 1100), H = 230, top = 12, bot = H - 24, left = 48;
@@ -886,10 +888,12 @@
     const tb = el('tbody');
     const row = (l, f, cls) => { const tr = el('tr'); tr.append(el('td', '', l)); for (const v of vals) { const n = f(v); const td = el('td', 'lw-num', n == null ? '' : int.format(n)); if (cls) { const c = cls(v); if (c) td.classList.add(c); } tr.append(td); } tb.append(tr); };
     row('Binnenkomend (cbm)', (v) => v.i || null);
+    row('Binnenkomend (m²)', (v) => (v.i ? vloer(v.i) : null));
     row('Voorraad eind maand (cbm)', (v) => v.k + v.s, (v) => (v.k + v.s > cap ? 'vr-op-over' : v.k + v.s > cap * 0.9 ? 'vr-op-krap' : ''));
+    row('Nodig in de hal (m²)', (v) => vloer(v.k + v.s), (v) => (v.k + v.s > cap ? 'vr-op-over' : v.k + v.s > cap * 0.9 ? 'vr-op-krap' : ''));
     row('Bezetting', () => null); tb.lastChild.querySelectorAll('td').forEach((td, i) => { if (i) td.textContent = pct0.format((vals[i - 1].k + vals[i - 1].s) / cap); });
     host.replaceChildren(th, tb);
-    document.getElementById('vr-op-note').textContent = `Voorraad eind maand = wat er nu ligt + wat binnenkomt − verwachte verkoop (begroting), in cbm per stuk. Donker = cbm bekend (${int.format(stK)} stuks), licht = geschat voor producten zonder cbm (${int.format(stS)} stuks), via de gemiddelde cbm per euro inkoop (${n2.format(perEur * 1000)} cbm per € 1.000). Nu = fysiek in de hallen, inclusief al verkocht maar nog niet geleverd. Vul bij het containervoorstel de cbm van meer producten in om de schatting kleiner te maken.`;
+    document.getElementById('vr-op-note').textContent = `m² = cbm ÷ stapelhoogte ÷ benutting: de vloer die je in de hal nodig hebt, inclusief looppaden. Voorraad eind maand = wat er nu ligt + wat binnenkomt − verwachte verkoop (begroting), in cbm per stuk. Donker = cbm bekend (${int.format(stK)} stuks), licht = geschat voor producten zonder cbm (${int.format(stS)} stuks), via de gemiddelde cbm per euro inkoop (${n2.format(perEur * 1000)} cbm per € 1.000). Nu = fysiek in de hallen, inclusief al verkocht maar nog niet geleverd. Vul bij het containervoorstel de cbm van meer producten in om de schatting kleiner te maken.`;
   }
 
   dash.onData(() => keepPos(() => { try { renderOpslag(); } catch (e) { console.error('[voorraad] opslag', e); } try { renderBg(); } catch (e) { console.error('[voorraad] begroting', e); } try { render(); } catch (e) { console.error('[voorraad]', e); } try { dkDecorate(); } catch (e) { console.error('[voorraad] detail', e); } }));
