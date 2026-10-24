@@ -939,7 +939,7 @@
       let groepen;
       const wrd = (x) => x.st * (Number(x.r.kostprijs) || 0);
       const totW = POS.reduce((t, x) => t + wrd(x), 0) || 1;
-      const merkVan = (r) => { const m = (collectie(r).merk || r.merk || '').replace(/®/g, '').trim(); return /^belito/i.test(m) ? 'Belito' : /aerocover/i.test(m) ? 'Platinum' : m || 'Overig'; };
+      const merkVan = (r) => { const k = String(r.sku || ''); if (/^AB-/i.test(k) || r.leverancier === 'Apple Bee') return 'Apple Bee'; if (/^GI-/i.test(k)) return 'Garden Impressions'; if (/^EASY-/i.test(k)) return 'Easyfires'; if (/^HAR/i.test(k)) return 'Hartman'; if (/^4SO-/i.test(k)) return '4Seasons'; const m = (collectie(r).merk || r.merk || '').replace(/®/g, '').trim(); return /^belito/i.test(m) || /^BEL/i.test(k) ? 'Belito' : /aerocover|platinum/i.test(m) || /^(AERO|PLATINUM)/i.test(k) ? 'Platinum' : m || 'Overig'; };
       if (per === 'p') groepen = POS.map((x) => ({ naam: vol(x.r.naam), sub: x.r.sku, lev: x.r.leverancier, stuks: x.st, cbm: x.cbm, d: x.d, inc: x.inc, est: x.est, w: wrd(x), items: null }));
       else {
         const m = new Map();
