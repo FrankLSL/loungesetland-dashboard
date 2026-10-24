@@ -714,18 +714,19 @@
     const bar = el('div', 'vr-fill');
     let restT = T; for (const [k, cap] of C.list) { const d = el('div'); const f = Math.min(cap, restT); restT -= f; d.style.width = (cap / Math.max(C.cap, 1)) * 100 + '%'; d.style.background = `linear-gradient(90deg, #84bd3f ${(f / cap) * 100}%, transparent ${(f / cap) * 100}%)`; d.title = `${k}: ${n1.format(f)} van ${cap} cbm`; bar.append(d); }
     const parts = [box, bar];
-    if (/^\d{4}-\d{2}-\d{2}$/.test(P.vr_tot || '')) { const n = el('div', 'vr-etd'); const nn = items.filter((x) => x.q0 > 0 && !x.uit); n.append(el('div', 'vr-etd-r', '')); n.firstChild.append(el('span', 'vr-etd-l', 'Dekken tot:'), el('b', '', dNl(P.vr_tot)), el('span', 'vr-etd-s', ` · ${nn.length} producten hebben samen ${int.format(nn.reduce((t, x) => t + x.q0, 0))} stuks (${n1.format(Tadv)} cbm) extra nodig om met wat er ligt en onderweg is tot die datum te komen (verwachte verkoop volgens begroting, zonder veiligheidsvoorraad).`)); parts.push(n); }
-    if (maxNote) parts.push(maxNote);
+    const info = []; // toelichtingen: onder de knop voor de concept-PO
+    if (/^\d{4}-\d{2}-\d{2}$/.test(P.vr_tot || '')) { const n = el('div', 'vr-etd'); const nn = items.filter((x) => x.q0 > 0 && !x.uit); n.append(el('div', 'vr-etd-r', '')); n.firstChild.append(el('span', 'vr-etd-l', 'Dekken tot:'), el('b', '', dNl(P.vr_tot)), el('span', 'vr-etd-s', ` · ${nn.length} producten hebben samen ${int.format(nn.reduce((t, x) => t + x.q0, 0))} stuks (${n1.format(Tadv)} cbm) extra nodig om met wat er ligt en onderweg is tot die datum te komen (verwachte verkoop volgens begroting, zonder veiligheidsvoorraad).`)); info.push(n); }
+    if (maxNote) info.push(maxNote);
     if (uitG.length) {
       const extra = items.filter((x) => x.q > x.q0).sort((a, b) => (b.q - b.q0) * (b.cbm || 0) - (a.q - a.q0) * (a.cbm || 0));
       const n = el('div', 'vr-uitnote');
       n.append(el('b', '', `${uitG.length} ${uitG.length === 1 ? 'product' : 'producten'} tijdelijk eruit (−${n1.format(uitG.reduce((t, x) => t + x.q0 * (x.cbm || 0), 0))} cbm). `),
         document.createTextNode(extra.length ? 'Aangevuld met wat na aankomst het kortst toe kan: ' + extra.slice(0, 6).map((x) => `${vol(x.r.naam).split(' · ').slice(0, 2).join(' · ')} +${x.q - x.q0}`).join(', ') + (extra.length > 6 ? ` en ${extra.length - 6} meer` : '') + '. ' : 'Niets om mee aan te vullen. '));
       const b = el('button', 'vr-link', 'alles terugzetten'); b.type = 'button'; b.addEventListener('click', () => { const rest = [...excl0()].filter((k) => !uitG.some((x) => x.r.sku === k)); dash.setParams({ vr_cx: rest.join(',') || null }); });
-      n.append(b); parts.push(n);
+      n.append(b); info.push(n);
     }
     const vs = verscheping(items.filter((x) => x.q > 0));
-    if (vs) parts.push(vs);
+    if (vs) info.push(vs);
     if (noCbm.length) parts.push(el('p', 'lw-note lw-bad', `${noCbm.length} producten hebben nog geen CBM en tellen niet mee in de containers. Vul de CBM per stuk hieronder in${isAdmin() ? '' : ' (alleen een beheerder kan dat opslaan)'}.`));
     const tbl = el('table', 'lw-table lw-stocktable'); const th = el('thead'); const hr = el('tr');
     ['Product', 'SKU · art.nr leverancier', 'Status', 'Bestellen', 'CBM/stuk', 'CBM', 'Inkoop', 'Voorraad tot', ''].forEach((h, i) => hr.append(el('th', i >= 3 && i !== 7 && i !== 8 ? 'lw-num' : '', h))); th.append(hr); tbl.append(th);
@@ -746,6 +747,7 @@
     tbl.append(tb); const tbx = el('div', 'lw-tablebox lw-tablebox-20'); tbx.append(tbl); parts.push(tbx);
     if (aangepast) { const n = el('p', 'lw-note'); const b = el('button', 'vr-link', 'zelf aangepaste aantallen wissen'); b.type = 'button'; b.addEventListener('click', () => { const o = qoMap(); for (const x of items) o.delete(x.r.sku); qoSet(o); }); n.append(document.createTextNode(`${aangepast} aantal${aangepast === 1 ? '' : 'len'} zelf aangepast. `), b); parts.push(n); }
     if (isAdmin()) parts.push(poKnop(items));
+    parts.push(...info);
     return parts;
   }
 
