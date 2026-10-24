@@ -202,7 +202,7 @@
       const v = window.vrVraag(r);
       for (let i = 0; i < v.length && i < sz.length; i++) { if (!v[i]) continue; for (let j = 0; j < 7; j++) { const m = addD(sz[i].week, j).slice(0, 7); per.set(m, (per.get(m) || 0) + v[i] / 7 * k); } }
     }
-    const t = today(), first = t.slice(0, 7), last = addD(sz[sz.length - 1].week, 6).slice(0, 7);
+    const t = today(), first = t.slice(0, 7), endH = addD(sz[sz.length - 1].week, 6), last = addD(endH, 1).slice(0, 7) > endH.slice(0, 7) ? endH.slice(0, 7) : addD(endH.slice(0, 7) + '-01', -1).slice(0, 7); // alleen volledige maanden binnen de horizon
     const years = []; for (let y = +first.slice(0, 4); y <= +last.slice(0, 4); y++) years.push(y);
     const mn = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
     const tbl = el('table', 'lw-table vr-bgt'); const hr = el('tr'); hr.append(el('th', '', ''));
