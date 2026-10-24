@@ -207,13 +207,15 @@
   }
 
   // ---------- containers ----------
-  function containers(T, P) {
+  // 20ft alleen waar jullie dat doen: Apple Bee locatie A (Indonesië, dure sets) en I (China, dure tafels); de rest altijd 40ft
+  const mag20 = (g, loc) => g === 'ab' && (loc === 'A' || loc === 'I');
+  function containers(T, P, met20 = true) {
     const c20 = num(P.vr_c20, 28), c40 = num(P.vr_c40, 58), chq = num(P.vr_chq, 67);
     if (!(T > 0)) return { txt: '—', cap: 0, list: [] };
     const list = [];
     let rest = T;
     while (rest > chq) { list.push(['40HQ', chq]); rest -= chq; }
-    if (rest > 0) list.push(rest <= c20 ? ['20ft', c20] : rest <= c40 ? ['40ft', c40] : ['40HQ', chq]);
+    if (rest > 0) list.push(met20 && rest <= c20 ? ['20ft', c20] : rest <= c40 ? ['40ft', c40] : ['40HQ', chq]);
     const cap = list.reduce((a, x) => a + x[1], 0);
     const cnt = {}; for (const [k] of list) cnt[k] = (cnt[k] || 0) + 1;
     const txt = Object.entries(cnt).map(([k, n]) => `${n}× ${k}`).join(' + ') + ` · ${pct0.format(T / cap)} vol`;
@@ -424,7 +426,7 @@
       const tr = el('tr', l.k === 'overig' ? 'vr-overig' : ''); tr.setAttribute('aria-pressed', String(fLev === l.k));
       tr.append(el('td', '', l.naam), el('td', 'lw-num', eur0.format(l.inkoop_jaar)), el('td', 'lw-num', eur0.format(l.inkoop_12m)), el('td', 'lw-num', int.format(m.length)),
         el('td', 'lw-num', q ? int.format(q) : '—'), el('td', 'lw-num', e ? eur0.format(e) : '—'), el('td', '', nx ? dNl(nx.eta) : '—'),
-        el('td', 'lw-num', mine.length ? `${mine.length} · ${eur0.format(eur)}` : '—'), el('td', 'lw-num', cb && l.k !== 'overig' ? n1.format(cb) + ' cbm' : '—'), el('td', '', cb && l.k !== 'overig' ? (l.k === 'ab' ? 'per productielocatie, zie voorstel' : containers(cb, P).txt) : '—'));
+        el('td', 'lw-num', mine.length ? `${mine.length} · ${eur0.format(eur)}` : '—'), el('td', 'lw-num', cb && l.k !== 'overig' ? n1.format(cb) + ' cbm' : '—'), el('td', '', cb && l.k !== 'overig' ? (l.k === 'ab' ? 'per productielocatie, zie voorstel' : containers(cb, P, false).txt) : '—'));
       tr.addEventListener('click', () => dash.setParams({ vr_lev: fLev === l.k ? null : l.k }));
       return tr;
     }));
@@ -536,7 +538,8 @@
     const T0 = items.reduce((t, x) => t + (x.cbm ? x.q * x.cbm : 0), 0);
     const Tadv = items.reduce((t, x) => t + (x.cbm ? x.q0 * x.cbm : 0), 0);
     const uitG = items.filter((x) => x.uit && x.q0 > 0);
-    let C = containers(fill ? T0 : uitG.length ? Tadv : T0, P);
+    const g0 = items[0] ? items[0].g : '', loc0 = items[0] ? ((HERK[items[0].r.sku] || {}).locatie || '') : '', m20 = mag20(g0, loc0);
+    let C = containers(fill ? T0 : uitG.length ? Tadv : T0, P, m20);
     // container vol maken (of een product eruit gehaald): steeds 1 stuk erbij van het product dat na aankomst het kortst dekt, tot de container(s) vol zijn
     let added = 0;
     if ((fill || uitG.length) && C.cap > 0) {
@@ -547,7 +550,7 @@
         if (!best) break; best.q += 1; free -= best.cbm; added += best.cbm;
       }
     }
-    const T = T0 + added; C = containers(T, P);
+    const T = T0 + added; C = containers(T, P, m20);
     const noCbm = items.filter((x) => !x.cbm && x.q > 0);
     const eur = items.reduce((t, x) => t + x.q * (x.r.kostprijs || 0), 0);
     const box = el('div', 'vr-cbox');
