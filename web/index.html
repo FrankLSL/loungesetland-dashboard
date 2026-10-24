@@ -269,6 +269,11 @@
 #dash-root #tbl-dk td.dk-warn { color: #8a5d00; font-weight: 600; }
 #dash-root .lw-tablebox.dk-open { max-height: none; }
 #dash-root #tbl-dk tr.dk-detail > td, #dash-root #tbl-dk tr.dk-detail:hover > td { background: #fbfaf7; padding: .8rem 1rem 1.2rem 2rem; white-space: normal; border-bottom: 2px solid var(--ls-line, #e4dfd6); }
+#dash-root .dk-filters { display: flex; flex-wrap: wrap; gap: .5rem .9rem; align-items: center; margin-bottom: .6rem; }
+#dash-root .dk-filters select, #dash-root .dk-filters input { font: inherit; font-size: .85rem; padding: .25rem .6rem; border: 1px solid var(--ls-line, #e4dfd6); border-radius: 999px; background: #fff; }
+#dash-root .dk-filters select { max-width: 22rem; }
+#dash-root .dk-filters .lw-mini { margin: 0; }
+#dash-root #tbl-dk .dk-share { display: block; font-size: .72rem; color: var(--color-fg-muted); }
 #dash-root #tbl-dk .dk-po { font-size: .8rem; white-space: nowrap; }
 #dash-root .dk-potab { border-collapse: collapse; margin-top: .2rem; font-size: .8rem; }
 #dash-root .dk-potab td { padding: .05rem .8rem .05rem 0; background: transparent !important; color: var(--color-fg); }
@@ -936,24 +941,19 @@
   </section>
 
   <section class="lw-section" id="dekking">
-    <h2>Voorraad tegenover verwachte verkoop</h2>
-    <p class="lw-note">Per product (losse onderdelen: een verkochte set telt mee voor de onderdelen waaruit hij bestaat). Verwachte verkoop per week volgt de begroting: de verkoop van het product in dezelfde week vorig jaar (gemiddelde over de afgelopen 52 weken, verdeeld volgens het seizoenspatroon van de hele winkel) × (1 + de begrote groei van die maand uit ‘Omzet tegen begroting’). Pas je daar een groei aan, dan rekent dit bij de volgende verversing mee. Voorraad = beschikbaar in Sumtracker (voorraad min al verkocht). Leveringen = open regels van inkooporders in Sumtracker op de verwachte aankomstdatum. Gesorteerd op inkoopwaarde van de verkoop in de afgelopen 52 weken, dus de echte bestsellers staan bovenaan. Stand <span id="dk-stand">—</span>.</p>
-    <div class="lw-tiles" id="tiles-dk">
-      <div class="lw-tile lw-click" role="button" tabindex="0" data-dk="voor"><div class="lw-label">Op vóór de volgende levering</div><div class="lw-value" id="dk-t-voor">—</div><div class="lw-delta" id="dk-t-voor-d">—</div></div>
-      <div class="lw-tile lw-click" role="button" tabindex="0" data-dk="geen"><div class="lw-label">Op binnen 26 weken, geen inkoop</div><div class="lw-value" id="dk-t-geen">—</div><div class="lw-delta" id="dk-t-geen-d">—</div></div>
-      <div class="lw-tile lw-click" role="button" tabindex="0" data-dk="na"><div class="lw-label">Levering te klein voor het seizoen</div><div class="lw-value" id="dk-t-na">—</div><div class="lw-delta" id="dk-t-na-d">—</div></div>
-      <div class="lw-tile"><div class="lw-label">Verwachte verkoop nu t.o.v. piek</div><div class="lw-value" id="dk-t-seiz">—</div><div class="lw-delta" id="dk-t-seiz-d">—</div></div>
-    </div>
+    <h2>Voorraad per product</h2>
+    <p class="lw-note">Alle producten, de belangrijkste eerst (omzet van de afgelopen 12 maanden; een verkochte set telt mee voor zijn onderdelen, naar rato van hun inkoopwaarde). Voorraad = beschikbaar in Sumtracker; inkomend = open inkooporders op de ETA uit de containerplanning. Voorraad tot = tot wanneer voorraad plus inkomend meegaat bij de verwachte verkoop (standaard de begroting). Bestellen uiterlijk = voorraad tot − levertijd − veiligheidsvoorraad. Klik op een product voor de details. Stand <span id="dk-stand">—</span>.</p>
+    <div class="lw-tiles" id="tiles-dk"></div>
     <div class="lw-grid">
       <div class="lw-card" id="card-dk">
-        <h3 id="dk-title">Top 40 bestsellers</h3>
-        <div class="lw-mini" id="dk-scope"><button type="button" data-scope="">Top 40</button><button type="button" data-scope="alles">Alle producten</button></div>
-        <p class="lw-note">Voorraad tot = tot wanneer de voorraad plus wat er binnenkomt meegaat (standaard op de begroting; per product een ander groeiscenario te kiezen). Bestellen uiterlijk = voorraad tot − levertijd − veiligheidsvoorraad; daar hoort het advies (aantal) bij. Klik op een product voor de verkoop per maand en de scenario's.</p>
+        <div class="dk-filters" id="dk-filters"></div>
+        <h3 id="dk-title">Alle producten</h3>
         <div class="lw-tablebox lw-tablebox-20">
-          <table class="lw-table lw-stocktable" id="tbl-dk" data-source="st_dekking" data-row-key="sku">
+          <table class="lw-table lw-stocktable" id="tbl-dk">
             <thead><tr>
               <th class="lw-num">#</th>
               <th>Product</th>
+              <th class="lw-num">Omzet 12 mnd</th>
               <th class="lw-num">Voorraad nu</th>
               <th>Inkomend</th>
               <th>Voorraad tot</th>
@@ -1934,49 +1934,7 @@ dash.calc('debit_sorted', {
     setT('waarde', tt0 ? eur0.format(tt0.waarde) : '—');
     setT('incoming', tt0 ? int.format(tt0.incoming) : '—');
 
-    // ---- voorraad tegenover verwachte verkoop ----
-    {
-      const dk = dash.data('st_dekking');
-      const sz = dash.data('st_seizoen');
-      const setTxt = (id, t) => { const n = document.getElementById(id); if (n) n.textContent = t; };
-      const ok = dk.status === 'ok';
-      const all = ok ? dk.data : [];
-      const top = all.slice(0, 40);
-      const scope = P.dk_scope || '';
-      const filt = P.dk_filter || '';
-      const base = scope === 'alles' ? all : top;
-      const isVoor = (r) => r.status === 'Tekort vóór levering';
-      const isGeen = (r) => r.status === 'Geen inkoop gepland' && r.op && r.op < new Date(Date.now() + 26 * 7 * 864e5).toISOString().slice(0, 10);
-      const isNa = (r) => r.status === 'Tekort na levering';
-      const g = { voor: base.filter(isVoor), geen: base.filter(isGeen), na: base.filter(isNa) };
-      const names = (a) => a.slice(0, 3).map((r) => String(r.naam).split('|').slice(0, 2).map((x) => x.trim()).join(' ')).join(', ') + (a.length > 3 ? ` en ${a.length - 3} meer` : '');
-      const wie = scope === 'alles' ? 'producten' : 'van de top 40';
-      setTxt('dk-t-voor', ok ? `${g.voor.length} ${wie}` : '—');
-      setTxt('dk-t-voor-d', ok ? (g.voor.length ? names(g.voor) : 'alle leveringen komen op tijd') : '—');
-      setTxt('dk-t-geen', ok ? `${g.geen.length} ${wie}` : '—');
-      setTxt('dk-t-geen-d', ok ? (g.geen.length ? names(g.geen) : 'niets') : '—');
-      setTxt('dk-t-na', ok ? `${g.na.length} ${wie}` : '—');
-      setTxt('dk-t-na-d', ok ? (g.na.length ? names(g.na) : 'leveringen dekken het seizoen') : '—');
-      document.getElementById('dk-t-voor').classList.toggle('lw-bad', g.voor.length > 0);
-      if (sz.status === 'ok' && sz.data.length) {
-        const nu = sz.data.slice(0, 4).reduce((t, r) => t + r.index, 0) / 4;
-        const pk = sz.data.reduce((m, r) => (r.index > m.index ? r : m), sz.data[0]);
-        setTxt('dk-t-seiz', `${Math.round((nu / pk.index) * 100)}%`);
-        setTxt('dk-t-seiz-d', `piek rond week van ${dateNlY(pk.week)} (${new Intl.NumberFormat(nl, { maximumFractionDigits: 1 }).format(pk.index / nu)}× zo druk als nu)`);
-      } else { setTxt('dk-t-seiz', '—'); setTxt('dk-t-seiz-d', '—'); }
-      const stand = sz.status === 'ok' && sz.data[0] ? sz.data[0].stand : null;
-      setTxt('dk-stand', stand ? dateNlY(String(stand).slice(0, 10)) + ' ' + String(stand).slice(11, 16) : '—');
-      document.querySelectorAll('#tiles-dk .lw-click').forEach((t) => t.setAttribute('aria-pressed', String(t.dataset.dk === filt)));
-      document.querySelectorAll('#dk-scope button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.scope === scope)));
-      const shown = filt ? g[filt] || base : base;
-      setTxt('dk-title', (filt === 'voor' ? 'Op vóór de volgende levering' : filt === 'geen' ? 'Op binnen 26 weken, geen inkoop gepland' : filt === 'na' ? 'Levering te klein voor het seizoen' : scope === 'alles' ? 'Alle producten met verkoop' : 'Top 40 bestsellers') + ` (${shown.length})`);
-      const n1 = new Intl.NumberFormat(nl, { maximumFractionDigits: 1 });
-      const cls = (v) => (v.startsWith('Tekort') || v === 'Geen inkoop gepland' ? ' lw-bad' : v === 'Levering op tijd' ? ' lw-warn' : ' lw-ok');
-      const tDk = document.getElementById('tbl-dk');
-      if (ok) {
-        window.__dkShown = shown; // regels worden getekend in voorraad.js (zelfde berekening als de bestellijst)
-      } else tDk.querySelector('tbody').replaceChildren();
-    }
+    // voorraad per product: getekend in voorraad.js
 
     // ---- marge per merk / categorie ----
     {

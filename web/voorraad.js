@@ -397,10 +397,79 @@
   let CPETA_G = new Map();
   const stCls2 = (s) => (s === 'Te laat' ? ' lw-bad' : s === 'Nu bestellen' ? ' lw-bad' : s === 'Binnen 4 weken' || s === 'Tekort tot levering' ? ' lw-warn' : ' lw-ok');
   const actieTxt = (a) => (a.rank === 0 ? 'Te laat' : a.rank === 1 ? 'Nu bestellen' : a.rank === 2 ? 'Binnen 4 weken' : a.status === 'Tekort tot levering' ? 'Tekort tot levering' : a.rank === 5 ? 'Voldoende' : 'Op tijd');
+  // ---------- collectie (model + kleur) uit de productnaam ----------
+  const MERKEN = ['Apple Bee', 'Belito®', 'Belito', 'Platinum', 'AeroCover', 'Hartman', '4Seasons', 'Tierra', 'Rocca', 'Valentino', 'Easyfires', 'Agusto', 'Ciro', 'Naturalis', 'Lauck'];
+  const MULTI = ['Bora Bora', 'Camps Bay', 'Camp Bay', 'Pine Key', 'Moon Island', 'Chill Out', 'St. Lucia', 'St Lucia', 'Long Island', 'Lazy Susan', 'Teak Shield', 'Teak Cleaner', 'Teak Color'];
+  const KLEUR = [[/carbon black|\bzwart|\bblack/i, 'Black'], [/oyster/i, 'Oyster'], [/taupe/i, 'Taupe'], [/antraciet|anthracite/i, 'Antraciet'], [/\bwit\b|\bwhite/i, 'Wit'], [/bronze/i, 'Bronze'], [/\bgrey|\bgrijs/i, 'Grey'], [/mokka|mocca/i, 'Mokka'], [/champagne/i, 'Champagne'], [/cognac/i, 'Cognac'], [/amber/i, 'Amber'], [/\bsand\b/i, 'Sand']];
+  const COLCACHE = new Map();
+  function collectie(r) {
+    if (COLCACHE.has(r.sku)) return COLCACHE.get(r.sku);
+    let n = String(r.naam || '').replace(/®/g, '').trim(), merk = r.merk || '';
+    for (const m of MERKEN) { const mm = m.replace('®', ''); if (n.toLowerCase().startsWith(mm.toLowerCase() + ' ')) { merk = mm; n = n.slice(mm.length).trim(); break; } }
+    const first = n.split('|')[0].trim();
+    let model = MULTI.find((m) => first.toLowerCase().startsWith(m.toLowerCase())) || (first.split(/\s+/)[0] || '').replace(/[^\p{L}\p{N}/&.-]/gu, '');
+    if (model === 'Camps Bay') model = 'Camp Bay';
+    if (model === 'St Lucia') model = 'St. Lucia';
+    model = model.charAt(0).toUpperCase() + model.slice(1);
+    const kl = (KLEUR.find(([re]) => re.test(r.naam || '')) || [])[1] || '';
+    const out = { merk, model: `${merk} ${model}`.trim(), col: `${merk} ${model}${kl ? ' ' + kl : ''}`.trim() };
+    COLCACHE.set(r.sku, out); return out;
+  }
+
+  // ---------- voorraad per product ----------
   function dkDecorate() {
     const tbl = document.getElementById('tbl-dk'); if (!tbl || !MKX) return;
-    const tb = tbl.querySelector('tbody'); const shown = window.__dkShown; if (!tb || !shown) return;
+    const tb = tbl.querySelector('tbody'); const dk = rows('st_dekking'); if (!tb || !dk) return;
+    const P = dash.params();
     CPETA_G = new Map((rows('cp_open') || []).filter((c) => c.eta).map((c) => [pon(c.po), c.eta]));
+    const sz = SEIZ(); const stand = sz[0] ? sz[0].stand : null;
+    const sEl = document.getElementById('dk-stand'); if (sEl) sEl.textContent = stand ? dNl(stand.slice(0, 10)) + ' ' + stand.slice(11, 16) : '—';
+    // alle producten, belangrijkste (omzet 12 mnd) eerst
+    const X = dk.filter((r) => !(HERK[r.sku] && HERK[r.sku].uitlopend)).map((r) => { const x = MKX(r); x.ti = totInfo(r, window.vrVraag(r)); x.c = collectie(r); return x; })
+      .sort((a, b) => (b.r.omzet_52w || 0) - (a.r.omzet_52w || 0) || (b.r.waarde_52w || 0) - (a.r.waarde_52w || 0));
+    const totOmzet = X.reduce((t, x) => t + (x.r.omzet_52w || 0), 0) || 1;
+    X.forEach((x, i) => { x.rang = i + 1; });
+    const fLev = P.dk_lev || '', fCol = P.dk_col || '', fSt = P.dk_st || '', fQ = String(P.dk_q || '').toLowerCase();
+    const inLev = X.filter((x) => !fLev || x.g === fLev);
+    const inCol = inLev.filter((x) => !fCol || (fCol.startsWith('m:') ? x.c.model === fCol.slice(2) : x.c.col === fCol.slice(2)));
+    const inQ = inCol.filter((x) => !fQ || (x.r.naam + ' ' + x.r.sku).toLowerCase().includes(fQ));
+    // tegels (binnen de gekozen leverancier/collectie)
+    const cat = { laat: (x) => x.a.rank === 0, nu: (x) => x.a.rank === 1, '4w': (x) => x.a.rank === 2, tijd: (x) => x.ti.tijdelijk };
+    const tiles = document.getElementById('tiles-dk');
+    const defs = [['laat', 'Te laat', 'op vóór een bestelling van nu binnen kan zijn'], ['nu', 'Nu bestellen', 'bestelmoment is bereikt'], ['4w', 'Binnen 4 weken bestellen', 'bestelmoment binnen 4 weken'], ['tijd', 'Tijdelijk op', 'op tot de volgende levering binnen is']];
+    tiles.replaceChildren(...defs.map(([k, l, sub]) => {
+      const a = inQ.filter(cat[k]); const val = a.reduce((t, x) => t + (x.a.qty || 0) * (x.r.kostprijs || 0), 0);
+      const t = el('div', 'lw-tile lw-click'); t.setAttribute('role', 'button'); t.tabIndex = 0; t.setAttribute('aria-pressed', String(fSt === k));
+      const v = el('div', 'lw-value', `${a.length} ${a.length === 1 ? 'product' : 'producten'}`); if ((k === 'laat' || k === 'nu') && a.length) v.classList.add('lw-bad');
+      t.append(el('div', 'lw-label', l), v, el('div', 'lw-delta', sub + (val && k !== 'tijd' ? ` · advies ${eur0.format(val)}` : '')));
+      const go = () => dash.setParams({ dk_st: fSt === k ? null : k });
+      t.addEventListener('click', go); t.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+      return t;
+    }));
+    // filters: leverancier, collectie, zoeken
+    const fb = document.getElementById('dk-filters');
+    if (fb && !fb.contains(document.activeElement)) {
+      const chips = el('div', 'lw-mini');
+      const mk = (k, l) => { const b = el('button', '', l); b.type = 'button'; b.setAttribute('aria-pressed', String(fLev === k)); b.addEventListener('click', () => dash.setParams({ dk_lev: k || null, dk_col: null })); return b; };
+      chips.append(mk('', 'Alle leveranciers'), ...Object.entries(GNAAM).map(([k, n]) => mk(k, k === 'overig' ? 'Overige' : n)));
+      const sel = el('select'); sel.append(new Option('Alle collecties', ''));
+      const models = new Map();
+      for (const x of inLev) { const m = models.get(x.c.model) || { omzet: 0, cols: new Map() }; m.omzet += x.r.omzet_52w || 0; m.cols.set(x.c.col, (m.cols.get(x.c.col) || 0) + (x.r.omzet_52w || 0)); models.set(x.c.model, m); }
+      for (const [m, d] of [...models.entries()].sort((a, b) => b[1].omzet - a[1].omzet)) {
+        const og = document.createElement('optgroup'); og.label = m;
+        og.append(new Option(`${m} (alle kleuren)`, 'm:' + m));
+        if (d.cols.size > 1 || [...d.cols.keys()][0] !== m) for (const [c] of [...d.cols.entries()].sort((a, b) => b[1] - a[1])) og.append(new Option(c, 'c:' + c));
+        sel.append(og);
+      }
+      sel.value = fCol; sel.addEventListener('change', () => dash.setParams({ dk_col: sel.value || null }));
+      const q = el('input'); q.type = 'search'; q.placeholder = 'Zoek product of SKU'; q.value = P.dk_q || '';
+      q.addEventListener('change', () => dash.setParams({ dk_q: q.value || null }));
+      fb.replaceChildren(chips, sel, q);
+    }
+    let list = fSt ? inQ.filter(cat[fSt]) : inQ;
+    const colNaam = fCol ? fCol.slice(2) + (fCol.startsWith('m:') ? ' (alle kleuren)' : '') : '';
+    const omz = list.reduce((t, x) => t + (x.r.omzet_52w || 0), 0);
+    document.getElementById('dk-title').textContent = [fLev ? GNAAM[fLev] : 'Alle leveranciers', colNaam, fSt ? defs.find((d) => d[0] === fSt)[1] : ''].filter(Boolean).join(' · ') + ` (${list.length} producten, ${pct0.format(omz / totOmzet)} van de omzet)`;
     if (!tb._vrClick) {
       tb._vrClick = true;
       tb.addEventListener('click', (e) => {
@@ -411,23 +480,23 @@
     }
     if (tbl.parentElement) tbl.parentElement.classList.toggle('dk-open', OPEN.size > 0);
     const out = [];
-    for (const r of shown) {
-      const x = MKX(r), a = x.a, k = keuze(r.sku);
+    for (const x of list.slice(0, 500)) {
+      const r = x.r, a = x.a, k = keuze(r.sku), ti = x.ti;
       const tr = el('tr', 'dk-row'); tr.dataset.key = r.sku; tr.setAttribute('aria-expanded', String(OPEN.has(r.sku)));
-      const nm = el('td', 'lw-wrap'); nm.append(el('span', 'dk-caret', OPEN.has(r.sku) ? '▾ ' : '▸ '), document.createTextNode(short(r.naam)));
+      const nm = el('td', 'lw-wrap'); nm.append(el('span', 'dk-caret', OPEN.has(r.sku) ? '▾ ' : '▸ '), document.createTextNode(short(r.naam))); nm.title = `${r.sku} · ${x.c.col}`;
+      const om = el('td', 'lw-num'); om.append(document.createTextNode(r.omzet_52w ? eur0.format(r.omzet_52w) : '—'), el('span', 'dk-share', r.omzet_52w ? new Intl.NumberFormat(nl, { style: 'percent', maximumFractionDigits: 1 }).format(r.omzet_52w / totOmzet) : ''));
       const lev = (r.leveringen || []).slice().sort((p, q) => (etaOf(p) < etaOf(q) ? -1 : 1));
       const inc = el('td', '');
       if (lev.length) { for (const l of lev) inc.append(el('div', 'dk-po', `+${int.format(l.stuks)} · ${dNl(etaOf(l))} · ${l.po}`)); } else inc.textContent = '—';
-      const ti = totInfo(r, window.vrVraag(r));
       const tot = el('td', ''); tot.textContent = totTxt(ti);
       if (k !== 'b') tot.append(el('span', 'dk-scen', ' ' + scenNaam(k)));
       if (ti.tijdelijk) tot.append(el('div', 'vr-mag', `${ti.nuOp ? 'nu op' : 'op vanaf ' + dNl(ti.van)}, weer binnen ${dNl(ti.terug)}`));
       const best = el('td', a.rank <= 1 ? 'lw-bad dk-strong' : a.rank === 2 ? 'dk-warn' : '', a.rank <= 1 ? 'nu' : a.bestelDatum ? dNl(a.bestelDatum) : '—');
       const act = el('td'); act.append(el('span', 'lw-pill' + stCls2(actieTxt(a)), actieTxt(a))); if (x.mag) act.append(el('div', 'vr-mag', `magazijn: ${int.format(x.mag)} st tot de container er is`));
-      tr.append(el('td', 'lw-num', String(r.rang)), nm, el('td', 'lw-num' + ((Number(r.voorraad) || 0) <= 0 ? ' lw-bad' : ''), int.format(r.voorraad)), inc, tot, best,
+      tr.append(el('td', 'lw-num', String(x.rang)), nm, om, el('td', 'lw-num' + ((Number(r.voorraad) || 0) <= 0 ? ' lw-bad' : ''), int.format(r.voorraad)), inc, tot, best,
         el('td', 'lw-num', a.qty ? int.format(a.qty) : '—'), act);
       out.push(tr);
-      if (OPEN.has(r.sku)) { const d = el('tr', 'dk-detail'); const td = el('td'); td.colSpan = 8; td.append(detail(r, x)); d.append(td); out.push(d); }
+      if (OPEN.has(r.sku)) { const d = el('tr', 'dk-detail'); const td = el('td'); td.colSpan = 9; td.append(detail(r, x)); d.append(td); out.push(d); }
     }
     tb.replaceChildren(...out);
   }
@@ -445,26 +514,13 @@
     card('Voorraad tot', totTxt(ti), `scenario ${scenNaam(k)}` + (ti.tijdelijk ? ` · ${ti.nuOp ? 'nu op' : 'op vanaf ' + dNl(ti.van)}, weer binnen ${dNl(ti.terug)}` : ''), ti.tijdelijk ? 'dk-warnc' : '');
     card(actieTxt(x.a), x.a.rank <= 1 ? 'Nu bestellen' : x.a.bestelDatum ? 'uiterlijk ' + dNl(x.a.bestelDatum) : 'geen actie', x.a.qtyNu ? `advies ${int.format(x.a.qtyNu)} st · levertijd ${x.a.L} wk · bestel je nu, dan binnen ± ${dNl(x.a.aankomst)}` + (x.mag ? ` · eerst ${int.format(x.mag)} st uit magazijn` : '') : `levertijd ${x.a.L} wk`, x.a.rank <= 1 ? 'dk-bad' : x.a.rank === 2 ? 'dk-warnc' : '');
     box.append(cards);
-    // scenario's
-    const sw = el('div', 'dk-scenbox'); const bar = el('div', 'lw-mini'); bar.append(el('span', 'dk-lbl', 'Groeiscenario t.o.v. vorig jaar'));
-    for (const [v, l] of SCEN) { const b = el('button', '', l); b.type = 'button'; b.setAttribute('aria-pressed', String(String(k) === String(v))); b.addEventListener('click', (e) => { e.stopPropagation(); saveGroei(r.sku, v === 'b' ? null : v); }); bar.append(b); }
-    const inp = el('input'); inp.type = 'number'; inp.step = 5; inp.placeholder = 'eigen %'; if (typeof k === 'number' && ![0, 10, 20, 30].includes(k)) inp.value = k;
+    // groei: standaard begroting, of 0%, of een eigen percentage
+    const bar = el('div', 'lw-mini'); bar.append(el('span', 'dk-lbl', 'Verwachte groei:'));
+    for (const [v, l] of [['b', 'Begroting'], [0, '0% (gelijk aan vorig seizoen)']]) { const b = el('button', '', l); b.type = 'button'; b.setAttribute('aria-pressed', String(String(k) === String(v))); b.addEventListener('click', (e) => { e.stopPropagation(); saveGroei(r.sku, v === 'b' ? null : v); }); bar.append(b); }
+    const inp = el('input'); inp.type = 'number'; inp.step = 5; inp.placeholder = 'eigen %'; if (typeof k === 'number' && k !== 0) inp.value = k;
     inp.addEventListener('click', (e) => e.stopPropagation()); inp.addEventListener('change', () => saveGroei(r.sku, inp.value === '' ? null : Number(inp.value)));
-    bar.append(inp); sw.append(bar);
-    const eindSeizoen = `${Number(today().slice(0, 4)) + (today().slice(5, 7) > '08' ? 1 : 0)}-08-31`;
-    const st = el('table', 'lw-table vr-sub dk-scen-t'); const h = el('tr'); ['Scenario', 'Voorraad tot', 'Bestellen uiterlijk', 'Advies', `Tekort t/m ${dNl(eindSeizoen)}`].forEach((t, i) => h.append(el('th', i >= 3 ? 'lw-num' : '', t))); const th = el('thead'); th.append(h); st.append(th);
-    const stb = el('tbody');
-    for (const [v, l] of SCEN) {
-      const vv = vraagMet(r, v), xx = MKX(r, vv), pr = projectie(r, vv);
-      let min = 0; for (let i = 0; i < vv.length; i++) { if (pr.wk(i) > eindSeizoen) break; min = Math.min(min, pr.proj[i]); }
-      const tr = el('tr', String(k) === String(v) ? 'dk-sel' : '');
-      tr.append(el('td', '', l + (String(k) === String(v) ? ' (gekozen)' : '')), el('td', '', totTxt(totInfo(r, vv))),
-        el('td', xx.a.rank <= 1 ? 'lw-bad' : '', xx.a.rank <= 1 ? 'nu' : xx.a.bestelDatum ? dNl(xx.a.bestelDatum) : '—'), el('td', 'lw-num', xx.a.qtyNu && xx.a.rank <= 3 ? int.format(xx.a.qtyNu) : '—'),
-        el('td', 'lw-num', min < 0 ? int.format(Math.ceil(-min)) + ' st' : '—'));
-      tr.addEventListener('click', (e) => { e.stopPropagation(); saveGroei(r.sku, v === 'b' ? null : v); });
-      stb.append(tr);
-    }
-    st.append(stb); sw.append(st); box.append(sw);
+    bar.append(inp, el('span', 'dk-lbl', '%'));
+    box.append(bar);
     // per maand: verkocht vorige seizoenen, prognose, inkomend, voorraad eind maand
     const v = window.vrVraag(r), p = projectie(r, v);
     const prog = new Map(), eind = new Map(), inM = new Map();

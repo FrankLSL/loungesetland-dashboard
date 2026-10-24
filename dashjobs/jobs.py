@@ -646,13 +646,20 @@ def voorraad_analyse():
     weeks = sorted({r['week'] for r in sales})
     vraag = collections.defaultdict(lambda: collections.defaultdict(float))  # pid → week → stuks
     onbekend = collections.defaultdict(float)
+    omzet_w = collections.defaultdict(lambda: collections.defaultdict(float))
     for r in sales:
         p = by_sku.get(r['sku'].upper()) if r['sku'] else None
         if not p:
             onbekend[r['sku'] or '(geen SKU)'] += r['omzet']
             continue
-        for cid, q in explode(p['id'], r['stuks']):
+        parts = explode(p['id'], r['stuks'])
+        for cid, q in parts:
             vraag[cid][r['week']] += q
+        # omzet naar de onderdelen, naar rato van hun inkoopwaarde (anders naar aantal)
+        kw = [cost(cid) * q for cid, q in parts]
+        tk = sum(kw)
+        for (cid, q), k in zip(parts, kw):
+            omzet_w[cid][r['week']] += r['omzet'] * (k / tk if tk > 0 else (q / (sum(x for _, x in parts) or 1)))
     wk = lambda d: (d - datetime.timedelta(days=d.weekday()))
     cur = wk(td)
     last52 = [(cur - datetime.timedelta(weeks=i)).isoformat() for i in range(1, 53)]
@@ -769,7 +776,7 @@ def voorraad_analyse():
                      'volgende': nxt[0] if nxt else None, 'volgende_stuks': i0(nxt[1]) if nxt else None, 'volgende_po': nxt[2] if nxt else None,
                      'leveringen': [{'datum': d, 'stuks': i0(q), 'po': n} for d, q, n in arr][:6],
                      'status': status, 'waarde_52w': r2(verkocht52 * cost(pid)),
-                     'pid': pid, 'kostprijs': r2(cost(pid)), 'verkocht_13w': i0(sum(ws.get(w, 0) for w in last52[:13])), 'in_stock': i0(st['in_stock']),
+                     'pid': pid, 'omzet_52w': r2(sum(omzet_w[pid].get(w, 0) for w in last52)), 'kostprijs': r2(cost(pid)), 'verkocht_13w': i0(sum(ws.get(w, 0) for w in last52[:13])), 'in_stock': i0(st['in_stock']),
                      'leverancier_id': (lev_van.get(pid) or (None, None))[1],
                      'leverancier': sup.get((lev_van.get(pid) or (None, None))[1]) or (f'Leverancier {(lev_van.get(pid) or (None, None))[1]}' if lev_van.get(pid) and lev_van[pid][1] else 'Onbekend'),
                      'vraag': [round(basis * x, 2) for x in idx], 'vraag0': vraag0, 'vraag_eigen': vraag_eigen, 'maanden': mnd_keep})
