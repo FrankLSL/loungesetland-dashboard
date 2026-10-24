@@ -484,7 +484,9 @@
     const fill = !!P.vr_fill;
     if (fLev === 'overig') { host.replaceChildren(el('p', 'lw-note', 'Geen containervoorstel voor de overige leveranciers; kies MOD Outdoor, Apple Bee, Tierra Outdoor of Republic.')); return; }
     const ofLev = (x) => x.g === fLev && (fLev !== 'ab' || x.origine);
-    const items = all.filter((x) => ofLev(x) && (x.a.rank <= 2 || (fill && x.cbm && x.a.qtyNu >= 0 && x.r.verkocht_52w > 0))).map((x) => ({ ...x, q: x.a.rank <= 2 ? x.a.qty : 0 }));
+    // tijdelijk uit het voorstel gehaalde producten (alleen voor jou, in de link); de vrije ruimte wordt aangevuld
+    const excl = new Set(String(P.vr_cx || '').split(',').filter(Boolean));
+    const items = all.filter((x) => ofLev(x) && (x.a.rank <= 2 || (x.cbm && x.r.verkocht_52w > 0 && x.a.perWk > 0))).map((x) => { const q0 = x.a.rank <= 2 ? x.a.qty : 0, uit = excl.has(x.r.sku); return { ...x, q0, uit, q: uit ? 0 : q0 }; });
     const tg = el('div', 'lw-mini');
     const b1 = el('button', '', 'Alleen het advies'); b1.type = 'button'; b1.setAttribute('aria-pressed', String(!fill)); b1.addEventListener('click', () => dash.setParams({ vr_fill: null }));
     const b2 = el('button', '', 'Container vol maken'); b2.type = 'button'; b2.setAttribute('aria-pressed', String(fill)); b2.addEventListener('click', () => dash.setParams({ vr_fill: 1 }));
@@ -496,7 +498,7 @@
     const locs = [...new Set(items.map(locOf))].sort();
     for (const loc of locs) {
       const g = items.filter((x) => locOf(x) === loc);
-      if (!g.some((x) => x.q > 0) && !fill) continue;
+      if (!g.some((x) => x.q > 0 || (x.uit && x.q0 > 0)) && !fill) continue;
       if (locs.length > 1 || loc) parts.push(el('h3', 'vr-loc', loc ? `Productielocatie ${loc}${LOCNAAM[loc] ? ' · ' + LOCNAAM[loc] : ''}` : 'Locatie onbekend'));
       parts.push(...group(g));
     }
@@ -528,14 +530,17 @@
     return box;
   }
 
+  const excl0 = () => new Set(String(dash.params().vr_cx || '').split(',').filter(Boolean));
   function group(items) {
     const P = dash.params(); const fill = !!P.vr_fill;
     const T0 = items.reduce((t, x) => t + (x.cbm ? x.q * x.cbm : 0), 0);
-    let C = containers(T0, P);
-    // container vol maken: steeds 1 stuk erbij van het product dat na aankomst het kortst dekt, tot de laatste container vol is
+    const Tadv = items.reduce((t, x) => t + (x.cbm ? x.q0 * x.cbm : 0), 0);
+    const uitG = items.filter((x) => x.uit && x.q0 > 0);
+    let C = containers(fill ? T0 : uitG.length ? Tadv : T0, P);
+    // container vol maken (of een product eruit gehaald): steeds 1 stuk erbij van het product dat na aankomst het kortst dekt, tot de container(s) vol zijn
     let added = 0;
-    if (fill && C.cap > 0) {
-      let free = C.cap - T0; const cand = items.filter((x) => x.cbm && x.a.perWk > 0);
+    if ((fill || uitG.length) && C.cap > 0) {
+      let free = C.cap - T0; const cand = items.filter((x) => x.cbm && x.a.perWk > 0 && !x.uit);
       for (let n = 0; n < 5000 && cand.length; n++) {
         let best = null, bw = Infinity;
         for (const x of cand) { if (x.cbm > free) continue; const w = (Math.max(0, x.a.atArr) + x.q) / x.a.perWk; if (w < bw) { bw = w; best = x; } }
@@ -550,20 +555,31 @@
     const bar = el('div', 'vr-fill');
     let restT = T; for (const [k, cap] of C.list) { const d = el('div'); const f = Math.min(cap, restT); restT -= f; d.style.width = (cap / Math.max(C.cap, 1)) * 100 + '%'; d.style.background = `linear-gradient(90deg, #84bd3f ${(f / cap) * 100}%, transparent ${(f / cap) * 100}%)`; d.title = `${k}: ${n1.format(f)} van ${cap} cbm`; bar.append(d); }
     const parts = [box, bar];
+    if (uitG.length) {
+      const extra = items.filter((x) => x.q > x.q0).sort((a, b) => (b.q - b.q0) * (b.cbm || 0) - (a.q - a.q0) * (a.cbm || 0));
+      const n = el('div', 'vr-uitnote');
+      n.append(el('b', '', `${uitG.length} ${uitG.length === 1 ? 'product' : 'producten'} tijdelijk eruit (−${n1.format(uitG.reduce((t, x) => t + x.q0 * (x.cbm || 0), 0))} cbm). `),
+        document.createTextNode(extra.length ? 'Aangevuld met wat na aankomst het kortst toe kan: ' + extra.slice(0, 6).map((x) => `${vol(x.r.naam).split(' · ').slice(0, 2).join(' · ')} +${x.q - x.q0}`).join(', ') + (extra.length > 6 ? ` en ${extra.length - 6} meer` : '') + '. ' : 'Niets om mee aan te vullen. '));
+      const b = el('button', 'vr-link', 'alles terugzetten'); b.type = 'button'; b.addEventListener('click', () => { const rest = [...excl0()].filter((k) => !uitG.some((x) => x.r.sku === k)); dash.setParams({ vr_cx: rest.join(',') || null }); });
+      n.append(b); parts.push(n);
+    }
     const vs = verscheping(items.filter((x) => x.q > 0));
     if (vs) parts.push(vs);
     if (noCbm.length) parts.push(el('p', 'lw-note lw-bad', `${noCbm.length} producten hebben nog geen CBM en tellen niet mee in de containers. Vul de CBM per stuk hieronder in${isAdmin() ? '' : ' (alleen een beheerder kan dat opslaan)'}.`));
     const tbl = el('table', 'lw-table lw-stocktable'); const th = el('thead'); const hr = el('tr');
-    ['Product', 'SKU · art.nr leverancier', 'Status', 'Bestellen', 'CBM/stuk', 'CBM', 'Inkoop', 'Dekt na aankomst'].forEach((h, i) => hr.append(el('th', i >= 3 && i !== 7 ? 'lw-num' : '', h))); th.append(hr); tbl.append(th);
+    ['Product', 'SKU · art.nr leverancier', 'Status', 'Bestellen', 'CBM/stuk', 'CBM', 'Inkoop', 'Dekt na aankomst', ''].forEach((h, i) => hr.append(el('th', i >= 3 && i !== 7 && i !== 8 ? 'lw-num' : '', h))); th.append(hr); tbl.append(th);
     const tb = el('tbody');
-    for (const x of items.filter((x) => x.q > 0 || !x.cbm).sort((a, b) => a.a.rank - b.a.rank || b.q - a.q)) {
-      const tr = el('tr');
+    for (const x of items.filter((x) => x.q > 0 || (x.uit && x.q0 > 0) || (x.q0 > 0 && !x.cbm)).sort((a, b) => a.uit - b.uit || a.a.rank - b.a.rank || b.q - a.q)) {
+      const tr = el('tr', x.uit ? 'vr-uitrow' : '');
       const cbTd = el('td', 'lw-num');
       if (isAdmin()) { const i = el('input'); i.type = 'number'; i.step = '0.01'; i.min = 0; i.value = x.cbm ?? ''; i.placeholder = '?'; i.addEventListener('change', () => saveCbm(x.r.sku, i.value === '' ? null : Number(i.value))); cbTd.append(i); }
       else cbTd.textContent = x.cbm ? n2.format(x.cbm) : '?';
       const wk = x.a.perWk > 0 ? (Math.max(0, x.a.atArr) + x.q) / x.a.perWk : null;
-      tr.append(el('td', 'lw-wrap', vol(x.r.naam)), el('td', '', x.r.sku + (HERK[x.r.sku] ? ' · ' + HERK[x.r.sku].artikel : '')), el('td', '', x.a.status), el('td', 'lw-num', int.format(x.q)), cbTd,
-        el('td', 'lw-num', x.cbm ? n1.format(x.q * x.cbm) : '—'), el('td', 'lw-num', eur0.format(x.q * (x.r.kostprijs || 0))), el('td', '', wk == null ? '—' : n1.format(wk) + ' wk'));
+      tr.append(el('td', 'lw-wrap', vol(x.r.naam)), el('td', '', x.r.sku + (HERK[x.r.sku] ? ' · ' + HERK[x.r.sku].artikel : '')), el('td', '', x.a.status), el('td', 'lw-num', x.uit ? `(${int.format(x.q0)})` : int.format(x.q) + (x.q > x.q0 ? ` (+${x.q - x.q0})` : '')), cbTd,
+        el('td', 'lw-num', x.cbm ? n1.format(x.q * x.cbm) : '—'), el('td', 'lw-num', eur0.format(x.q * (x.r.kostprijs || 0))), el('td', '', x.uit ? 'eruit' : wk == null ? '—' : n1.format(wk) + ' wk'));
+      const act = el('td'); const ab = el('button', 'vr-link', x.uit ? 'terugzetten' : 'eruit'); ab.type = 'button'; ab.title = x.uit ? 'Weer meenemen in dit voorstel' : 'Tijdelijk uit dit containervoorstel halen; de ruimte wordt aangevuld';
+      ab.addEventListener('click', () => { const e = excl0(); if (x.uit) e.delete(x.r.sku); else e.add(x.r.sku); dash.setParams({ vr_cx: [...e].join(',') || null }); });
+      act.append(ab); tr.append(act);
       tb.append(tr);
     }
     tbl.append(tb); const tbx = el('div', 'lw-tablebox lw-tablebox-20'); tbx.append(tbl); parts.push(tbx);
