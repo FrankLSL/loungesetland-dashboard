@@ -88,6 +88,7 @@ PAGINA = {
     'liquiditeit': ['containers', 'shop_open', 'ontvangsten', 'shop_sales_recent', 'pm_daily'],
     'ads': ['ads_daily', 'ads_campaigns', 'meta_ads', 'gbp_daily', 'shop_search_month', 'shop_sessions_recent', 'shop_sales_recent', 'pm_daily', 'weer'],
     'voorraad': ['sumtracker_stock', 'containers', 'shop_sku_weekly', 'voorraad_analyse'],
+    'opslag': ['sumtracker_stock', 'containers', 'shop_sku_weekly', 'voorraad_analyse'],
 }
 PENDING = set()
 

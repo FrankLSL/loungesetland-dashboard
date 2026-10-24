@@ -802,6 +802,7 @@
       if (!i._op) { i._op = 1; i.addEventListener('change', () => dash.setParams({ [i.dataset.op]: i.value === '' ? null : Number(i.value) })); }
     });
     const cap = m2 * hoog * benut / 100;
+    const se = document.getElementById('op-stand'), st0 = (SEIZ()[0] || {}).stand; if (se) se.textContent = st0 ? dNl(st0.slice(0, 10)) + ' ' + st0.slice(11, 16) : '—';
     // cbm per product; zonder cbm: schatting via cbm per euro inkoop van de producten waar het wel bekend is
     let kc = 0, ke = 0; for (const r of dk) { const c = cbmOf(r.sku), k = Number(r.kostprijs) || 0; if (c && k) { kc += c; ke += k; } }
     const perEur = ke ? kc / ke : 0;

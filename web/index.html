@@ -552,7 +552,7 @@
 <div class="lw">
   <div class="lw-brand">
     <div class="lw-logo"><svg viewBox="0 0 40 40" aria-hidden="true"><g stroke="#f0b429" stroke-width="3" stroke-linecap="round"><line x1="20" y1="3" x2="20" y2="8" transform="rotate(0 20 20)"/><line x1="20" y1="3" x2="20" y2="8" transform="rotate(45 20 20)"/><line x1="20" y1="3" x2="20" y2="8" transform="rotate(90 20 20)"/><line x1="20" y1="3" x2="20" y2="8" transform="rotate(135 20 20)"/><line x1="20" y1="3" x2="20" y2="8" transform="rotate(180 20 20)"/><line x1="20" y1="3" x2="20" y2="8" transform="rotate(225 20 20)"/><line x1="20" y1="3" x2="20" y2="8" transform="rotate(270 20 20)"/><line x1="20" y1="3" x2="20" y2="8" transform="rotate(315 20 20)"/></g><circle cx="20" cy="20" r="8" fill="#f0b429"/></svg><span>Lounge<b>set</b>land</span></div>
-    <nav class="lw-tabs" role="tablist" aria-label="Dashboards"><button type="button" role="tab" id="tab-week" data-tab="week" aria-selected="true">Weekrapport</button><button type="button" role="tab" id="tab-liq" data-tab="liquiditeit" aria-selected="false">Liquiditeitsprognose</button><button type="button" role="tab" id="tab-ads" data-tab="ads" aria-selected="false">Ads</button><button type="button" role="tab" id="tab-vr" data-tab="voorraad" aria-selected="false">Voorraad</button></nav>
+    <nav class="lw-tabs" role="tablist" aria-label="Dashboards"><button type="button" role="tab" id="tab-week" data-tab="week" aria-selected="true">Weekrapport</button><button type="button" role="tab" id="tab-liq" data-tab="liquiditeit" aria-selected="false">Liquiditeitsprognose</button><button type="button" role="tab" id="tab-ads" data-tab="ads" aria-selected="false">Ads</button><button type="button" role="tab" id="tab-vr" data-tab="voorraad" aria-selected="false">Voorraad</button><button type="button" role="tab" id="tab-op" data-tab="opslag" aria-selected="false">Opslag</button></nav>
   </div>
   <div class="lw-page" id="pg-week">
   <header class="lw-head" id="top">
@@ -917,7 +917,7 @@
     <h1>Voorraad en inkoop</h1>
     <p>Stand <span id="vr-stand">—</span>.</p>
   </header>
-  <nav class="ad-nav" aria-label="Onderdelen"><a href="#vr-s-best">Bestellen</a><a href="#vr-s-cont">Containervoorstel</a><a href="#vr-s-bg">Begroting</a><a href="#vr-s-lev">Per leverancier</a><a href="#dekking">Voorraad per product</a><a href="#vr-s-in">Inkomend</a><a href="#vr-s-op">Opslag</a></nav>
+  <nav class="ad-nav" aria-label="Onderdelen"><a href="#vr-s-best">Bestellen</a><a href="#vr-s-cont">Containervoorstel</a><a href="#vr-s-bg">Begroting</a><a href="#vr-s-lev">Per leverancier</a><a href="#dekking">Voorraad per product</a><a href="#vr-s-in">Inkomend</a></nav>
 
   <section class="lw-section" id="vr-s-best">
     <h2>Bestellen</h2>
@@ -1001,8 +1001,17 @@
     </div>
   </section>
 
+    </div>
+  </section>
+  </div>
+  <div class="lw-page" id="pg-op" hidden>
+  <header class="lw-head">
+    <h1>Opslag</h1>
+    <p>Stand <span id="op-stand">—</span>.</p>
+  </header>
+
   <section class="lw-section" id="vr-s-op">
-    <h2>Opslag</h2>
+    <h2>Ruimte in de hallen</h2>
     <div class="lw-card">
       <div class="vr-op-set" id="vr-op-set">
         <label>Vloeroppervlak hallen (m²) <input type="number" data-op="vr_m2" step="50" min="0"></label>
@@ -1013,8 +1022,6 @@
       <div class="lw-chart" id="vr-op-chart"></div>
       <div class="lw-tablebox"><table class="lw-table" id="vr-op-tbl"></table></div>
       <p class="lw-note" id="vr-op-note"></p>
-    </div>
-  </section>
     </div>
   </section>
   </div>
@@ -3351,6 +3358,7 @@ window.bgEngine = (m, params, todayS) => {
     document.getElementById('pg-liq').hidden = tab !== 'liquiditeit';
     document.getElementById('pg-ads').hidden = tab !== 'ads';
     document.getElementById('pg-vr').hidden = tab !== 'voorraad';
+    document.getElementById('pg-op').hidden = tab !== 'opslag';
     btns.forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
     if (push) { dash.setLink(tab); dash.setParams({ tab }); }
     // charts drawn while a tab was hidden have no width: redraw now it is visible
@@ -3378,7 +3386,7 @@ window.bgEngine = (m, params, todayS) => {
     } catch (e) { rb.textContent = '↻ Dit dashboard verversen (mislukt, probeer opnieuw)'; rb.disabled = false; }
   });
   const h = location.hash.slice(1);
-  const t0 = ['liquiditeit', 'ads', 'voorraad'].includes(h) ? h : (dash.params().tab || '');
-  if (t0 === 'liquiditeit' || t0 === 'ads' || t0 === 'voorraad') show(t0, false); // ook na herladen op hetzelfde tabblad blijven
+  const t0 = ['liquiditeit', 'ads', 'voorraad', 'opslag'].includes(h) ? h : (dash.params().tab || '');
+  if (['liquiditeit', 'ads', 'voorraad', 'opslag'].includes(t0)) show(t0, false); // ook na herladen op hetzelfde tabblad blijven
 })();
 </script>
