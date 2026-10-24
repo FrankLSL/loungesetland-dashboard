@@ -483,7 +483,7 @@
     for (const x of list.slice(0, 500)) {
       const r = x.r, a = x.a, k = keuze(r.sku), ti = x.ti;
       const tr = el('tr', 'dk-row'); tr.dataset.key = r.sku; tr.setAttribute('aria-expanded', String(OPEN.has(r.sku)));
-      const nm = el('td', 'lw-wrap'); nm.append(el('span', 'dk-caret', OPEN.has(r.sku) ? '▾ ' : '▸ '), document.createTextNode(short(r.naam))); nm.title = `${r.sku} · ${x.c.col}`;
+      const nm = el('td', 'lw-wrap'); nm.append(el('span', 'dk-caret', OPEN.has(r.sku) ? '▾ ' : '▸ '), document.createTextNode(String(r.naam || '').split('|').slice(0, 3).map((t) => t.trim()).join(' · '))); nm.title = `${r.sku} · ${x.c.col}`;
       const om = el('td', 'lw-num'); om.append(document.createTextNode(r.omzet_52w ? eur0.format(r.omzet_52w) : '—'), el('span', 'dk-share', r.omzet_52w ? new Intl.NumberFormat(nl, { style: 'percent', maximumFractionDigits: 1 }).format(r.omzet_52w / totOmzet) : ''));
       const lev = (r.leveringen || []).slice().sort((p, q) => (etaOf(p) < etaOf(q) ? -1 : 1));
       const inc = el('td', '');
