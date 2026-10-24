@@ -88,10 +88,11 @@
     try { if (db) { const g = await db.doc('voorraad/bestelstatus').get(); const w = Object.assign({}, g.exists ? g.data().waarden || {} : {}); if (v == null) delete w[sku]; else w[sku] = v; await db.doc('voorraad/bestelstatus').set({ waarden: w, at: new Date().toISOString() }); } } catch (e) { /* lokaal */ }
     keepPos(() => { render(); dkDecorate(); });
   }
-  const holdTxt = (h) => (h.type === 'stop' ? 'Niet meer bestellen' : `Aankijken t/m ${dNl(h.tot)}`);
+  const holdTxt = (h) => (h.type === 'weg' ? 'Verborgen' : h.type === 'stop' ? 'Niet meer bestellen' : `Aankijken t/m ${dNl(h.tot)}`);
+  const verborgen = (sku) => !!(STAT[sku] && STAT[sku].type === 'weg'); // verkopen we niet meer: uit alle lijsten (telt wel mee bij Opslag)
   function holdKnoppen(sku) {
     const h = holdOf(sku); const bar = el('div', 'lw-mini'); bar.append(el('span', 'dk-lbl', 'Bestellen:'));
-    const opts = [[null, 'Normaal meenemen'], ['wacht', 'Even aankijken (4 weken)'], ['stop', 'Niet meer bestellen']];
+    const opts = [[null, 'Normaal meenemen'], ['wacht', 'Even aankijken (4 weken)'], ['stop', 'Niet meer bestellen'], ['weg', 'Verbergen (verkopen we niet meer)']];
     for (const [t, l] of opts) { const b = el('button', '', l); b.type = 'button'; b.setAttribute('aria-pressed', String((h ? h.type : null) === t)); b.addEventListener('click', (e) => { e.stopPropagation(); saveStat(sku, t ? { type: t, tot: t === 'wacht' ? addD(today(), 28) : null, at: today() } : null); }); bar.append(b); }
     return bar;
   }
@@ -351,7 +352,7 @@
       a.ltLev = origine ? 'Apple Bee uit origine (container)' : g === 'ab' ? 'Apple Bee-magazijn' : r.leverancier;
       if (origine && a.rank === 0) { a.rank = 1; a.status = 'Nu bestellen'; } // tekort tot de container vangt het magazijn op
       return { r, a, cbm: c, g, origine, mag: origine && a.tekortVoor > 0 ? Math.ceil(a.tekortVoor) : 0 }; };
-    const allIncl = dk.filter((r) => actief(r) && !uitlopend(r)).map((r) => MKX(r));
+    const allIncl = dk.filter((r) => actief(r) && !uitlopend(r) && !verborgen(r.sku)).map((r) => MKX(r));
     const uit = allIncl.filter((x) => holdOf(x.r.sku));
     const all = allIncl.filter((x) => !holdOf(x.r.sku));
     LAST = all;
@@ -657,7 +658,8 @@
     const sz = SEIZ(); const stand = sz[0] ? sz[0].stand : null;
     const sEl = document.getElementById('dk-stand'); if (sEl) sEl.textContent = stand ? dNl(stand.slice(0, 10)) + ' ' + stand.slice(11, 16) : '—';
     // alle producten, belangrijkste (omzet 12 mnd) eerst
-    const X = dk.filter((r) => !(HERK[r.sku] && HERK[r.sku].uitlopend)).map((r) => { const x = MKX(r); x.ti = totInfo(r, window.vrVraag(r), x.origine); x.c = collectie(r); return x; })
+    const nVerb = dk.filter((r) => verborgen(r.sku)).length;
+    const X = dk.filter((r) => !(HERK[r.sku] && HERK[r.sku].uitlopend) && (P.dk_verb ? verborgen(r.sku) : !verborgen(r.sku))).map((r) => { const x = MKX(r); x.ti = totInfo(r, window.vrVraag(r), x.origine); x.c = collectie(r); return x; })
       .sort((a, b) => (b.r.omzet_52w || 0) - (a.r.omzet_52w || 0) || (b.r.waarde_52w || 0) - (a.r.waarde_52w || 0));
     const totOmzet = X.reduce((t, x) => t + (x.r.omzet_52w || 0), 0) || 1;
     X.forEach((x, i) => { x.rang = i + 1; });
@@ -697,7 +699,8 @@
       sel.value = fCol; sel.addEventListener('change', () => dash.setParams({ dk_col: sel.value || null }));
       const q = el('input'); q.type = 'search'; q.placeholder = 'Zoek product of SKU'; q.value = P.dk_q || '';
       q.addEventListener('change', () => dash.setParams({ dk_q: q.value || null }));
-      fb.replaceChildren(chips, sel, q);
+      const vb = el('button', 'vr-link', P.dk_verb ? 'terug naar alle producten' : `${nVerb} verborgen ${nVerb === 1 ? 'product' : 'producten'}`); vb.type = 'button'; vb.addEventListener('click', () => dash.setParams({ dk_verb: P.dk_verb ? null : 1 }));
+      fb.replaceChildren(chips, sel, q, ...(nVerb || P.dk_verb ? [vb] : []));
     }
     let list = fSt ? inQ.filter(cat[fSt]) : inQ;
     const colNaam = fCol ? fCol.slice(2) + (fCol.startsWith('m:') ? ' (alle kleuren)' : '') : '';
@@ -758,7 +761,7 @@
     top.prepend(zk, ls, tel);
     if (!isAdmin()) top.append(el('span', '', 'Alleen een beheerder kan cbm opslaan.'));
     const t = el('table', 'lw-table'); const th = el('thead'); const hr = el('tr');
-    ['Product', 'Leverancier', 'CBM per stuk', 'Bron', 'Stuks op voorraad', 'CBM op voorraad'].forEach((h, i) => hr.append(el('th', i >= 2 && i !== 3 ? 'lw-num' : '', h))); th.append(hr); t.append(th);
+    ['Product', 'Leverancier', 'CBM per stuk', 'Bron', 'Stuks op voorraad', 'CBM op voorraad', ''].forEach((h, i) => hr.append(el('th', i >= 2 && i !== 3 && i !== 6 ? 'lw-num' : '', h))); th.append(hr); t.append(th);
     const tb = el('tbody');
     for (const x of rowsL) {
       const r = x.r, c = cbmOf(r.sku), tr = el('tr'); tr.dataset.q = (vol(r.naam) + ' ' + r.sku).toLowerCase(); tr.dataset.lev = r.leverancier || 'Onbekend';
@@ -777,6 +780,7 @@
         levTd.append(sl);
       } else levTd.textContent = r.leverancier + (r.lev_afgeleid ? ' *' : '');
       tr.append(nm, levTd, td, el('td', c ? '' : 'lw-bad', bron), el('td', 'lw-num', int.format(fys)), el('td', 'lw-num', c && fys ? n1.format(c * fys) : ''));
+      const vt = el('td'); const vbt = el('button', 'vr-link', verborgen(r.sku) ? 'terugzetten' : 'verbergen'); vbt.type = 'button'; vbt.title = verborgen(r.sku) ? 'Weer tonen in de lijsten' : 'Verkopen we niet meer: uit alle lijsten van Inkopen halen'; vbt.addEventListener('click', () => saveStat(r.sku, verborgen(r.sku) ? null : { type: 'weg', at: today() })); vt.append(vbt); tr.append(vt);
       tb.append(tr);
     }
     t.append(tb); const box = el('div', 'lw-tablebox'); box.append(t);
