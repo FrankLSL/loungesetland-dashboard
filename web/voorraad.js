@@ -967,7 +967,7 @@
       const c = el('td'); c.append(el('span', 'op-pill ' + lvl(tot), pct0.format(tot / cap))); r3.append(c);
     }
     tb.append(r1, r2, r3); host.replaceChildren(th, tb);
-    document.getElementById('vr-op-note').textContent = `Bedragen in cbm, met tussen haakjes de vloer die je nodig hebt: cbm ÷ stapelhoogte ÷ % vloer voor opslag (de rest is looppad). Voorraad eind maand = wat er nu ligt + containers − verwachte verkoop (begroting). Nu = fysiek in de hallen, inclusief verkocht maar nog niet geleverd. Van ${int.format(stK)} stuks is de cbm bekend; voor ${int.format(stS)} stuks zonder cbm is die geschat via de gemiddelde cbm per euro inkoop (${n2.format(perEur * 1000)} cbm per € 1.000), in de grafiek lichter. Vul de cbm aan bij Voorraad › CBM per product.`;
+    document.getElementById('vr-op-note').textContent = `Bedragen in cbm, met tussen haakjes de vloer die je nodig hebt: cbm ÷ stapelhoogte ÷ % vloer voor opslag (de rest is looppad). Voorraad eind maand = wat er nu ligt + containers − verwachte verkoop (begroting). Nu = fysiek in de hallen, inclusief verkocht maar nog niet geleverd. Van ${int.format(stK)} stuks is de cbm bekend; voor ${int.format(stS)} stuks zonder cbm is die geschat via de gemiddelde cbm per euro inkoop (${n2.format(perEur * 1000)} cbm per € 1.000), in de grafiek lichter. Vul de cbm aan bij Inkopen › Voorraad per product › CBM per product.`;
   }
 
   dash.onData(() => keepPos(() => { try { renderOpslag(); } catch (e) { console.error('[voorraad] opslag', e); } try { renderBg(); } catch (e) { console.error('[voorraad] begroting', e); } try { render(); } catch (e) { console.error('[voorraad]', e); } try { dkDecorate(); } catch (e) { console.error('[voorraad] detail', e); } }));
