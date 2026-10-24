@@ -294,6 +294,11 @@
 #dash-root #vr-set { margin-bottom: .9rem; }
 #dash-root #vr-levf { margin: 1.1rem 0 1.1rem; }
 #dash-root #dk-filters { margin-top: 1rem; }
+#dash-root .vr-op-set { display: flex; flex-wrap: wrap; gap: .6rem 1.4rem; font-size: .82rem; color: var(--color-fg-muted); margin-bottom: 1rem; }
+#dash-root .vr-op-set input { font: inherit; width: 5.5rem; margin-left: .4rem; padding: .15rem .4rem; border: 1px solid var(--ls-line, #e4dfd6); border-radius: 6px; }
+#dash-root #vr-op-chart { position: relative; margin: 1rem 0; }
+#dash-root #vr-op-tbl td.vr-op-over { background: #fbe3e0; color: #c0392b; font-weight: 600; }
+#dash-root #vr-op-tbl td.vr-op-krap { background: #fdf3dc; }
 #dash-root .dk-why { background: #fff; border: 1px solid var(--ls-line, #e4dfd6); border-radius: 10px; padding: .7rem 1rem; font-size: .85rem; max-width: 60rem; }
 #dash-root .dk-why h4 { margin: 0 0 .4rem; font-size: .9rem; }
 #dash-root .dk-why ol { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: .35rem; }
@@ -912,7 +917,7 @@
     <h1>Voorraad en inkoop</h1>
     <p>Stand <span id="vr-stand">—</span>.</p>
   </header>
-  <nav class="ad-nav" aria-label="Onderdelen"><a href="#vr-s-best">Bestellen</a><a href="#vr-s-cont">Containervoorstel</a><a href="#vr-s-bg">Begroting</a><a href="#vr-s-lev">Per leverancier</a><a href="#dekking">Voorraad per product</a><a href="#vr-s-in">Inkomend</a></nav>
+  <nav class="ad-nav" aria-label="Onderdelen"><a href="#vr-s-best">Bestellen</a><a href="#vr-s-cont">Containervoorstel</a><a href="#vr-s-bg">Begroting</a><a href="#vr-s-lev">Per leverancier</a><a href="#dekking">Voorraad per product</a><a href="#vr-s-in">Inkomend</a><a href="#vr-s-op">Opslag</a></nav>
 
   <section class="lw-section" id="vr-s-best">
     <h2>Bestellen</h2>
@@ -993,6 +998,23 @@
       <div class="lw-tablebox lw-tablebox-20"><table class="lw-table lw-stocktable" id="vr-in"><thead><tr>
         <th>ETA</th><th>PO</th><th>Leverancier</th><th>Inhoud</th><th class="lw-num">Stuks</th><th class="lw-num">Betaald</th><th class="lw-num">Nog te betalen</th><th class="lw-num">Vracht</th><th class="lw-num">Totaal</th>
       </tr></thead><tbody></tbody><tfoot><tr><td>Totaal</td><td id="vr-in-n"></td><td></td><td></td><td class="lw-num" id="vr-in-q">—</td><td class="lw-num" id="vr-in-a">—</td><td class="lw-num" id="vr-in-o">—</td><td class="lw-num" id="vr-in-v">—</td><td class="lw-num" id="vr-in-e">—</td></tr></tfoot></table></div>
+    </div>
+  </section>
+
+  <section class="lw-section" id="vr-s-op">
+    <h2>Opslag</h2>
+    <div class="lw-card">
+      <div class="vr-op-set" id="vr-op-set">
+        <label>Vloeroppervlak hallen (m²) <input type="number" data-op="vr_m2" step="50" min="0"></label>
+        <label>Gemiddelde stapelhoogte (m) <input type="number" data-op="vr_hoog" step="0.1" min="0"></label>
+        <label>Benutting (% van de vloer, na paden) <input type="number" data-op="vr_benut" step="5" min="0" max="100"></label>
+      </div>
+      <div class="lw-tiles" id="vr-op-tiles"></div>
+      <div class="lw-chart" id="vr-op-chart"></div>
+      <div class="lw-tablebox"><table class="lw-table" id="vr-op-tbl"></table></div>
+      <p class="lw-note" id="vr-op-note"></p>
+    </div>
+  </section>
     </div>
   </section>
   </div>
@@ -3279,7 +3301,7 @@ window.bgEngine = (m, params, todayS) => {
 <script>
 // ---------- gedeelde instellingen: ingevulde waarden in de database, zodat ze op elke computer gelijk zijn ----------
 (function () {
-  const KEEP = /^(s_|bg_\d{4}_|ad_pct_|ad_jaar_pct$|ad_marge$|lt_\d+$|vr_(dek|buf|c20|c40|chq)$)/;
+  const KEEP = /^(s_|bg_\d{4}_|ad_pct_|ad_jaar_pct$|ad_marge$|lt_\d+$|vr_(dek|buf|c20|c40|chq|m2|hoog|benut)$)/;
   const PATH = 'instellingen/gedeeld';
   const pick = (p) => { const o = {}; for (const [k, v] of Object.entries(p || {})) if (KEEP.test(k) && v !== null && v !== undefined && v !== '') o[k] = v; return o; };
   const same = (a, b) => JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort());

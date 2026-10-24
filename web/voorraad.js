@@ -789,5 +789,77 @@
     }
     return { proj, op, arr, mag, t0, wk: (i) => addD(t0, i * 7) };
   };
-  dash.onData(() => keepPos(() => { try { renderBg(); } catch (e) { console.error('[voorraad] begroting', e); } try { render(); } catch (e) { console.error('[voorraad]', e); } try { dkDecorate(); } catch (e) { console.error('[voorraad] detail', e); } }));
+  // ---------- opslag: hoeveel cbm ligt er nu en wat komt eraan, tegenover de ruimte in de hallen ----------
+  function renderOpslag() {
+    const host = document.getElementById('vr-op-tbl'); if (!host) return;
+    const dk = rows('st_dekking'), sz = SEIZ(); if (!dk || !sz.length) return;
+    prepDk(dk);
+    const P = dash.params();
+    const m2 = num(P.vr_m2, 1100), hoog = num(P.vr_hoog, 2), benut = num(P.vr_benut, 60);
+    document.querySelectorAll('#vr-op-set [data-op]').forEach((i) => {
+      const d = { vr_m2: 1100, vr_hoog: 2, vr_benut: 60 }[i.dataset.op];
+      if (document.activeElement !== i) i.value = num(P[i.dataset.op], d);
+      if (!i._op) { i._op = 1; i.addEventListener('change', () => dash.setParams({ [i.dataset.op]: i.value === '' ? null : Number(i.value) })); }
+    });
+    const cap = m2 * hoog * benut / 100;
+    // cbm per product; zonder cbm: schatting via cbm per euro inkoop van de producten waar het wel bekend is
+    let kc = 0, ke = 0; for (const r of dk) { const c = cbmOf(r.sku), k = Number(r.kostprijs) || 0; if (c && k) { kc += c; ke += k; } }
+    const perEur = ke ? kc / ke : 0;
+    const cb = (r) => { const c = cbmOf(r.sku); if (c) return [c, false]; const k = Number(r.kostprijs) || 0; return k && perEur ? [k * perEur, true] : [0, true]; };
+    const t = today(), m0 = t.slice(0, 7);
+    const shift = (m, n) => { const d = new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1 + n, 1)); return d.toISOString().slice(0, 7); };
+    const months = Array.from({ length: 13 }, (_, i) => shift(m0, i));
+    const eind = new Map(months.map((m) => [m, [0, 0]])), inM = new Map(months.map((m) => [m, [0, 0]]));
+    let nuK = 0, nuS = 0, stK = 0, stS = 0;
+    for (const r of dk) {
+      const [c, est] = cb(r); if (!c) continue;
+      const fys = Math.max(0, Number(r.in_stock ?? r.voorraad) || 0);
+      if (est) { nuS += fys * c; if (fys) stS += fys; } else { nuK += fys * c; if (fys) stK += fys; }
+      for (const l of r.leveringen || []) { const m = etaOf(l).slice(0, 7); if (inM.has(m)) inM.get(m)[est ? 1 : 0] += (Number(l.stuks) || 0) * c; }
+      const ab = grpProd(r) === 'ab' && !!HERK[r.sku];
+      const p = projectie(r, window.vrVraag(r), ab);
+      const per = new Map(); for (let i = 0; i < p.proj.length; i++) per.set(addD(p.wk(i), 6).slice(0, 7), Math.max(0, p.proj[i]));
+      const res = Math.max(0, (Number(r.in_stock ?? r.voorraad) || 0) - (Number(r.voorraad) || 0)); // al verkocht, nog niet geleverd
+      for (const m of months) { let v = per.has(m) ? per.get(m) : null; if (v == null) continue; if (m === m0) v += res; eind.get(m)[est ? 1 : 0] += v * c; }
+    }
+    const nu = nuK + nuS;
+    const pk = months.slice(1).reduce((b, m) => { const v = eind.get(m)[0] + eind.get(m)[1]; return v > b.v ? { m, v } : b; }, { m: null, v: 0 });
+    const inTot = months.reduce((a, m) => a + inM.get(m)[0] + inM.get(m)[1], 0);
+    const tiles = document.getElementById('vr-op-tiles');
+    const tile = (l, v, sub, bad) => { const d = el('div', 'lw-tile'); const vv = el('div', 'lw-value', v); if (bad) vv.classList.add('lw-bad'); d.append(el('div', 'lw-label', l), vv, el('div', 'lw-delta', sub)); return d; };
+    tiles.replaceChildren(
+      tile('Nu op voorraad', `${int.format(nu)} cbm`, `${pct0.format(nu / cap)} van de ruimte · ${int.format(nuK)} cbm gemeten, ${int.format(nuS)} cbm geschat`, nu > cap),
+      tile('Komt eraan (12 mnd)', `${int.format(inTot)} cbm`, 'containers met ETA uit de containerplanning'),
+      tile('Hoogste stand', pk.m ? `${int.format(pk.v)} cbm` : '—', pk.m ? `eind ${mNl(pk.m)} · ${pct0.format(pk.v / cap)} van de ruimte` : '', pk.v > cap),
+      tile('Ruimte in de hallen', `${int.format(cap)} cbm`, `${int.format(m2)} m² × ${n1.format(hoog)} m × ${benut}% benut`));
+    // grafiek
+    const box = document.getElementById('vr-op-chart'); box.replaceChildren();
+    const W = Math.max(320, box.clientWidth || 900), H = 230, top = 12, bot = H - 24, left = 48;
+    const vals = months.map((m) => ({ m, k: m === m0 ? nuK : eind.get(m)[0], s: m === m0 ? nuS : eind.get(m)[1], i: inM.get(m)[0] + inM.get(m)[1] }));
+    const hi = Math.max(cap, ...vals.map((v) => v.k + v.s)) * 1.1;
+    const y = d3.scaleLinear([0, hi], [bot, top]).nice(), x = d3.scaleBand(months, [left, W - 6]).padding(0.25);
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+    svg.append('g').selectAll('line').data(y.ticks(4)).join('line').attr('x1', left).attr('x2', W - 6).attr('y1', y).attr('y2', y).attr('stroke', 'var(--cds-chart-grid, #eee)');
+    svg.append('g').selectAll('text').data(y.ticks(4)).join('text').attr('x', left - 6).attr('y', y).attr('dy', '0.32em').attr('text-anchor', 'end').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').text((v) => int.format(v));
+    for (const v of vals) {
+      const over = v.k + v.s > cap;
+      svg.append('rect').attr('x', x(v.m)).attr('width', x.bandwidth()).attr('y', y(v.k)).attr('height', bot - y(v.k)).attr('rx', 2).attr('fill', over ? '#c0392b' : '#1f4b47');
+      svg.append('rect').attr('x', x(v.m)).attr('width', x.bandwidth()).attr('y', y(v.k + v.s)).attr('height', y(v.k) - y(v.k + v.s)).attr('rx', 2).attr('fill', over ? '#e8a097' : '#7a9e9a');
+      svg.append('text').attr('x', x(v.m) + x.bandwidth() / 2).attr('y', H - 7).attr('text-anchor', 'middle').attr('font-size', 10.5).attr('fill', 'var(--color-fg-muted)').text(v.m === m0 ? 'nu' : mNl(v.m).replace(' 20', " '"));
+      svg.append('title').text('');
+    }
+    svg.append('line').attr('x1', left).attr('x2', W - 6).attr('y1', y(cap)).attr('y2', y(cap)).attr('stroke', '#e09a00').attr('stroke-width', 2).attr('stroke-dasharray', '6 4');
+    svg.append('text').attr('x', W - 8).attr('y', y(cap) - 5).attr('text-anchor', 'end').attr('font-size', 11).attr('fill', '#8a5d00').text(`ruimte ${int.format(cap)} cbm`);
+    // tabel
+    const th = el('thead'), hr = el('tr'); hr.append(el('th', '', '')); for (const m of months) hr.append(el('th', 'lw-num', m === m0 ? 'nu' : mNl(m).replace(' 20', " '"))); th.append(hr);
+    const tb = el('tbody');
+    const row = (l, f, cls) => { const tr = el('tr'); tr.append(el('td', '', l)); for (const v of vals) { const n = f(v); const td = el('td', 'lw-num', n == null ? '' : int.format(n)); if (cls) { const c = cls(v); if (c) td.classList.add(c); } tr.append(td); } tb.append(tr); };
+    row('Binnenkomend (cbm)', (v) => v.i || null);
+    row('Voorraad eind maand (cbm)', (v) => v.k + v.s, (v) => (v.k + v.s > cap ? 'vr-op-over' : v.k + v.s > cap * 0.9 ? 'vr-op-krap' : ''));
+    row('Bezetting', () => null); tb.lastChild.querySelectorAll('td').forEach((td, i) => { if (i) td.textContent = pct0.format((vals[i - 1].k + vals[i - 1].s) / cap); });
+    host.replaceChildren(th, tb);
+    document.getElementById('vr-op-note').textContent = `Voorraad eind maand = wat er nu ligt + wat binnenkomt − verwachte verkoop (begroting), in cbm per stuk. Donker = cbm bekend (${int.format(stK)} stuks), licht = geschat voor producten zonder cbm (${int.format(stS)} stuks), via de gemiddelde cbm per euro inkoop (${n2.format(perEur * 1000)} cbm per € 1.000). Nu = fysiek in de hallen, inclusief al verkocht maar nog niet geleverd. Vul bij het containervoorstel de cbm van meer producten in om de schatting kleiner te maken.`;
+  }
+
+  dash.onData(() => keepPos(() => { try { renderOpslag(); } catch (e) { console.error('[voorraad] opslag', e); } try { renderBg(); } catch (e) { console.error('[voorraad] begroting', e); } try { render(); } catch (e) { console.error('[voorraad]', e); } try { dkDecorate(); } catch (e) { console.error('[voorraad] detail', e); } }));
 })();
