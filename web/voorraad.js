@@ -686,7 +686,8 @@
           const o = qoMap();
           if (toegevoegd.has(r.sku)) { o.delete(r.sku); toegevoegd.delete(r.sku); }
           else { o.set(r.sku, Math.max(1, Math.round(Number(inp.value) || stdQ(x)))); toegevoegd.add(r.sku); }
-          qoSet(o); teken(); vInfo.textContent = toegevoegd.size ? `${toegevoegd.size} product(en) toegevoegd. Het voorstel achter dit venster is bijgewerkt.` : 'Toegevoegde producten komen in de tabel met dit aantal; daar kun je het nog aanpassen.';
+          const e = excl0(); e.delete(r.sku);
+          dash.setParams({ vr_qo: [...o.entries()].map(([k, v]) => `${k}:${v}`).join('|') || null, vr_cx: [...e].join(',') || null }); teken(); vInfo.textContent = toegevoegd.size ? `${toegevoegd.size} product(en) toegevoegd. Het voorstel achter dit venster is bijgewerkt.` : 'Toegevoegde producten komen in de tabel met dit aantal; daar kun je het nog aanpassen.';
         };
         knop.addEventListener('click', doe);
         inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doe(); } });
