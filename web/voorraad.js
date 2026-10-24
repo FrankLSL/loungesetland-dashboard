@@ -38,6 +38,23 @@
   const GNAAM = Object.fromEntries(GROEPEN.map(([k, n]) => [k, n]).concat([['overig', 'Overige leveranciers']]));
   const grpNaam = (n) => { for (const [k, , re] of GROEPEN) if (re.test(String(n || ''))) return k; return 'overig'; };
   // 'Leverancier 20734' was een verzamelaccount (bestaat niet meer): dan op merk/containersheet indelen
+  // producten zonder leverancier in Sumtracker (nooit op een inkooporder, of het oude verzamelaccount 20734):
+  // leverancier afleiden van de andere producten uit dezelfde collectie en hetzelfde materiaal (bv. Daan teak → Republic, Daan alu → Ningbo)
+  const PREP = new WeakSet();
+  const onbekendeLev = (r) => !r.leverancier || r.leverancier === 'Onbekend' || /^Leverancier \d+$/.test(r.leverancier);
+  function prepDk(dk) {
+    if (!dk || PREP.has(dk)) return; PREP.add(dk);
+    const mat = (r) => (/teak/i.test(r.naam || '') && !/alumin/i.test(r.naam || '') ? 'teak' : /alumin/i.test(r.naam || '') ? 'alu' : /rope|wicker/i.test(r.naam || '') ? 'rope' : '');
+    const tel = new Map();
+    const add = (k, r) => { const m = tel.get(k) || new Map(); const id = r.leverancier_id; const o = m.get(id) || { n: 0, naam: r.leverancier }; o.n += 1 + (Number(r.verkocht_52w) || 0); m.set(id, o); tel.set(k, m); };
+    for (const r of dk) if (!onbekendeLev(r) && r.leverancier_id != null) { const c = collectie(r).model; add(c + '|' + mat(r), r); add(c, r); }
+    for (const r of dk) {
+      if (!onbekendeLev(r) || (HERK[r.sku] && HERK[r.sku].leverancier)) continue;
+      const c = collectie(r).model; const m = tel.get(c + '|' + mat(r)) || tel.get(c); if (!m) continue;
+      const [id, o] = [...m.entries()].sort((p, q) => q[1].n - p[1].n)[0];
+      r.lev_origineel = r.leverancier; r.leverancier = o.naam; r.leverancier_id = id; r.lev_afgeleid = true;
+    }
+  }
   const grpProd = (r) => { const g = grpNaam(r.leverancier); if (g !== 'overig') return g; if (HERK[r.sku] && HERK[r.sku].leverancier) return grpNaam(HERK[r.sku].leverancier); return r.merk === 'Apple Bee' ? 'ab' : 'overig'; };
   const isAdmin = () => !!(dash.user && dash.user.r === 'beheerder');
 
@@ -257,6 +274,7 @@
     const root = document.getElementById('pg-vr');
     if (!root) return;
     const dk = rows('st_dekking'), pos = rows('vr_pos'), lev = rows('vr_leveranciers'), sz = rows('st_seizoen');
+    prepDk(dk);
     const P = dash.params();
     if (!dk || !pos || !lev || !rows('cp_open') || !rows('fx')) { clearTimeout(render._t); render._t = setTimeout(render, 700); return; }
     const stand = sz && sz[0] ? sz[0].stand : null;
@@ -369,7 +387,8 @@
       const r = x.r, a = x.a; const tr = el('tr', 'dk-row'); tr.dataset.key = r.sku; tr.setAttribute('aria-expanded', String(OPENB.has(r.sku)));
       const nm = naamCel(el('td', 'lw-wrap'), r, el('span', 'dk-caret', OPENB.has(r.sku) ? '▾ ' : '▸ ')); nm.title = `${r.sku} · ${int.format(r.verkocht_52w)} verkocht in 52 weken · verwacht ${n1.format(a.perWk)}/week na aankomst`;
       const ond = el('td', 'lw-num', r.onderweg ? int.format(r.onderweg) : '—'); if (r.leveringen && r.leveringen.length) ond.title = r.leveringen.map((l) => { const e = CPETA.get(pon(l.po)) || l.datum; return `${l.po}: ${int.format(l.stuks)} op ${dNl(e)}`; }).join('\n');
-      tr.append(nm, el('td', '', r.leverancier), el('td', 'lw-num', int.format(r.voorraad)), ond,
+      const levTd = el('td', '', r.leverancier + (r.lev_afgeleid ? ' *' : '')); if (r.lev_afgeleid) levTd.title = `In Sumtracker zonder leverancier (${r.lev_origineel || 'onbekend'}); afgeleid van de andere producten uit deze collectie. Zet de leverancier in Sumtracker om dit vast te leggen.`;
+      tr.append(nm, levTd, el('td', 'lw-num', int.format(r.voorraad)), ond,
         el('td', a.kortVoor ? 'lw-bad' : '', a.opDatum ? dNl(a.opDatum) + (a.kortVoor && r.onderweg ? ' (tijdelijk op tot levering)' : '') : 'na 60 wk'), el('td', 'lw-num', a.L + ' wk'),
         el('td', a.rank <= 1 ? 'lw-bad' : '', a.bestelDatum ? (a.orderBy <= 0 ? 'nu' : dNl(a.bestelDatum)) : '—'),
         el('td', 'lw-num', a.qty ? int.format(a.qty) : '—'), el('td', 'lw-num', x.cbm && a.qty ? n1.format(a.qty * x.cbm) : x.cbm ? '' : '?'),
@@ -590,7 +609,7 @@
   // ---------- voorraad per product ----------
   function dkDecorate() {
     const tbl = document.getElementById('tbl-dk'); if (!tbl || !MKX) return;
-    const tb = tbl.querySelector('tbody'); const dk = rows('st_dekking'); if (!tb || !dk) return;
+    const tb = tbl.querySelector('tbody'); const dk = rows('st_dekking'); if (!tb || !dk) return; prepDk(dk);
     const P = dash.params();
     CPETA_G = new Map((rows('cp_open') || []).filter((c) => c.eta).map((c) => [pon(c.po), c.eta]));
     const sz = SEIZ(); const stand = sz[0] ? sz[0].stand : null;
