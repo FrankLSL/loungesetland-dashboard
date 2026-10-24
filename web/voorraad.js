@@ -52,8 +52,13 @@
     const base = r.vraag_eigen || r.vraag0;
     if (!base) return r.vraag || [];
     const sz = SEIZ();
-    return base.map((x, i) => x * (1 + (g === 'b' ? (sz[i] ? Number(sz[i].groei) || 0 : 0) : Number(g) || 0) / 100));
+    return base.map((x, i) => x * (1 + (g === 'b' ? bgWeek(sz[i] ? sz[i].week : null, sz[i]) : Number(g) || 0) / 100));
   }
+  // begrote groei (procent) per maand: zelfde bron als de begroting in het weekrapport (gedeelde waarden bg_<jaar>_<mm>), dus live
+  const bgPct = (y, mo) => { const v = dash.params()['bg_' + y + '_' + String(mo).padStart(2, '0')]; const n = Number(String(v ?? '').replace(',', '.')); if (v !== undefined && v !== null && v !== '' && !Number.isNaN(n)) return n; const p = (window.BG_PLAN || {})[y]; return p ? p[mo - 1] : 25; };
+  const bgDefault = (y, mo) => { const v = dash.params()['bg_' + y + '_' + String(mo).padStart(2, '0')]; return v === undefined || v === null || v === ''; };
+  // week telt mee in de maand van zijn donderdag (zoals de server)
+  const bgWeek = (wk, srow) => { if (!wk) return srow ? Number(srow.groei) || 0 : 0; const d = addD(wk, 3); return bgPct(+d.slice(0, 4), +d.slice(5, 7)); };
   window.vrVraag = (r) => vraagMet(r, keuze(r.sku));
   async function saveGroei(sku, v) {
     GROEI = Object.assign({}, GROEI); if (v == null) delete GROEI[sku]; else GROEI[sku] = v;
@@ -181,6 +186,56 @@
     const cnt = {}; for (const [k] of list) cnt[k] = (cnt[k] || 0) + 1;
     const txt = Object.entries(cnt).map(([k, n]) => `${n}× ${k}`).join(' + ') + ` · ${pct0.format(T / cap)} vol`;
     return { txt, cap, list };
+  }
+
+  // ---------- begroting per maand (bewerkbaar, synchroon met het weekrapport) ----------
+  const BGT = {};
+  function renderBg() {
+    const host = document.getElementById('vr-bg'); if (!host) return;
+    const sz = SEIZ(); if (!sz.length) return;
+    const dk = rows('st_dekking') || [];
+    const focus = host.contains(document.activeElement) ? document.activeElement.dataset.key : null;
+    // verwachte verkoop per maand (inkoopwaarde, alle actieve producten), op dagbasis
+    const per = new Map();
+    for (const r of dk) {
+      const k = Number(r.kostprijs) || 0; if (!k) continue;
+      const v = window.vrVraag(r);
+      for (let i = 0; i < v.length && i < sz.length; i++) { if (!v[i]) continue; for (let j = 0; j < 7; j++) { const m = addD(sz[i].week, j).slice(0, 7); per.set(m, (per.get(m) || 0) + v[i] / 7 * k); } }
+    }
+    const t = today(), first = t.slice(0, 7), last = addD(sz[sz.length - 1].week, 6).slice(0, 7);
+    const years = []; for (let y = +first.slice(0, 4); y <= +last.slice(0, 4); y++) years.push(y);
+    const mn = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+    const tbl = el('table', 'lw-table vr-bgt'); const hr = el('tr'); hr.append(el('th', '', ''));
+    mn.forEach((m) => hr.append(el('th', 'lw-num', m))); hr.append(el('th', 'lw-num', 'Totaal'));
+    const th = el('thead'); th.append(hr); tbl.append(th); const tb = el('tbody');
+    for (const y of years) {
+      const g = el('tr', 'vr-bgt-g'); g.append(el('td', '', `Groei ${y}`));
+      const w = el('tr', 'vr-bgt-w'); w.append(el('td', '', `Verwachte verkoop ${y} (inkoopwaarde)`));
+      let tot = 0;
+      for (let mo = 1; mo <= 12; mo++) {
+        const key = `bg_${y}_${String(mo).padStart(2, '0')}`, ym = `${y}-${String(mo).padStart(2, '0')}`;
+        const inRange = ym >= first && ym <= last;
+        const td = el('td', 'lw-num');
+        if (inRange) {
+          const inp = el('input'); inp.type = 'text'; inp.inputMode = 'decimal'; inp.dataset.key = key;
+          inp.value = n1.format(bgPct(y, mo)); if (!bgDefault(y, mo)) inp.classList.add('bg-chg');
+          inp.title = `Begrote groei ${mn[mo - 1]} ${y} t.o.v. ${mn[mo - 1]} ${y - 1}`;
+          inp.addEventListener('input', () => { clearTimeout(BGT[key]); BGT[key] = setTimeout(() => dash.setParams({ [key]: inp.value.replace(/\./g, '').replace(',', '.').replace('%', '').trim() || null }), 500); });
+          td.append(inp, el('span', 'vr-bgt-p', '%'));
+        } else td.textContent = '';
+        g.append(td);
+        const val = inRange ? per.get(ym) || 0 : null; if (val) tot += val;
+        w.append(el('td', 'lw-num', val == null ? '' : eur0.format(val) + (ym === first ? '*' : '')));
+      }
+      g.append(el('td', '')); w.append(el('td', 'lw-num', tot ? eur0.format(tot) : ''));
+      tb.append(g, w);
+    }
+    tbl.append(tb);
+    const box = el('div', 'lw-tablebox'); box.append(tbl);
+    const reset = el('button', 'vr-link', 'standaardpercentages terugzetten'); reset.type = 'button';
+    reset.addEventListener('click', () => { const z = {}; for (const y of years) for (let mo = 1; mo <= 12; mo++) z[`bg_${y}_${String(mo).padStart(2, '0')}`] = null; dash.setParams(z); });
+    host.replaceChildren(box, el('p', 'lw-note', '* rest van deze maand. Dit is dezelfde begroting als in het weekrapport: wat je hier aanpast, staat daar ook (en andersom) en is voor iedereen opgeslagen. Bestellijst, containervoorstel en voorraad per product rekenen direct mee, behalve producten waar je een eigen groei hebt gekozen. Geel = aangepast. '), reset);
+    if (focus) { const f = host.querySelector(`input[data-key="${focus}"]`); if (f) { f.focus(); const L = f.value.length; f.setSelectionRange(L, L); } }
   }
 
   let LAST = null, MKX = null; const OPENB = new Set();
@@ -675,5 +730,5 @@
     }
     return { proj, op, arr, mag, t0, wk: (i) => addD(t0, i * 7) };
   };
-  dash.onData(() => { try { render(); } catch (e) { console.error('[voorraad]', e); } try { dkDecorate(); } catch (e) { console.error('[voorraad] detail', e); } });
+  dash.onData(() => { try { renderBg(); } catch (e) { console.error('[voorraad] begroting', e); } try { render(); } catch (e) { console.error('[voorraad]', e); } try { dkDecorate(); } catch (e) { console.error('[voorraad] detail', e); } });
 })();
