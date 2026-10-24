@@ -50,6 +50,7 @@
     for (const r of dk) if (!onbekendeLev(r) && r.leverancier_id != null) { const c = collectie(r).model; add(c + '|' + mat(r), r); add(c, r); }
     for (const r of dk) {
       if (!onbekendeLev(r) || (HERK[r.sku] && HERK[r.sku].leverancier)) continue;
+      if (/dienblad/i.test(r.naam || '')) continue; // losse accessoires: blijven bij Overige
       const c = collectie(r).model; const m = tel.get(c + '|' + mat(r)) || tel.get(c); if (!m) continue;
       const [id, o] = [...m.entries()].sort((p, q) => q[1].n - p[1].n)[0];
       r.lev_origineel = r.leverancier; r.leverancier = o.naam; r.leverancier_id = id; r.lev_afgeleid = true;
