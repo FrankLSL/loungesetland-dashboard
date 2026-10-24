@@ -403,6 +403,17 @@
 #dash-root .dk-box td.dk-low { background: #fdf3dc !important; }
 #dash-root .dk-box td.dk-neg { background: #fbe3e0 !important; color: #c0392b; }
 #dash-root .lw-pill.dk-hold { border-color: #9aa7a4; color: #6f7f7c; }
+#dash-root .dk-box-h { max-height: 46rem; }
+#dash-root #tbl-dk th { white-space: nowrap; padding: .65rem .8rem; }
+#dash-root #tbl-dk tr.dk-row > td { padding: .75rem .8rem; vertical-align: top; border-bottom: 1px solid var(--ls-line, #e4dfd6); line-height: 1.35; }
+#dash-root #tbl-dk tr.dk-row > td:first-child { width: 2.5rem; color: var(--color-fg-muted); }
+#dash-root #tbl-dk tr.dk-row > td:nth-child(2) { min-width: 22rem; }
+#dash-root #tbl-dk tr.dk-row > td:nth-child(3), #dash-root #tbl-dk tr.dk-row > td:nth-child(4) { white-space: nowrap; min-width: 6rem; }
+#dash-root #tbl-dk tr.dk-row > td:nth-child(5) { min-width: 13rem; padding-left: 1.6rem; }
+#dash-root #tbl-dk th:nth-child(5) { padding-left: 1.6rem; }
+#dash-root #tbl-dk tr.dk-row > td .vr-mag { margin-top: .3rem; font-size: .74rem; color: var(--color-fg-muted); }
+#dash-root #tbl-dk tr.dk-row > td:last-child, #dash-root #tbl-dk th:last-child { min-width: 11rem; }
+#dash-root #tbl-dk .dk-sku { margin-top: .15rem; }
 #dash-root .vr-acts { margin-top: .45rem; display: flex; flex-wrap: wrap; gap: .3rem; }
 #dash-root .vr-acts .vr-link { text-decoration: none; border: 1px solid var(--ls-line, #e4dfd6); background: #fff; border-radius: 999px; padding: .2rem .65rem; font-size: .74rem; line-height: 1.3; white-space: nowrap; }
 #dash-root .vr-acts .vr-link:hover { background: var(--ls-lime-soft, #e9f3dc); border-color: #b9d79a; }
@@ -1056,7 +1067,7 @@
       <div class="lw-card" id="card-dk">
         <div class="dk-filters" id="dk-filters"></div>
         <h3 id="dk-title">Alle producten</h3>
-        <div class="lw-tablebox lw-tablebox-20">
+        <div class="lw-tablebox dk-box-h">
           <table class="lw-table lw-stocktable" id="tbl-dk">
             <thead><tr>
               <th class="lw-num">#</th>
