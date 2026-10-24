@@ -540,7 +540,7 @@
     // container vol maken (of een product eruit gehaald): steeds 1 stuk erbij van het product dat na aankomst het kortst dekt, tot de container(s) vol zijn
     let added = 0;
     if ((fill || uitG.length) && C.cap > 0) {
-      let free = C.cap - T0; const cand = items.filter((x) => x.cbm && x.a.perWk > 0 && !x.uit);
+      let free = (fill ? C.cap : Tadv) - T0; const cand = items.filter((x) => x.cbm && x.a.perWk > 0 && !x.uit); // zonder 'vol maken': alleen de vrijgekomen ruimte opvullen
       for (let n = 0; n < 5000 && cand.length; n++) {
         let best = null, bw = Infinity;
         for (const x of cand) { if (x.cbm > free) continue; const w = (Math.max(0, x.a.atArr) + x.q) / x.a.perWk; if (w < bw) { bw = w; best = x; } }
