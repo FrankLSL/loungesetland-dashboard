@@ -261,21 +261,39 @@
 #dash-root #vr-in tr.vr-detail > td { background: #fff; padding: .2rem .5rem .8rem 1.5rem; }
 #dash-root .vr-sub { font-size: .8rem; margin: .3rem 0; }
 #dash-root #tbl-dk tr.dk-row { cursor: pointer; }
-#dash-root #tbl-dk tr.dk-row[aria-expanded="true"] td { background: var(--ls-lime-soft); }
+#dash-root #tbl-dk tr.dk-row:hover td { background: var(--ls-lime-soft); }
+#dash-root #tbl-dk tr.dk-row[aria-expanded="true"] td { background: var(--ls-lime-soft); font-weight: 600; }
+#dash-root #tbl-dk .dk-caret { color: var(--color-fg-muted); font-size: .75rem; }
+#dash-root #tbl-dk .dk-scen { font-size: .72rem; color: var(--color-fg-muted); font-weight: 400; }
+#dash-root #tbl-dk td.dk-strong { font-weight: 700; }
+#dash-root #tbl-dk td.dk-warn { color: #8a5d00; font-weight: 600; }
 #dash-root .lw-tablebox.dk-open { max-height: none; }
-#dash-root #tbl-dk tr.dk-detail > td, #dash-root #tbl-dk tr.dk-detail:hover > td { background: #fff; padding: .4rem .6rem 1rem 1.6rem; white-space: normal; }
-#dash-root .dk-box .lw-mini { align-items: center; }
-#dash-root .dk-box .dk-lbl { font-size: .8rem; color: var(--color-fg-muted); margin-right: .2rem; }
-#dash-root .dk-box input[type=number] { font: inherit; font-size: .8rem; width: 6rem; padding: .15rem .4rem; border: 1px solid var(--ls-line, #e4dfd6); border-radius: 999px; }
-#dash-root .dk-box .vr-sub { max-width: 46rem; }
+#dash-root #tbl-dk tr.dk-detail > td, #dash-root #tbl-dk tr.dk-detail:hover > td { background: #fbfaf7; padding: .8rem 1rem 1.2rem 2rem; white-space: normal; border-bottom: 2px solid var(--ls-line, #e4dfd6); }
+#dash-root .dk-box { display: flex; flex-direction: column; gap: .9rem; }
+#dash-root .dk-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: .6rem; }
+#dash-root .dk-card { background: #fff; border: 1px solid var(--ls-line, #e4dfd6); border-top: 3px solid #84bd3f; border-radius: 8px; padding: .5rem .8rem; }
+#dash-root .dk-card.dk-bad { border-top-color: #c0392b; }
+#dash-root .dk-card.dk-warnc { border-top-color: #e09a00; }
+#dash-root .dk-cl { font-size: .75rem; color: var(--color-fg-muted); }
+#dash-root .dk-cv { font-size: 1.25rem; font-weight: 700; color: var(--ls-green, #1f4b47); font-family: 'Poppins', system-ui, sans-serif; }
+#dash-root .dk-card.dk-bad .dk-cv { color: #c0392b; }
+#dash-root .dk-cs { font-size: .75rem; color: var(--color-fg-muted); margin-top: .1rem; }
+#dash-root .dk-scenbox { display: flex; flex-direction: column; gap: .4rem; }
+#dash-root .dk-box .lw-mini { align-items: center; margin: 0; }
+#dash-root .dk-box .dk-lbl { font-size: .8rem; color: var(--color-fg-muted); margin-right: .3rem; }
+#dash-root .dk-box input[type=number] { font: inherit; font-size: .8rem; width: 6rem; padding: .15rem .5rem; border: 1px solid var(--ls-line, #e4dfd6); border-radius: 999px; }
+#dash-root .dk-box .vr-sub { max-width: 48rem; margin: 0; }
 #dash-root .dk-box .dk-mnd { max-width: none; }
 #dash-root .dk-box tbody tr td { background: #fff; }
-#dash-root .dk-box tbody tr:nth-child(even) td { background: #faf8f4; }
-#dash-root .dk-box tr.dk-sel td { font-weight: 600; background: var(--ls-lime-soft); }
-#dash-root .dk-box tr.dk-prog td { font-weight: 600; color: var(--ls-green, #1f4b47); }
-#dash-root .dk-box .dk-line { margin: .2rem 0 .5rem; font-size: .85rem; }
-#dash-root #vr-lev tr.vr-overig td { color: var(--color-fg-muted); }
-#dash-root .vr-mag { font-size: .72rem; color: #8a5d00; margin-top: .15rem; }
+#dash-root .dk-box .dk-scen-t tbody tr { cursor: pointer; }
+#dash-root .dk-box tr.dk-sel td { font-weight: 700; background: var(--ls-lime-soft); }
+#dash-root .dk-box tr.dk-hist td { color: var(--color-fg-muted); }
+#dash-root .dk-box tr.dk-prog td { font-weight: 700; color: var(--ls-green, #1f4b47); }
+#dash-root .dk-box tr.dk-in td { color: #4f8a83; }
+#dash-root .dk-box tr.dk-eind td { font-weight: 600; }
+#dash-root .dk-box td.dk-pos { background: #eef5e4 !important; }
+#dash-root .dk-box td.dk-low { background: #fdf3dc !important; }
+#dash-root .dk-box td.dk-neg { background: #fbe3e0 !important; color: #c0392b; }
 #dash-root h3.vr-loc { margin: 1.2rem 0 .2rem; font-size: 1rem; }
 #dash-root .vr-sub th { background: var(--ls-lime-soft, #eef5e4); color: var(--ls-green, #1f4b47); }
 #dash-root #vr-lev tbody tr[aria-pressed="true"] td { background: var(--ls-lime-soft); }
@@ -927,20 +945,18 @@
       <div class="lw-card" id="card-dk">
         <h3 id="dk-title">Top 40 bestsellers</h3>
         <div class="lw-mini" id="dk-scope"><button type="button" data-scope="">Top 40</button><button type="button" data-scope="alles">Alle producten</button></div>
-        <p class="lw-note">Weken voorraad = hoe lang de huidige voorraad meegaat zonder nieuwe levering. ‘Op’ = de week waarin het product uitverkocht raakt, mét de geplande leveringen. Gemist = verwachte verkoop die je niet kunt leveren tot de eerste levering (zonder inkoop: in de komende 26 weken). Klik op een tegel hierboven om alleen die producten te zien. Klik op een product om de verkoop per maand, de leveringen en de groeiscenario's te zien.</p>
+        <p class="lw-note">Voorraad tot = tot wanneer de voorraad plus wat er binnenkomt meegaat (standaard op de begroting; per product een ander groeiscenario te kiezen). Bestellen uiterlijk = voorraad tot − levertijd − veiligheidsvoorraad; daar hoort het advies (aantal) bij. Klik op een product voor de verkoop per maand en de scenario's.</p>
         <div class="lw-tablebox lw-tablebox-20">
           <table class="lw-table lw-stocktable" id="tbl-dk" data-source="st_dekking" data-row-key="sku">
             <thead><tr>
-              <th data-field="rang" class="lw-num">#</th>
-              <th data-field="naam">Product</th>
-              <th data-field="voorraad" class="lw-num">Voorraad</th>
-              <th data-field="per_week_nu" class="lw-num">Verkoop/wk nu</th>
-              <th data-field="per_week_piek" class="lw-num">Piek/wk</th>
-              <th data-field="weken" class="lw-num">Weken voorraad</th>
-              <th data-field="op">Op</th>
-              <th data-field="volgende">Volgende levering</th>
-              <th data-field="tekort_stuks" class="lw-num">Gemist</th>
-              <th data-field="status">Status</th>
+              <th class="lw-num">#</th>
+              <th>Product</th>
+              <th class="lw-num">Voorraad nu</th>
+              <th>Inkomend</th>
+              <th>Voorraad tot</th>
+              <th>Bestellen uiterlijk</th>
+              <th class="lw-num">Advies</th>
+              <th>Actie</th>
             </tr></thead><tbody></tbody>
           </table>
         </div>
@@ -1955,18 +1971,7 @@ dash.calc('debit_sorted', {
       const cls = (v) => (v.startsWith('Tekort') || v === 'Geen inkoop gepland' ? ' lw-bad' : v === 'Levering op tijd' ? ' lw-warn' : ' lw-ok');
       const tDk = document.getElementById('tbl-dk');
       if (ok) {
-        renderTable(tDk, shown, [
-          ['rang', (v) => String(v), 'lw-num'],
-          ['naam', (v, r) => { const sp = el('span', '', v); sp.title = `${r.sku} · ${r.merk} · ${r.categorie} · ${int.format(r.verkocht_52w)} verkocht in 52 weken`; return sp; }, 'lw-wrap'],
-          ['voorraad', (v, r) => int.format(Number(v)) + (r.onderweg ? ` (+${int.format(r.onderweg)})` : ''), 'lw-num'],
-          ['per_week_nu', (v) => n1.format(Number(v)), 'lw-num'],
-          ['per_week_piek', (v) => n1.format(Number(v)), 'lw-num'],
-          ['weken', (v) => (v == null ? '—' : Number(v) >= 60 ? '60+' : n1.format(Number(v))), 'lw-num'],
-          ['op', (v) => (v ? dateNlY(v) : 'na 40 wk')],
-          ['volgende', (v, r) => { if (!v) return '—'; const sp = el('span', '', `${dateNlY(v)} · ${int.format(r.volgende_stuks)} st`); sp.title = (r.leveringen || []).map((x) => `${x.po}: ${int.format(x.stuks)} st op ${dateNlY(x.datum)}`).join('\n'); return sp; }],
-          ['tekort_stuks', (v) => (Number(v) ? int.format(Number(v)) : '—'), 'lw-num'],
-          ['status', (v) => el('span', 'lw-pill' + cls(v), v)],
-        ]);
+        window.__dkShown = shown; // regels worden getekend in voorraad.js (zelfde berekening als de bestellijst)
       } else tDk.querySelector('tbody').replaceChildren();
     }
 
