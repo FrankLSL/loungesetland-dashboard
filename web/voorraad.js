@@ -419,8 +419,10 @@
       const lev = (r.leveringen || []).slice().sort((p, q) => (etaOf(p) < etaOf(q) ? -1 : 1));
       const inc = el('td', '');
       if (lev.length) { const tot = lev.reduce((t, l) => t + (Number(l.stuks) || 0), 0); inc.textContent = `+${int.format(tot)} · eerste ${dNl(etaOf(lev[0]))}`; inc.title = lev.map((l) => `${l.po}: ${int.format(l.stuks)} st op ${dNl(etaOf(l))}`).join('\n'); } else inc.textContent = '—';
-      const tot = el('td', a.kortVoor ? 'lw-bad' : ''); tot.textContent = a.opDatum ? dNl(a.opDatum) : 'ruim (na 60 wk)';
+      const ti = totInfo(r, window.vrVraag(r));
+      const tot = el('td', ''); tot.textContent = totTxt(ti);
       if (k !== 'b') tot.append(el('span', 'dk-scen', ' ' + scenNaam(k)));
+      if (ti.tijdelijk) tot.append(el('div', 'vr-mag', `${ti.nuOp ? 'nu op' : 'op vanaf ' + dNl(ti.van)}, weer binnen ${dNl(ti.terug)}`));
       const best = el('td', a.rank <= 1 ? 'lw-bad dk-strong' : a.rank === 2 ? 'dk-warn' : '', a.rank <= 1 ? 'nu' : a.bestelDatum ? dNl(a.bestelDatum) : '—');
       const act = el('td'); act.append(el('span', 'lw-pill' + stCls2(actieTxt(a)), actieTxt(a))); if (x.mag) act.append(el('div', 'vr-mag', `magazijn: ${int.format(x.mag)} st tot de container er is`));
       tr.append(el('td', 'lw-num', String(r.rang)), nm, el('td', 'lw-num' + ((Number(r.voorraad) || 0) <= 0 ? ' lw-bad' : ''), int.format(r.voorraad)), inc, tot, best,
@@ -439,7 +441,8 @@
     const lev = (r.leveringen || []).slice().sort((p, q) => (etaOf(p) < etaOf(q) ? -1 : 1));
     card('Voorraad nu', int.format(r.voorraad), `${int.format(r.in_stock ?? r.voorraad)} op voorraad, ${int.format((r.in_stock ?? r.voorraad) - r.voorraad)} al verkocht`);
     card('Inkomend', lev.length ? '+' + int.format(lev.reduce((t, l) => t + (Number(l.stuks) || 0), 0)) : '—', lev.length ? lev.map((l) => `${l.po}: ${int.format(l.stuks)} st op ${dNl(etaOf(l))}`).join(' · ') : 'niets besteld');
-    card('Voorraad tot', x.a.opDatum ? dNl(x.a.opDatum) : 'na 60 weken', `scenario ${scenNaam(k)}`, x.a.kortVoor ? 'dk-bad' : '');
+    const ti = totInfo(r, window.vrVraag(r));
+    card('Voorraad tot', totTxt(ti), `scenario ${scenNaam(k)}` + (ti.tijdelijk ? ` · ${ti.nuOp ? 'nu op' : 'op vanaf ' + dNl(ti.van)}, weer binnen ${dNl(ti.terug)}` : ''), ti.tijdelijk ? 'dk-warnc' : '');
     card(actieTxt(x.a), x.a.rank <= 1 ? 'Nu bestellen' : x.a.bestelDatum ? 'uiterlijk ' + dNl(x.a.bestelDatum) : 'geen actie', x.a.qtyNu ? `advies ${int.format(x.a.qtyNu)} st · levertijd ${x.a.L} wk · aankomst ± ${dNl(x.a.aankomst)}` + (x.mag ? ` · eerst ${int.format(x.mag)} st uit magazijn` : '') : `levertijd ${x.a.L} wk`, x.a.rank <= 1 ? 'dk-bad' : x.a.rank === 2 ? 'dk-warnc' : '');
     box.append(cards);
     // scenario's
@@ -455,7 +458,7 @@
       const vv = vraagMet(r, v), xx = MKX(r, vv), pr = projectie(r, vv);
       let min = 0; for (let i = 0; i < vv.length; i++) { if (pr.wk(i) > eindSeizoen) break; min = Math.min(min, pr.proj[i]); }
       const tr = el('tr', String(k) === String(v) ? 'dk-sel' : '');
-      tr.append(el('td', '', l + (String(k) === String(v) ? ' (gekozen)' : '')), el('td', xx.a.kortVoor ? 'lw-bad' : '', xx.a.opDatum ? dNl(xx.a.opDatum) : 'na 60 weken'),
+      tr.append(el('td', '', l + (String(k) === String(v) ? ' (gekozen)' : '')), el('td', '', totTxt(totInfo(r, vv))),
         el('td', xx.a.rank <= 1 ? 'lw-bad' : '', xx.a.rank <= 1 ? 'nu' : xx.a.bestelDatum ? dNl(xx.a.bestelDatum) : '—'), el('td', 'lw-num', xx.a.qtyNu && xx.a.rank <= 3 ? int.format(xx.a.qtyNu) : '—'),
         el('td', 'lw-num', min < 0 ? int.format(Math.ceil(-min)) + ' st' : '—'));
       tr.addEventListener('click', (e) => { e.stopPropagation(); saveGroei(r.sku, v === 'b' ? null : v); });
@@ -483,6 +486,15 @@
     box.append(el('p', 'lw-note', `* rest van deze maand. Verwacht = ${r.vraag_eigen ? 'verkoop van dit product in dezelfde maand vorig seizoen' : 'gemiddelde verkoop per week (product loopt nog geen jaar) verdeeld volgens het seizoenspatroon van de winkel'} × (1 + groei). Maanden waarin het product uitverkocht was tellen als lage verkoop: kies dan een hoger scenario. Je keuze wordt per product opgeslagen en geldt ook voor de bestellijst.`));
     return box;
   }
+  // tot wanneer is er voorraad: eerste tekort ná de laatste levering; een tekort vóór een levering is tijdelijk ('nu op, weer binnen …')
+  const totInfo = (r, v) => {
+    const p = projectie(r, v); let last = -1; p.arr.forEach((q, i) => { if (q > 0) last = i; });
+    let tot = null; for (let i = Math.max(0, last); i < p.proj.length; i++) if (p.proj[i] < 0) { tot = i; break; }
+    const tijdelijk = p.op !== null && (tot === null || p.op < tot) && p.op <= last;
+    const terug = tijdelijk ? p.arr.findIndex((q, i) => q > 0 && i >= p.op) : -1;
+    return { tot: tot === null ? null : p.wk(tot), tijdelijk, nuOp: p.op === 0, van: tijdelijk ? p.wk(p.op) : null, terug: terug >= 0 ? p.wk(terug) : null };
+  };
+  const totTxt = (t) => (t.tot ? dNl(t.tot) : 'ruim (na 60 wk)');
   const projectie = (r, v) => {
     const H = v.length, t0 = (SEIZ()[0] || {}).week || today();
     const arr = new Array(H).fill(0);
