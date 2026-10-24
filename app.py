@@ -321,6 +321,16 @@ def st_options(request: Request, path: str):
     return {'status': code, 'body': body}
 
 
+@app.get('/api/st-probe')
+def st_probe(request: Request, path: str):
+    _admin(request)
+    if not path.startswith('purchases/'):
+        raise HTTPException(400)
+    # ongeldige waarden: de API valideert en weigert (maakt niets aan), maar noemt de velden
+    code, body = sumtracker.probe(path, {'contact_id': 'x', 'warehouse_id': 'x', 'product_id': 'x', 'quantity': 'x', 'status': 'x', 'lines': 'x'})
+    return {'status': code, 'body': body}
+
+
 @app.post('/status/run-all')
 def status_run_all(request: Request):
     _admin(request)

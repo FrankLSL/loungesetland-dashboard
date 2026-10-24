@@ -48,6 +48,14 @@ def _req(method, path, json_body=None):
     return r
 
 
+def probe(path, body):
+    r = _req('POST', path, body)
+    try:
+        return r.status_code, r.json()
+    except Exception:
+        return r.status_code, r.text[:2000]
+
+
 def options(path):
     r = _req('OPTIONS', path)
     try:
