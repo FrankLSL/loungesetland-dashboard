@@ -922,6 +922,11 @@
     </div>
   </section>
 
+  <section class="lw-section" id="vr-s-cont">
+    <h2 id="vr-cont-t">Containervoorstel</h2>
+    <div class="lw-card" id="vr-cont"></div>
+  </section>
+
   <section class="lw-section" id="vr-s-lev">
     <h2>Per leverancier</h2>
     <div class="lw-card">
@@ -929,22 +934,6 @@
       <div class="lw-tablebox"><table class="lw-table lw-stocktable" id="vr-lev"><thead><tr>
         <th>Leverancier</th><th class="lw-num">Inkoop dit jaar</th><th class="lw-num">Inkoop 12 mnd</th><th class="lw-num">Open PO's</th><th class="lw-num">Onderweg</th><th class="lw-num">Onderweg €</th><th>Volgende levering</th><th class="lw-num">Te bestellen</th><th class="lw-num">Voorstel</th><th>Containers</th>
       </tr></thead><tbody></tbody></table></div>
-    </div>
-  </section>
-
-  <section class="lw-section" id="vr-s-cont">
-    <h2 id="vr-cont-t">Containervoorstel</h2>
-    <div class="lw-card" id="vr-cont"></div>
-  </section>
-
-  <section class="lw-section" id="vr-s-in">
-    <h2>Inkomend</h2>
-    <div class="lw-card">
-      <p class="lw-note">Bron: containerplanning (ETA, aanbetaald, nog te betalen, vracht), gekoppeld aan Sumtracker op PO-nummer voor de inhoud. Euro betaling 2 ingevuld = container volledig betaald; vracht blijft open tot ‘Binnen?’ op Ja staat (betaling ± 7 dagen na ETA); containers met ‘Binnen?’ = Ja staan er niet meer in. Nog te betalen in dollars omgerekend tegen <span id="vr-in-k">—</span>. Per maand: donker = al betaald, groen = nog te betalen (container + vracht). Klik op een regel om te zien wat er in de container zit.</p>
-      <div id="vr-in-m"></div>
-      <div class="lw-tablebox lw-tablebox-20"><table class="lw-table lw-stocktable" id="vr-in"><thead><tr>
-        <th>ETA</th><th>PO</th><th>Leverancier</th><th>Inhoud</th><th class="lw-num">Stuks</th><th class="lw-num">Betaald</th><th class="lw-num">Nog te betalen</th><th class="lw-num">Vracht</th><th class="lw-num">Totaal</th>
-      </tr></thead><tbody></tbody><tfoot><tr><td>Totaal</td><td id="vr-in-n"></td><td></td><td></td><td class="lw-num" id="vr-in-q">—</td><td class="lw-num" id="vr-in-a">—</td><td class="lw-num" id="vr-in-o">—</td><td class="lw-num" id="vr-in-v">—</td><td class="lw-num" id="vr-in-e">—</td></tr></tfoot></table></div>
     </div>
   </section>
 
@@ -971,6 +960,17 @@
           </table>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section class="lw-section" id="vr-s-in">
+    <h2>Inkomend</h2>
+    <div class="lw-card">
+      <p class="lw-note">Bron: containerplanning (ETA, aanbetaald, nog te betalen, vracht), gekoppeld aan Sumtracker op PO-nummer voor de inhoud. Euro betaling 2 ingevuld = container volledig betaald; vracht blijft open tot ‘Binnen?’ op Ja staat (betaling ± 7 dagen na ETA); containers met ‘Binnen?’ = Ja staan er niet meer in. Nog te betalen in dollars omgerekend tegen <span id="vr-in-k">—</span>. Per maand: donker = al betaald, groen = nog te betalen (container + vracht). Klik op een regel om te zien wat er in de container zit.</p>
+      <div id="vr-in-m"></div>
+      <div class="lw-tablebox lw-tablebox-20"><table class="lw-table lw-stocktable" id="vr-in"><thead><tr>
+        <th>ETA</th><th>PO</th><th>Leverancier</th><th>Inhoud</th><th class="lw-num">Stuks</th><th class="lw-num">Betaald</th><th class="lw-num">Nog te betalen</th><th class="lw-num">Vracht</th><th class="lw-num">Totaal</th>
+      </tr></thead><tbody></tbody><tfoot><tr><td>Totaal</td><td id="vr-in-n"></td><td></td><td></td><td class="lw-num" id="vr-in-q">—</td><td class="lw-num" id="vr-in-a">—</td><td class="lw-num" id="vr-in-o">—</td><td class="lw-num" id="vr-in-v">—</td><td class="lw-num" id="vr-in-e">—</td></tr></tfoot></table></div>
     </div>
   </section>
   </div>
