@@ -835,7 +835,7 @@
       tile('Ruimte in de hallen', `${int.format(cap)} cbm`, `${int.format(m2)} m² × ${n1.format(hoog)} m × ${benut}% benut`));
     // grafiek
     const box = document.getElementById('vr-op-chart'); box.replaceChildren();
-    const W = Math.max(320, box.clientWidth || 900), H = 230, top = 12, bot = H - 24, left = 48;
+    const W = Math.max(320, box.clientWidth || 1100), H = 230, top = 12, bot = H - 24, left = 48;
     const vals = months.map((m) => ({ m, k: m === m0 ? nuK : eind.get(m)[0], s: m === m0 ? nuS : eind.get(m)[1], i: inM.get(m)[0] + inM.get(m)[1] }));
     const hi = Math.max(cap, ...vals.map((v) => v.k + v.s)) * 1.1;
     const y = d3.scaleLinear([0, hi], [bot, top]).nice(), x = d3.scaleBand(months, [left, W - 6]).padding(0.25);

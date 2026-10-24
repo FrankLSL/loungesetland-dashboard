@@ -3363,6 +3363,7 @@ window.bgEngine = (m, params, todayS) => {
     if (push) { dash.setLink(tab); dash.setParams({ tab }); }
     // charts drawn while a tab was hidden have no width: redraw now it is visible
     requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+    if (tab === 'opslag') setTimeout(() => dash.setParams({ op_t: Date.now() % 100000 }), 50); // grafiek opnieuw tekenen op de echte breedte
   };
   btns.forEach((b) => b.addEventListener('click', () => show(b.dataset.tab, true)));
   // alleen dit dashboard verversen (beheerders): start de taken voor het huidige tabblad, wacht tot ze klaar zijn en laad opnieuw
