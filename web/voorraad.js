@@ -158,7 +158,7 @@
     if (nodig && ai.mag < nodig) td.classList.add('ab-kort');
     td.append(el('b', '', ai.mag > 0 ? `${int.format(ai.mag)} st` : 'op'));
     const later = (ai.later || []).find((l) => l && l.available > 0);
-    td.append(el('small', '', `${eur0.format(ai.prijs)}${later ? ` · +${int.format(later.available)} op ${dNl(later.eta)}` : ''}`));
+    if (later) td.append(el('small', '', `+${int.format(later.available)} op ${dNl(later.eta)}`));
     td.title = `Apple Bee-magazijn Dongen, artikel ${ai.artikel}. Magazijnprijs ${eur0.format(ai.prijs)}, FOB $ ${int.format(ai.fob)}${ai.moq > 1 ? ', min. ' + ai.moq + ' st' : ''}${nodig ? `. Nodig tot de container: ${int.format(nodig)} st` : ''}.`;
     return td;
   }
