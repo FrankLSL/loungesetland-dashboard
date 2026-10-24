@@ -452,6 +452,15 @@
       const lnk = el('div', 'vr-acts');
       const mkl = (t, l) => { const b = el('button', 'vr-link', l); b.type = 'button'; b.addEventListener('click', () => saveStat(r.sku, t ? { type: t, tot: t === 'wacht' ? addD(today(), 28) : null, at: today() } : null)); return b; };
       if (h) lnk.append(mkl(null, 'weer meenemen')); else lnk.append(mkl('wacht', 'aankijken'), mkl('stop', 'niet meer bestellen'));
+      if (!h) { // toch meenemen in het containervoorstel (ook als het advies nog niet zegt dat het moet)
+        const qo = qoMap(), inV = qo.has(r.sku);
+        if (inV || a.rank > 2 || !a.qty) {
+          const b = el('button', 'vr-link' + (inV ? ' vr-in-v' : ''), inV ? `✓ in containervoorstel (${int.format(qo.get(r.sku))}) · weghalen` : 'meenemen in containervoorstel'); b.type = 'button';
+          b.title = inV ? 'Uit het containervoorstel halen' : 'Toevoegen aan het containervoorstel hieronder; het aantal pas je daar aan';
+          b.addEventListener('click', () => { const o = qoMap(); if (inV) o.delete(r.sku); else o.set(r.sku, Math.max(1, a.qtyNu || Math.round((a.perWk || 0) * 8) || 1)); qoSet(o); });
+          lnk.append(b);
+        }
+      }
       st.append(lnk); tr.append(st);
       if (!OPENB.has(r.sku)) return [tr];
       const d = el('tr', 'dk-detail'); const td = el('td'); td.colSpan = metDongen ? 12 : 11; td.append(detail(r, x, true)); d.append(td);
@@ -559,7 +568,8 @@
     const excl = new Set(String(P.vr_cx || '').split(',').filter(Boolean));
     // basis: het advies (bestelpunt), of 'dekken tot' een gekozen datum
     const tot = /^\d{4}-\d{2}-\d{2}$/.test(P.vr_tot || '') ? P.vr_tot : null;
-    const items = all.filter((x) => ofLev(x) && (x.a.rank <= 2 || (x.cbm && x.r.verkocht_52w > 0 && x.a.perWk > 0) || (tot && x.a.perWk > 0))).map((x) => { const q0 = tot ? nodigTot(x, tot) : x.a.rank <= 2 ? x.a.qty : 0, uit = excl.has(x.r.sku); return { ...x, q0, uit, q: uit ? 0 : q0 }; });
+    const QOc = qoMap();
+    const items = all.filter((x) => ofLev(x) && (x.a.rank <= 2 || QOc.has(x.r.sku) || (x.cbm && x.r.verkocht_52w > 0 && x.a.perWk > 0) || (tot && x.a.perWk > 0))).map((x) => { const q0 = tot ? nodigTot(x, tot) : x.a.rank <= 2 ? x.a.qty : 0, uit = excl.has(x.r.sku); return { ...x, q0, uit, q: uit ? 0 : q0 }; });
     const tg = el('div', 'lw-mini');
     const maxC = Number(P.vr_max) || 0;
     const b1 = el('button', '', 'Alleen het advies'); b1.type = 'button'; b1.setAttribute('aria-pressed', String(!fill && !maxC && !tot)); b1.addEventListener('click', () => dash.setParams({ vr_fill: null, vr_max: null, vr_tot: null }));
