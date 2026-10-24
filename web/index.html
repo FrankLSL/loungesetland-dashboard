@@ -299,6 +299,12 @@
 #dash-root #vr-op-chart { position: relative; margin: 1rem 0; }
 #dash-root #vr-op-tbl td.vr-op-over { background: #fbe3e0; color: #c0392b; font-weight: 600; }
 #dash-root #vr-op-tbl td.vr-op-krap { background: #fdf3dc; }
+#dash-root #dk-cbm { margin-bottom: 1rem; }
+#dash-root #dk-cbm-body { margin-top: .6rem; }
+#dash-root #dk-cbm-body .lw-tablebox { max-height: 26rem; }
+#dash-root #dk-cbm-body input[type=text] { font: inherit; width: 5rem; text-align: right; padding: .1rem .35rem; border: 1px solid var(--ls-line, #e4dfd6); border-radius: 6px; }
+#dash-root #dk-cbm-body input.dk-cbm-leeg { background: #fff8e1; border-color: #f0b429; }
+#dash-root #dk-cbm-body .dk-cbm-top { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; font-size: .82rem; color: var(--color-fg-muted); margin-bottom: .5rem; }
 #dash-root .dk-why { background: #fff; border: 1px solid var(--ls-line, #e4dfd6); border-radius: 10px; padding: .7rem 1rem; font-size: .85rem; max-width: 60rem; }
 #dash-root .dk-why h4 { margin: 0 0 .4rem; font-size: .9rem; }
 #dash-root .dk-why ol { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: .35rem; }
@@ -967,6 +973,7 @@
   <section class="lw-section" id="dekking">
     <h2>Voorraad per product</h2>
     <p class="lw-note">Alle producten, de belangrijkste eerst (gesorteerd op omzet van de afgelopen 12 maanden). Voorraad = beschikbaar in Sumtracker; inkomend = open inkooporders op de ETA uit de containerplanning. Voorraad tot = tot wanneer voorraad plus inkomend meegaat bij de verwachte verkoop (standaard de begroting). Bestellen uiterlijk = voorraad tot − levertijd − veiligheidsvoorraad. Klik op een product voor de details. Stand <span id="dk-stand">—</span>.</p>
+    <details class="ad-info" id="dk-cbm"><summary>⚙ CBM per product: controleren en aanpassen</summary><div id="dk-cbm-body"></div></details>
     <div class="lw-tiles" id="tiles-dk"></div>
     <div class="lw-grid">
       <div class="lw-card" id="card-dk">

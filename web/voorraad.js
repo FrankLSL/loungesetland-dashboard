@@ -692,6 +692,36 @@
       if (OPEN.has(r.sku)) { const d = el('tr', 'dk-detail'); const td = el('td'); td.colSpan = 8; td.append(detail(r, x)); d.append(td); out.push(d); }
     }
     tb.replaceChildren(...out);
+    cbmPaneel(list);
+  }
+  // cbm per product bekijken en invullen (zelfde filters als de tabel)
+  function cbmPaneel(list) {
+    const host = document.getElementById('dk-cbm-body'); if (!host) return;
+    if (host.contains(document.activeElement) && document.activeElement.tagName === 'INPUT' && document.activeElement.type === 'text') return;
+    const P = dash.params(), leeg = !!P.dk_cbmleeg;
+    const zonder = list.filter((x) => !cbmOf(x.r.sku));
+    const rowsL = (leeg ? zonder : list).slice(0, 400);
+    const top = el('div', 'dk-cbm-top');
+    top.append(el('span', '', `${list.length - zonder.length} van ${list.length} producten hebben een cbm (binnen de gekozen filters).`));
+    const b = el('button', 'vr-link', leeg ? 'alle producten tonen' : `alleen de ${zonder.length} zonder cbm tonen`); b.type = 'button'; b.addEventListener('click', () => dash.setParams({ dk_cbmleeg: leeg ? null : 1 }));
+    top.append(b);
+    if (!isAdmin()) top.append(el('span', '', 'Alleen een beheerder kan cbm opslaan.'));
+    const t = el('table', 'lw-table'); const th = el('thead'); const hr = el('tr');
+    ['Product', 'Leverancier', 'CBM per stuk', 'Bron', 'Stuks op voorraad', 'CBM op voorraad'].forEach((h, i) => hr.append(el('th', i >= 2 && i !== 3 ? 'lw-num' : '', h))); th.append(hr); t.append(th);
+    const tb = el('tbody');
+    for (const x of rowsL) {
+      const r = x.r, c = cbmOf(r.sku), tr = el('tr');
+      const nm = el('td', 'lw-wrap'); nm.append(document.createTextNode(vol(r.naam)), el('div', 'dk-sku', r.sku));
+      const td = el('td', 'lw-num'); const inp = el('input'); inp.type = 'text'; inp.inputMode = 'decimal'; inp.placeholder = '—'; inp.value = c ? String(c).replace('.', ',') : ''; if (!c) inp.classList.add('dk-cbm-leeg'); inp.disabled = !isAdmin();
+      inp.addEventListener('change', async () => { const v = Number(inp.value.replace(',', '.')); try { await saveCbm(r.sku, inp.value.trim() === '' || !(v > 0) ? null : v); inp.blur(); dkDecorate(); } catch (e) { inp.title = 'Opslaan mislukt: ' + e.message; inp.classList.add('dk-cbm-leeg'); } });
+      td.append(inp);
+      const bron = c ? (HERK[r.sku] ? 'Apple Bee containersheet' : 'ingevuld') : 'ontbreekt';
+      const fys = Math.max(0, Number(r.in_stock ?? r.voorraad) || 0);
+      tr.append(nm, el('td', '', r.leverancier + (r.lev_afgeleid ? ' *' : '')), td, el('td', c ? '' : 'lw-bad', bron), el('td', 'lw-num', int.format(fys)), el('td', 'lw-num', c && fys ? n1.format(c * fys) : ''));
+      tb.append(tr);
+    }
+    t.append(tb); const box = el('div', 'lw-tablebox'); box.append(t);
+    host.replaceChildren(top, box, el('p', 'lw-note', 'CBM = kubieke meter per stuk zoals verpakt (lengte × breedte × hoogte in meter). Wordt gebruikt voor het containervoorstel en de opslag. Voor een set de cbm van alle dozen samen.'));
   }
   function detail(r, x, metWaarom) {
     const box = el('div', 'dk-box'); const k = keuze(r.sku);
