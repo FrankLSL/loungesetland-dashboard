@@ -335,6 +335,14 @@
 #dash-root #vr-op-tbl td small { display: block; font-size: .72rem; color: var(--color-fg-muted); }
 #dash-root .op-pill { display: inline-block; min-width: 3.2rem; padding: .1rem .5rem; border-radius: 999px; font-weight: 600; font-size: .78rem; }
 #dash-root .op-pill.op-ok { background: #eef5e4; } #dash-root .op-pill.op-krap { background: #fdf3dc; } #dash-root .op-pill.op-over { background: #fbe3e0; }
+#dash-root .op-pos { margin-top: 1.2rem; }
+#dash-root .op-posbox { max-height: 34rem; }
+#dash-root #op-pos td.op-barcel { width: 28%; }
+#dash-root .op-pbar { height: 10px; border-radius: 999px; background: #eef0ea; overflow: hidden; }
+#dash-root .op-pbar > div { height: 100%; background: #1f4b47; border-radius: 999px; }
+#dash-root .op-pbar > div.op-est { background: #8fb3ae; }
+#dash-root #op-pos tr.op-sub td { font-size: .8rem; color: var(--color-fg-muted); background: #fbfaf7; }
+#dash-root #op-pos tr.op-grp { cursor: pointer; }
 #dash-root .op-set { margin-top: 1.2rem; }
 #dash-root .op-set summary span { color: var(--color-fg-muted); font-weight: 400; margin-left: .4rem; }
 #dash-root .op-set .vr-op-set { margin-top: .8rem; }
@@ -1066,6 +1074,10 @@
       <div class="op-head"><h3>Bezetting per maand</h3><div class="op-legend" id="op-legend"></div></div>
       <div class="lw-chart" id="vr-op-chart"></div>
       <div class="lw-tablebox op-tbox"><table class="lw-table" id="vr-op-tbl"></table></div>
+    </div>
+    <div class="lw-card op-card op-pos">
+      <div class="op-head"><h3 id="op-pos-h">Grootste posities in de hallen</h3><div class="lw-mini" id="op-pos-t"></div></div>
+      <div class="lw-tablebox op-posbox"><table class="lw-table" id="op-pos"></table></div>
     </div>
     <p class="lw-note op-note" id="vr-op-note"></p>
   </section>

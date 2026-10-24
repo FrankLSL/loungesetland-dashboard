@@ -862,10 +862,11 @@
     const shift = (m, n) => { const d = new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1 + n, 1)); return d.toISOString().slice(0, 7); };
     const months = Array.from({ length: 13 }, (_, i) => shift(m0, i));
     const eind = new Map(months.map((m) => [m, [0, 0]])), inM = new Map(months.map((m) => [m, [0, 0]]));
-    let nuK = 0, nuS = 0, stK = 0, stS = 0;
+    let nuK = 0, nuS = 0, stK = 0, stS = 0; const POS = [];
     for (const r of dk) {
       const [c, est] = cb(r); if (!c) continue;
       const fys = Math.max(0, Number(r.in_stock ?? r.voorraad) || 0);
+      if (fys) POS.push({ r, c, est, fys, cbm: fys * c, inc: (r.leveringen || []).reduce((t, l) => t + (Number(l.stuks) || 0), 0) * c });
       if (est) { nuS += fys * c; if (fys) stS += fys; } else { nuK += fys * c; if (fys) stK += fys; }
       for (const l of r.leveringen || []) { const m = etaOf(l).slice(0, 7); if (inM.has(m)) inM.get(m)[est ? 1 : 0] += (Number(l.stuks) || 0) * c; }
       const ab = grpProd(r) === 'ab' && !!HERK[r.sku];
@@ -875,6 +876,46 @@
       for (const m of months) { let v = per.has(m) ? per.get(m) : null; if (v == null) continue; if (m === m0) v += res; eind.get(m)[est ? 1 : 0] += v * c; }
     }
     const nu = nuK + nuS;
+    // grootste posities: per collectie (openklikbaar) of per product, van groot naar klein
+    {
+      const per = P.op_per === 'p' ? 'p' : 'c';
+      const tg = document.getElementById('op-pos-t');
+      const mkb = (k, l) => { const b = el('button', '', l); b.type = 'button'; b.setAttribute('aria-pressed', String(per === k)); b.addEventListener('click', () => dash.setParams({ op_per: k === 'c' ? null : k })); return b; };
+      tg.replaceChildren(mkb('c', 'Per collectie'), mkb('p', 'Per product'));
+      const tot = POS.reduce((t, x) => t + x.cbm, 0) || 1;
+      let groepen;
+      if (per === 'p') groepen = POS.map((x) => ({ naam: vol(x.r.naam), sub: x.r.sku, lev: x.r.leverancier, stuks: x.fys, cbm: x.cbm, inc: x.inc, est: x.est, items: null }));
+      else {
+        const m = new Map();
+        for (const x of POS) { const k = collectie(x.r).col || vol(x.r.naam); const g = m.get(k) || { naam: k, lev: x.r.leverancier, stuks: 0, cbm: 0, inc: 0, estC: 0, items: [] }; g.stuks += x.fys; g.cbm += x.cbm; g.inc += x.inc; if (x.est) g.estC += x.cbm; g.items.push(x); m.set(k, g); }
+        groepen = [...m.values()].map((g) => ({ ...g, est: g.estC > g.cbm / 2, sub: `${g.items.length} ${g.items.length === 1 ? 'product' : 'producten'}` }));
+      }
+      groepen.sort((a, b) => b.cbm - a.cbm);
+      const max = groepen[0] ? groepen[0].cbm : 1;
+      const OPG = renderOpslag.open || (renderOpslag.open = new Set());
+      const t2 = document.getElementById('op-pos'); const th2 = el('thead'); const hr2 = el('tr');
+      ['#', per === 'p' ? 'Product' : 'Collectie', 'Leverancier', 'Stuks', 'cbm', 'm² hal', 'Aandeel', '', 'Komt erbij'].forEach((h, i) => hr2.append(el('th', i === 0 || (i >= 3 && i !== 7) ? 'lw-num' : '', h))); th2.append(hr2);
+      const tb2 = el('tbody'); let cum = 0;
+      groepen.slice(0, 150).forEach((g, i) => {
+        cum += g.cbm;
+        const tr = el('tr', g.items ? 'op-grp' : '');
+        const nm = el('td', 'lw-wrap'); if (g.items) nm.append(el('span', 'dk-caret', OPG.has(g.naam) ? '▾ ' : '▸ ')); nm.append(document.createTextNode(g.naam + (g.est ? ' *' : '')), el('div', 'dk-sku', g.sub));
+        const bc = el('td', 'op-barcel'); const pb = el('div', 'op-pbar'); const f = el('div', g.est ? 'op-est' : ''); f.style.width = (g.cbm / max) * 100 + '%'; pb.append(f); bc.append(pb);
+        tr.append(el('td', 'lw-num', String(i + 1)), nm, el('td', '', g.lev || ''), el('td', 'lw-num', int.format(g.stuks)), el('td', 'lw-num', n1.format(g.cbm)), el('td', 'lw-num', int.format(vloer(g.cbm))),
+          el('td', 'lw-num', pct0.format(g.cbm / tot)), bc, el('td', 'lw-num', g.inc ? '+' + n1.format(g.inc) : ''));
+        tr.title = `Samen met de posities hierboven ${pct0.format(cum / tot)} van alle voorraad in de hallen`;
+        if (g.items) tr.addEventListener('click', () => { if (OPG.has(g.naam)) OPG.delete(g.naam); else OPG.add(g.naam); renderOpslag(); });
+        tb2.append(tr);
+        if (g.items && OPG.has(g.naam)) for (const x of g.items.slice().sort((a, b) => b.cbm - a.cbm)) {
+          const s2 = el('tr', 'op-sub'); const nm2 = el('td', 'lw-wrap'); nm2.append(document.createTextNode(vol(x.r.naam) + (x.est ? ' *' : '')), el('div', 'dk-sku', x.r.sku + (x.est ? ' · cbm geschat' : ` · ${String(x.c).replace('.', ',')} cbm/st`)));
+          s2.append(el('td', ''), nm2, el('td', '', x.r.leverancier || ''), el('td', 'lw-num', int.format(x.fys)), el('td', 'lw-num', n1.format(x.cbm)), el('td', 'lw-num', int.format(vloer(x.cbm))), el('td', 'lw-num', pct0.format(x.cbm / tot)), el('td', ''), el('td', 'lw-num', x.inc ? '+' + n1.format(x.inc) : ''));
+          tb2.append(s2);
+        }
+      });
+      t2.replaceChildren(th2, tb2);
+      const top10 = groepen.slice(0, 10).reduce((t, g) => t + g.cbm, 0);
+      document.getElementById('op-pos-h').textContent = `Grootste posities in de hallen · top 10 = ${pct0.format(top10 / tot)} van de voorraad`;
+    }
     const pk = months.slice(1).reduce((b, m) => { const v = eind.get(m)[0] + eind.get(m)[1]; return v > b.v ? { m, v } : b; }, { m: null, v: 0 });
     const inTot = months.reduce((a, m) => a + inM.get(m)[0] + inM.get(m)[1], 0);
     const lvl = (c) => (c > cap ? 'op-over' : c > cap * 0.85 ? 'op-krap' : 'op-ok');
