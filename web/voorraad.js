@@ -23,6 +23,7 @@
   const GROEPEN = [['mod', 'MOD Outdoor', /\bmod\b/i], ['ab', 'Apple Bee', /apple ?bee/i], ['tierra', 'Tierra Outdoor', /tierra/i], ['republic', 'Republic', /republic/i]];
   const GNAAM = Object.fromEntries(GROEPEN.map(([k, n]) => [k, n]).concat([['overig', 'Overige leveranciers']]));
   const grpNaam = (n) => { for (const [k, , re] of GROEPEN) if (re.test(String(n || ''))) return k; return 'overig'; };
+  // 'Leverancier 20734' was een verzamelaccount (bestaat niet meer): dan op merk/containersheet indelen
   const grpProd = (r) => { const g = grpNaam(r.leverancier); if (g !== 'overig') return g; if (HERK[r.sku] && HERK[r.sku].leverancier) return grpNaam(HERK[r.sku].leverancier); return r.merk === 'Apple Bee' ? 'ab' : 'overig'; };
   const isAdmin = () => !!(dash.user && dash.user.r === 'beheerder');
 
@@ -112,7 +113,8 @@
     if (rank <= 2 && qty === 0) { status = kortVoor ? 'Tekort tot levering' : 'Voldoende'; rank = kortVoor ? 3 : 5; } // wat al besteld is dekt het
     const wkTo = (i) => addD(t0, i * 7);
     const perWk = v.slice(a, a + D).reduce((x, y) => x + y, 0) / D;
-    return { kortVoor, L, opDatum: opIdx === null ? null : wkTo(opIdx), bestelDatum: orderBy === null ? null : wkTo(Math.max(0, orderBy)), orderBy, qty: rank <= 2 || P.vr_alles ? qty : 0, qtyNu: qty, status, rank, atArr, perWk, aankomst: wkTo(a) };
+    const tekortVoor = Math.max(0, -Math.min(0, ...proj.slice(0, Math.max(1, a))));
+    return { tekortVoor, kortVoor, L, opDatum: opIdx === null ? null : wkTo(opIdx), bestelDatum: orderBy === null ? null : wkTo(Math.max(0, orderBy)), orderBy, qty: rank <= 2 || P.vr_alles ? qty : 0, qtyNu: qty, status, rank, atArr, perWk, aankomst: wkTo(a) };
   }
 
   // ---------- containers ----------
@@ -172,7 +174,11 @@
     const actief = (r) => (Number(r.voorraad) || 0) > 0 || (Number(r.onderweg) || 0) > 0 || (Number(r.verkocht_13w) || 0) > 0;
     const nonActief = dk.filter((r) => !actief(r) || (HERK[r.sku] && HERK[r.sku].uitlopend)).length;
     const uitlopend = (r) => !!(HERK[r.sku] && HERK[r.sku].uitlopend);
-    const all = dk.filter((r) => actief(r) && !uitlopend(r)).map((r) => { r._week0 = week0; r._cpEta = CPETA; const L = leadOf(r.leverancier_id, r.leverancier); const a = advies(r, P, L); const c = cbmOf(r.sku); return { r, a, cbm: c, g: grpProd(r) }; });
+    const all = dk.filter((r) => actief(r) && !uitlopend(r)).map((r) => { r._week0 = week0; r._cpEta = CPETA; const g = grpProd(r);
+      // Apple Bee: altijd uit origine (meer marge) met de containerlevertijd; het magazijn alleen om het gat tot de container te overbruggen
+      const L = g === 'ab' ? leadOf(20084, 'Apple Bee Containers') : leadOf(r.leverancier_id, r.leverancier);
+      const a = advies(r, P, L); const c = cbmOf(r.sku);
+      return { r, a, cbm: c, g, mag: g === 'ab' && a.tekortVoor > 0 ? Math.ceil(a.tekortVoor) : 0 }; });
     LAST = all;
     const urgent = (x) => x.a.rank <= 2;
     const fLev = P.vr_lev != null && P.vr_lev !== '' ? String(P.vr_lev) : '';
@@ -187,7 +193,7 @@
     const openPos = IN.filter((p) => !fLev || p.g === fLev);
     const nxt = openPos.find((p) => p.eta && p.eta >= today());
     const tileDefs = [
-      ['laat', 'Te laat', cnt(0), (a) => `op vóór een bestelling van nu binnen kan zijn · advies ${eur0.format(val(a))}`],
+      ['laat', 'Te laat', cnt(0), (a) => { const m = a.filter((x) => x.mag); return `op vóór een bestelling van nu binnen kan zijn · advies ${eur0.format(val(a))}` + (m.length ? ` · ${m.length} Apple Bee-producten overbruggen via het magazijn` : ''); }],
       ['nu', 'Nu bestellen', cnt(1), (a) => `bestelmoment is nu · advies ${eur0.format(val(a))}`],
       ['4w', 'Binnen 4 weken bestellen', cnt(2), (a) => `advies ${eur0.format(val(a))}`],
     ];
@@ -228,7 +234,7 @@
         el('td', a.rank <= 1 ? 'lw-bad' : '', a.bestelDatum ? (a.orderBy <= 0 ? 'nu' : dNl(a.bestelDatum)) : '—'),
         el('td', 'lw-num', a.qty ? int.format(a.qty) : '—'), el('td', 'lw-num', x.cbm && a.qty ? n1.format(a.qty * x.cbm) : x.cbm ? '' : '?'),
         el('td', 'lw-num', a.qty ? eur0.format(a.qty * (r.kostprijs || 0)) : '—'));
-      const st = el('td'); st.append(el('span', 'lw-pill' + stCls(a.status), a.status)); tr.append(st);
+      const st = el('td'); st.append(el('span', 'lw-pill' + stCls(a.status), a.status)); if (x.mag) { const m = el('div', 'vr-mag', `magazijn: ${int.format(x.mag)} st tot de container er is`); st.append(m); } tr.append(st);
       return tr;
     }));
     const sq = list.reduce((t, x) => t + x.a.qty, 0), sc = list.reduce((t, x) => t + (x.cbm ? x.a.qty * x.cbm : 0), 0), se = list.reduce((t, x) => t + x.a.qty * (x.r.kostprijs || 0), 0);
