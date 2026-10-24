@@ -592,7 +592,7 @@
       const g = items.filter((x) => locOf(x) === loc);
       if (!g.some((x) => x.q > 0 || (x.uit && x.q0 > 0)) && !fill) continue;
       if (locs.length > 1 || loc) parts.push(el('h3', 'vr-loc', loc ? `Productielocatie ${loc}${LOCNAAM[loc] ? ' · ' + LOCNAAM[loc] : ''}` : 'Locatie onbekend'));
-      parts.push(...group(g));
+      parts.push(...group(g, all.filter((x) => ofLev(x) && locOf(x) === loc)));
     }
     parts.push(el('p', 'lw-note', `Containermaten: 20ft ${num(P.vr_c20, 28)} cbm, 40ft ${num(P.vr_c40, 58)} cbm, 40ft HQ ${num(P.vr_chq, 67)} cbm netto laadruimte (aan te passen bij Instellingen). ‘Container vol maken’ vult de laatste container aan met de producten die na aankomst het kortst toe kunnen. Aankomst bij bestellen nu: ${dNl(items[0] ? items[0].a.aankomst : null)}.`));
     host.replaceChildren(...parts);
@@ -637,6 +637,28 @@
     else if (x.q !== x.q0) td.append(el('div', 'vr-qty-s', x.q > x.q0 ? `+${x.q - x.q0} t.o.v. advies` : `advies ${x.q0}`));
     return td;
   }
+  // product van deze leverancier zelf toevoegen aan het voorstel (zoeken op titel of SKU)
+  function toevoegen(items, kandidaten) {
+    const inV = new Set(items.filter((x) => x.q > 0 || qoMap().has(x.r.sku)).map((x) => x.r.sku));
+    const opties = kandidaten.filter((x) => !inV.has(x.r.sku)).sort((a, b) => (b.r.omzet_52w || 0) - (a.r.omzet_52w || 0));
+    const wrap = el('div', 'vr-add');
+    if (!opties.length) return wrap;
+    const id = 'vr-add-' + Math.random().toString(36).slice(2, 8);
+    const dl = document.createElement('datalist'); dl.id = id;
+    for (const x of opties) { const o = document.createElement('option'); o.value = `${vol(x.r.naam)} — ${x.r.sku}`; dl.append(o); }
+    const inp = el('input', 'vr-add-in'); inp.type = 'search'; inp.placeholder = `+ Product toevoegen: typ titel of SKU (${opties.length} producten van deze leverancier)`; inp.setAttribute('list', id);
+    const voeg = () => {
+      const v = inp.value.trim(); if (!v) return;
+      const sku = v.includes(' — ') ? v.split(' — ').pop().trim() : v;
+      const x = opties.find((y) => y.r.sku === sku) || opties.find((y) => (vol(y.r.naam) + ' ' + y.r.sku).toLowerCase().includes(v.toLowerCase()));
+      if (!x) { inp.setCustomValidity('Niet gevonden'); inp.reportValidity(); return; }
+      const o = qoMap(); o.set(x.r.sku, Math.max(1, x.a.qtyNu || Math.round((x.a.perWk || 0) * 8) || 1)); qoSet(o);
+    };
+    inp.addEventListener('change', voeg); inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); voeg(); } });
+    inp.addEventListener('input', () => inp.setCustomValidity(''));
+    wrap.append(inp, dl, el('span', 'vr-po-s', 'Kies een product; het komt in de tabel met ± 8 weken verkoop, het aantal pas je daar aan.'));
+    return wrap;
+  }
   // concept-inkooporder in Sumtracker met de aantallen uit dit voorstel
   function poKnop(items) {
     const wrap = el('div', 'vr-mkpo');
@@ -663,7 +685,7 @@
     });
     return wrap;
   }
-  function group(items) {
+  function group(items, kandidaten = []) {
     const P = dash.params(); const fill = !!P.vr_fill;
     const T0 = items.reduce((t, x) => t + (x.cbm ? x.q * x.cbm : 0), 0);
     const Tadv = items.reduce((t, x) => t + (x.cbm ? x.q0 * x.cbm : 0), 0);
@@ -746,6 +768,7 @@
     }
     tbl.append(tb); const tbx = el('div', 'lw-tablebox lw-tablebox-20'); tbx.append(tbl); parts.push(tbx);
     if (aangepast) { const n = el('p', 'lw-note'); const b = el('button', 'vr-link', 'zelf aangepaste aantallen wissen'); b.type = 'button'; b.addEventListener('click', () => { const o = qoMap(); for (const x of items) o.delete(x.r.sku); qoSet(o); }); n.append(document.createTextNode(`${aangepast} aantal${aangepast === 1 ? '' : 'len'} zelf aangepast. `), b); parts.push(n); }
+    parts.push(toevoegen(items, kandidaten));
     if (isAdmin()) parts.push(poKnop(items));
     parts.push(...info);
     return parts;
