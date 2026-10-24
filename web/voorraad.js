@@ -388,7 +388,6 @@
 
   // instellingen-velden
   document.querySelectorAll('#vr-set [data-vrp]').forEach((i) => i.addEventListener('change', () => dash.setParams({ [i.dataset.vrp]: i.value === '' ? null : Number(i.value) })));
-  dash.onData(() => { try { render(); } catch (e) { console.error('[voorraad]', e); } try { dkDecorate(); } catch (e) { console.error('[voorraad] detail', e); } });
 
   // ---------- dekking per product: één regel per product, openklappen voor details ----------
   const OPEN = new Set();
@@ -503,4 +502,5 @@
     for (let i = 0; i < H; i++) { s += arr[i] - v[i]; proj.push(s); if (op === null && s < 0) op = i; }
     return { proj, op, arr, t0, wk: (i) => addD(t0, i * 7) };
   };
+  dash.onData(() => { try { render(); } catch (e) { console.error('[voorraad]', e); } try { dkDecorate(); } catch (e) { console.error('[voorraad] detail', e); } });
 })();
