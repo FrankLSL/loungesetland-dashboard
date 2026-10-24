@@ -278,6 +278,7 @@
 #dash-root .dk-potab { border-collapse: collapse; margin-top: .2rem; font-size: .8rem; }
 #dash-root .dk-potab td { padding: .05rem .8rem .05rem 0; background: transparent !important; color: var(--color-fg); }
 #dash-root .vr-bgt { font-size: .82rem; }
+#dash-root #vr-bg .lw-note { font-size: .78rem; }
 #dash-root .vr-bgt td input { font: inherit; width: 3.4rem; text-align: right; padding: .1rem .3rem; border: 1px solid var(--ls-line, #e4dfd6); border-radius: 6px; background: #fff; }
 #dash-root .vr-bgt td input.bg-chg { background: #fff8e1; border-color: #f0b429; }
 #dash-root .vr-bgt .vr-bgt-p { color: var(--color-fg-muted); margin-left: 2px; }
@@ -902,13 +903,7 @@
     <h1>Voorraad en inkoop</h1>
     <p>Wanneer moet wat bijbesteld worden, wat komt er binnen en wat kopen we per leverancier in. Bron: Sumtracker (voorraad, inkooporders) en Shopify (verkoop), verwachte verkoop volgens de begroting. Stand <span id="vr-stand">—</span>.</p>
   </header>
-  <nav class="ad-nav" aria-label="Onderdelen"><a href="#vr-s-bg">Begroting</a><a href="#vr-s-best">Bestellen</a><a href="#vr-s-cont">Containervoorstel</a><a href="#vr-s-lev">Per leverancier</a><a href="#dekking">Voorraad per product</a><a href="#vr-s-in">Inkomend</a></nav>
-
-  <section class="lw-section" id="vr-s-bg">
-    <h2>Begroting: groei per maand</h2>
-    <p class="lw-note">De verwachte verkoop in de bestellijst = verkoop van dezelfde maand vorig jaar × (1 + begrote groei). Pas hier de groei aan en zie direct wat dat doet met de bestellijst.</p>
-    <div id="vr-bg"></div>
-  </section>
+  <nav class="ad-nav" aria-label="Onderdelen"><a href="#vr-s-best">Bestellen</a><a href="#vr-s-cont">Containervoorstel</a><a href="#vr-s-bg">Begroting</a><a href="#vr-s-lev">Per leverancier</a><a href="#dekking">Voorraad per product</a><a href="#vr-s-in">Inkomend</a></nav>
 
   <section class="lw-section" id="vr-s-best">
     <h2>Bestellen</h2>
@@ -938,6 +933,12 @@
   <section class="lw-section" id="vr-s-cont">
     <h2 id="vr-cont-t">Containervoorstel</h2>
     <div class="lw-card" id="vr-cont"></div>
+  </section>
+
+  <section class="lw-section" id="vr-s-bg">
+    <h2>Begroting: groei per maand</h2>
+    <p class="lw-note">De verwachte verkoop in de bestellijst = verkoop van dezelfde maand vorig jaar × (1 + begrote groei). Pas hier de groei aan en zie direct wat dat doet met de bestellijst.</p>
+    <div id="vr-bg"></div>
   </section>
 
   <section class="lw-section" id="vr-s-lev">
