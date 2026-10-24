@@ -496,6 +496,25 @@
     host.replaceChildren(...[...byM.entries()].sort().map(([m, v]) => { const row = el('div', 'lw-funnel-row'); const b = el('div', 'lw-funnel-bar lw-stack'); const f1 = el('div', 'lw-funnel-fill'); f1.style.width = (v.a / mx) * 100 + '%'; f1.style.background = '#1f4b47'; const f2 = el('div', 'lw-funnel-fill'); f2.style.width = (v.o / mx) * 100 + '%'; f2.style.background = '#84bd3f'; b.append(f1, f2); row.title = `${v.n} containers · betaald ${eur0.format(v.a)} · nog te betalen ${eur0.format(v.o)}`; row.append(el('div', '', mNl(m)), b, el('div', 'lw-num', eur0.format(v.a + v.o))); return row; }));
   }
 
+  // voorraadverloop met een extra bestelling van q stuks die binnenkomt op de aankomstdatum van een bestelling van nu
+  function dekInfo(x) {
+    if (x._dek) return x._dek;
+    const v = window.vrVraag(x.r), p = projectie(x.r, v, x.origine), t0 = p.t0;
+    const ai = Math.max(0, Math.round((P0(x.a.aankomst) - P0(t0)) / DAY / 7));
+    return (x._dek = { p, ai, wk: p.wk });
+  }
+  // dekt tot: eerste week waarin de voorraad (incl. wat al onderweg is + deze bestelling) opraakt
+  function dektTot(x, q) {
+    const { p, ai } = dekInfo(x);
+    for (let i = ai; i < p.proj.length; i++) if (p.proj[i] + q < 0) return p.wk(i);
+    return null;
+  }
+  // hoeveel stuks nodig om tot datum `tot` voorraad te hebben (rekening houdend met wat er ligt en onderweg is)
+  function nodigTot(x, tot) {
+    const { p, ai } = dekInfo(x); let min = 0;
+    for (let i = ai; i < p.proj.length && p.wk(i) <= tot; i++) min = Math.min(min, p.proj[i]);
+    return Math.max(0, Math.ceil(-min));
+  }
   function renderCont(all, P, fLev, levName) {
     const host = document.getElementById('vr-cont');
     const tt = document.getElementById('vr-cont-t');
@@ -511,14 +530,23 @@
     const ofLev = (x) => x.g === fLev && (fLev !== 'ab' || x.origine);
     // tijdelijk uit het voorstel gehaalde producten (alleen voor jou, in de link); de vrije ruimte wordt aangevuld
     const excl = new Set(String(P.vr_cx || '').split(',').filter(Boolean));
-    const items = all.filter((x) => ofLev(x) && (x.a.rank <= 2 || (x.cbm && x.r.verkocht_52w > 0 && x.a.perWk > 0))).map((x) => { const q0 = x.a.rank <= 2 ? x.a.qty : 0, uit = excl.has(x.r.sku); return { ...x, q0, uit, q: uit ? 0 : q0 }; });
+    // basis: het advies (bestelpunt), of 'dekken tot' een gekozen datum
+    const tot = /^\d{4}-\d{2}-\d{2}$/.test(P.vr_tot || '') ? P.vr_tot : null;
+    const items = all.filter((x) => ofLev(x) && (x.a.rank <= 2 || (x.cbm && x.r.verkocht_52w > 0 && x.a.perWk > 0) || (tot && x.a.perWk > 0))).map((x) => { const q0 = tot ? nodigTot(x, tot) : x.a.rank <= 2 ? x.a.qty : 0, uit = excl.has(x.r.sku); return { ...x, q0, uit, q: uit ? 0 : q0 }; });
     const tg = el('div', 'lw-mini');
     const maxC = Number(P.vr_max) || 0;
-    const b1 = el('button', '', 'Alleen het advies'); b1.type = 'button'; b1.setAttribute('aria-pressed', String(!fill && !maxC)); b1.addEventListener('click', () => dash.setParams({ vr_fill: null, vr_max: null }));
+    const b1 = el('button', '', 'Alleen het advies'); b1.type = 'button'; b1.setAttribute('aria-pressed', String(!fill && !maxC && !tot)); b1.addEventListener('click', () => dash.setParams({ vr_fill: null, vr_max: null, vr_tot: null }));
     const b2 = el('button', '', 'Container vol maken'); b2.type = 'button'; b2.setAttribute('aria-pressed', String(fill && !maxC)); b2.addEventListener('click', () => dash.setParams({ vr_fill: 1, vr_max: null }));
     const bm = (n) => { const b = el('button', '', `Max ${n} × 40ft`); b.type = 'button'; b.title = `Wat gaat er mee als je maar ${n} container${n > 1 ? 's' : ''} (40ft HQ) bestelt: eerst wat het snelst op is, tot de container vol is`; b.setAttribute('aria-pressed', String(maxC === n)); b.addEventListener('click', () => dash.setParams({ vr_max: maxC === n ? null : n, vr_fill: null })); return b; };
     const b3 = el('button', 'vr-btn', 'Download als CSV'); b3.type = 'button'; b3.addEventListener('click', () => csv(items.filter((x) => x.q > 0), levName.get(id)));
-    tg.append(b1, b2, bm(1), bm(2), b3);
+    const tw = el('span', 'vr-tot');
+    const tcb = el('button', '', 'Dekken tot'); tcb.type = 'button'; tcb.setAttribute('aria-pressed', String(!!tot));
+    const ti = el('input'); ti.type = 'date'; ti.value = tot || (() => { const y = +today().slice(0, 4) + (today().slice(5, 7) > '05' ? 1 : 0); return `${y}-05-31`; })();
+    tcb.title = 'Bestel zoveel dat je voorraad (met wat er al onderweg is) meegaat tot deze datum, volgens de verwachte verkoop';
+    tcb.addEventListener('click', () => dash.setParams({ vr_tot: tot ? null : ti.value }));
+    ti.addEventListener('change', () => dash.setParams({ vr_tot: ti.value || null }));
+    tw.append(tcb, ti);
+    tg.append(b1, b2, bm(1), bm(2), tw, b3);
     const parts = [tg];
     // per productielocatie een eigen container (fabrieken laden niet samen)
     const locOf = (x) => (HERK[x.r.sku] && HERK[x.r.sku].locatie) || '';
@@ -585,8 +613,8 @@
       const extra = items.filter((x) => x.q > x.q0);
       maxNote = el('div', 'vr-uitnote');
       maxNote.append(el('b', '', `Max ${maxC} × 40ft (${int.format(capM)} cbm): `), document.createTextNode(Tadv > capM
-        ? `het advies is ${n1.format(Tadv)} cbm, dus ${n1.format(Tadv - capM)} cbm past niet. Eerst meegenomen wat het snelst op is; ingekort: ` + kort.slice(0, 6).map((x) => `${vol(x.r.naam).split(' · ').slice(0, 2).join(' · ')} ${x.q} i.p.v. ${x.q0}`).join(', ') + (kort.length > 6 ? ` en ${kort.length - 6} meer` : '') + '. Wat niet mee kan, komt in de volgende bestelling terug.'
-        : `het advies (${n1.format(Tadv)} cbm) past; aangevuld tot ${n1.format(T1)} cbm met wat na aankomst het kortst toe kan` + (extra.length ? ': ' + extra.slice(0, 5).map((x) => `${vol(x.r.naam).split(' · ').slice(0, 2).join(' · ')} +${x.q - x.q0}`).join(', ') : '') + '.'));
+        ? `${P.vr_tot ? 'nodig tot ' + dNl(P.vr_tot) : 'het advies'} is ${n1.format(Tadv)} cbm, dus ${n1.format(Tadv - capM)} cbm past niet. Eerst meegenomen wat het snelst op is; ingekort: ` + kort.slice(0, 6).map((x) => `${vol(x.r.naam).split(' · ').slice(0, 2).join(' · ')} ${x.q} i.p.v. ${x.q0}`).join(', ') + (kort.length > 6 ? ` en ${kort.length - 6} meer` : '') + '. Wat niet mee kan, komt in de volgende bestelling terug.'
+        : `${P.vr_tot ? 'wat nodig is tot ' + dNl(P.vr_tot) : 'het advies'} (${n1.format(Tadv)} cbm) past; aangevuld tot ${n1.format(T1)} cbm met wat na aankomst het kortst toe kan` + (extra.length ? ': ' + extra.slice(0, 5).map((x) => `${vol(x.r.naam).split(' · ').slice(0, 2).join(' · ')} +${x.q - x.q0}`).join(', ') : '') + '.'));
     }
     // container vol maken (of een product eruit gehaald): steeds 1 stuk erbij van het product dat na aankomst het kortst dekt, tot de container(s) vol zijn
     let added = 0;
@@ -606,6 +634,7 @@
     const bar = el('div', 'vr-fill');
     let restT = T; for (const [k, cap] of C.list) { const d = el('div'); const f = Math.min(cap, restT); restT -= f; d.style.width = (cap / Math.max(C.cap, 1)) * 100 + '%'; d.style.background = `linear-gradient(90deg, #84bd3f ${(f / cap) * 100}%, transparent ${(f / cap) * 100}%)`; d.title = `${k}: ${n1.format(f)} van ${cap} cbm`; bar.append(d); }
     const parts = [box, bar];
+    if (/^\d{4}-\d{2}-\d{2}$/.test(P.vr_tot || '')) { const n = el('div', 'vr-etd'); const nn = items.filter((x) => x.q0 > 0 && !x.uit); n.append(el('div', 'vr-etd-r', '')); n.firstChild.append(el('span', 'vr-etd-l', 'Dekken tot:'), el('b', '', dNl(P.vr_tot)), el('span', 'vr-etd-s', ` · ${nn.length} producten hebben samen ${int.format(nn.reduce((t, x) => t + x.q0, 0))} stuks (${n1.format(Tadv)} cbm) extra nodig om met wat er ligt en onderweg is tot die datum te komen (verwachte verkoop volgens begroting, zonder veiligheidsvoorraad).`)); parts.push(n); }
     if (maxNote) parts.push(maxNote);
     if (uitG.length) {
       const extra = items.filter((x) => x.q > x.q0).sort((a, b) => (b.q - b.q0) * (b.cbm || 0) - (a.q - a.q0) * (a.cbm || 0));
@@ -619,16 +648,16 @@
     if (vs) parts.push(vs);
     if (noCbm.length) parts.push(el('p', 'lw-note lw-bad', `${noCbm.length} producten hebben nog geen CBM en tellen niet mee in de containers. Vul de CBM per stuk hieronder in${isAdmin() ? '' : ' (alleen een beheerder kan dat opslaan)'}.`));
     const tbl = el('table', 'lw-table lw-stocktable'); const th = el('thead'); const hr = el('tr');
-    ['Product', 'SKU · art.nr leverancier', 'Status', 'Bestellen', 'CBM/stuk', 'CBM', 'Inkoop', 'Dekt na aankomst', ''].forEach((h, i) => hr.append(el('th', i >= 3 && i !== 7 && i !== 8 ? 'lw-num' : '', h))); th.append(hr); tbl.append(th);
+    ['Product', 'SKU · art.nr leverancier', 'Status', 'Bestellen', 'CBM/stuk', 'CBM', 'Inkoop', 'Voorraad tot', ''].forEach((h, i) => hr.append(el('th', i >= 3 && i !== 7 && i !== 8 ? 'lw-num' : '', h))); th.append(hr); tbl.append(th);
     const tb = el('tbody');
     for (const x of items.filter((x) => x.q > 0 || (x.uit && x.q0 > 0) || (x.q0 > 0 && (!x.cbm || maxC))).sort((a, b) => a.uit - b.uit || a.a.rank - b.a.rank || b.q - a.q)) {
       const tr = el('tr', x.uit ? 'vr-uitrow' : '');
       const cbTd = el('td', 'lw-num');
       if (isAdmin()) { const i = el('input'); i.type = 'number'; i.step = '0.01'; i.min = 0; i.value = x.cbm ?? ''; i.placeholder = '?'; i.addEventListener('change', () => saveCbm(x.r.sku, i.value === '' ? null : Number(i.value))); cbTd.append(i); }
       else cbTd.textContent = x.cbm ? n2.format(x.cbm) : '?';
-      const wk = x.a.perWk > 0 ? (Math.max(0, x.a.atArr) + x.q) / x.a.perWk : null;
+      const dt = x.a.perWk > 0 ? dektTot(x, x.q) : null;
       tr.append(el('td', 'lw-wrap', vol(x.r.naam)), el('td', '', x.r.sku + (HERK[x.r.sku] ? ' · ' + HERK[x.r.sku].artikel : '')), el('td', '', x.a.status), el('td', 'lw-num', x.uit ? `(${int.format(x.q0)})` : int.format(x.q) + (x.q > x.q0 ? ` (+${x.q - x.q0})` : x.q < x.q0 ? ` (advies ${x.q0})` : '')), cbTd,
-        el('td', 'lw-num', x.cbm ? n1.format(x.q * x.cbm) : '—'), el('td', 'lw-num', eur0.format(x.q * (x.r.kostprijs || 0))), el('td', '', x.uit ? 'eruit' : wk == null ? '—' : n1.format(wk) + ' wk'));
+        el('td', 'lw-num', x.cbm ? n1.format(x.q * x.cbm) : '—'), el('td', 'lw-num', eur0.format(x.q * (x.r.kostprijs || 0))), el('td', '', x.uit ? 'eruit' : x.a.perWk > 0 ? (dt ? dNl(dt) : 'ruim (na 60 wk)') : '—'));
       const act = el('td'); const ab = el('button', 'vr-link', x.uit ? 'terugzetten' : 'eruit'); ab.type = 'button'; ab.title = x.uit ? 'Weer meenemen in dit voorstel' : 'Tijdelijk uit dit containervoorstel halen; de ruimte wordt aangevuld';
       ab.addEventListener('click', () => { const e = excl0(); if (x.uit) e.delete(x.r.sku); else e.add(x.r.sku); dash.setParams({ vr_cx: [...e].join(',') || null }); });
       act.append(ab); tr.append(act);
