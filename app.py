@@ -125,7 +125,8 @@ def index(request: Request):
     page = (WEB / 'index.html').read_text(encoding='utf-8')
     boot = json.dumps(_boot(u), ensure_ascii=False).replace('</', '<\\/')
     title = ((store.get_doc('dash/meta') or {}).get('data') or {}).get('title') or 'Loungesetland dashboard'
-    refresh = '<form method="post" action="/status/run-all" style="display:inline;margin:0"><button class="lsl-barbtn" title="Haalt alle cijfers nu opnieuw op">↻ Alles verversen</button></form>' if u['r'] == 'beheerder' else ''
+    refresh = ('<button type="button" class="lsl-barbtn" id="lsl-ref-page" title="Haalt alleen de cijfers van het dashboard waar je nu bent opnieuw op">↻ Dit dashboard verversen</button>'
+               '<form method="post" action="/status/run-all" style="display:inline;margin:0"><button class="lsl-barbtn" title="Haalt alle cijfers nu opnieuw op">↻ Alles verversen</button></form>') if u['r'] == 'beheerder' else ''
     links = f'<span>{html.escape(u.get("n") or u["u"])}</span>{refresh}<a href="/status">Status</a>' + ('<a href="/gebruikers">Gebruikers</a>' if u['r'] == 'beheerder' else '') + (
         '<a href="/logout">Uitloggen</a>' if auth.enabled() else '')
     return HTMLResponse(f'''<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -284,6 +285,27 @@ def status_run_all(request: Request):
     names = [n for n, (fn, label, ok) in scheduler.JOBS.items() if n not in ('maandagmail', 'pm_toegang') and ok()]
     scheduler.run_async(names, request.state.user['u'])
     return RedirectResponse('/status?msg=Alle ' + str(len(names)) + ' taken gestart; dat duurt 1 à 2 minuten. Ververs deze pagina daarna.', status_code=303)
+
+
+@app.post('/api/refresh/{page}')
+def api_refresh_page(page: str, request: Request):
+    _admin(request)
+    names = [n for n in scheduler.PAGINA.get(page, []) if n in scheduler.JOBS and scheduler.JOBS[n][2]()]
+    if not names:
+        raise HTTPException(404, 'Onbekend dashboard')
+    names = [n for n in names if n not in scheduler.PENDING]
+    if names:
+        scheduler.run_async(names, request.state.user['u'])
+    return {'gestart': names, 'bezig': sorted(scheduler.PENDING)}
+
+
+@app.get('/api/refresh-status')
+def api_refresh_status(request: Request, jobs: str = ''):
+    want = [j for j in jobs.split(',') if j]
+    left = [j for j in want if j in scheduler.PENDING]
+    last = {r['job']: r for r in store.last_runs_per_job()}
+    fails = [scheduler.JOBS[j][1] for j in want if j not in left and j in last and last[j].get('finished') and not last[j].get('ok')]
+    return {'bezig': left, 'mislukt': fails}
 
 
 @app.post('/status/run/{name}')

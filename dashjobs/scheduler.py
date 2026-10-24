@@ -82,12 +82,26 @@ def run(name, by='planning'):
         _busy.discard(name)
 
 
+# per dashboard-tab: welke taken de cijfers op dat tabblad verversen
+PAGINA = {
+    'week': ['shop_sales_recent', 'shop_products_recent', 'shop_open', 'shop_sessions_recent', 'pm_daily', 'ads_daily', 'sumtracker_stock', 'voorraad_analyse'],
+    'liquiditeit': ['containers', 'shop_open', 'ontvangsten', 'shop_sales_recent', 'pm_daily'],
+    'ads': ['ads_daily', 'ads_campaigns', 'meta_ads', 'gbp_daily', 'shop_search_month', 'shop_sessions_recent', 'shop_sales_recent', 'pm_daily', 'weer'],
+    'voorraad': ['sumtracker_stock', 'containers', 'shop_sku_weekly', 'voorraad_analyse'],
+}
+PENDING = set()
+
+
 def run_many(names, by='planning'):
     for n in names:
-        run(n, by)
+        try:
+            run(n, by)
+        finally:
+            PENDING.discard(n)
 
 
 def run_async(names, by='hand'):
+    PENDING.update(names)
     threading.Thread(target=run_many, args=(names, by), daemon=True).start()
 
 

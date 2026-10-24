@@ -3328,6 +3328,26 @@ window.bgEngine = (m, params, todayS) => {
     requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
   };
   btns.forEach((b) => b.addEventListener('click', () => show(b.dataset.tab, true)));
+  // alleen dit dashboard verversen (beheerders): start de taken voor het huidige tabblad, wacht tot ze klaar zijn en laad opnieuw
+  const rb = document.getElementById('lsl-ref-page');
+  if (rb) rb.addEventListener('click', async () => {
+    const tab = (btns.find((b) => b.getAttribute('aria-selected') === 'true') || btns[0]).dataset.tab;
+    const naam = (btns.find((b) => b.dataset.tab === tab) || {}).textContent || tab;
+    rb.disabled = true; rb.textContent = `↻ ${naam} verversen…`;
+    try {
+      const r = await fetch('/api/refresh/' + encodeURIComponent(tab), { method: 'POST' });
+      const j = await r.json(); const jobs = [...new Set([...(j.gestart || []), ...(j.bezig || [])])];
+      const t0 = Date.now();
+      for (;;) {
+        await new Promise((ok) => setTimeout(ok, 4000));
+        const st = await fetch('/api/refresh-status?jobs=' + encodeURIComponent(jobs.join(','))).then((x) => x.json());
+        const sec = Math.round((Date.now() - t0) / 1000);
+        rb.textContent = `↻ ${naam} verversen… ${jobs.length - st.bezig.length}/${jobs.length} (${sec}s)`;
+        if (!st.bezig.length) { if (st.mislukt.length) { rb.textContent = 'Niet gelukt: ' + st.mislukt.join(', ') + ' (zie Status)'; await new Promise((ok) => setTimeout(ok, 4000)); } location.reload(); return; }
+        if (sec > 600) throw new Error('duurt te lang');
+      }
+    } catch (e) { rb.textContent = '↻ Dit dashboard verversen (mislukt, probeer opnieuw)'; rb.disabled = false; }
+  });
   const h = location.hash.slice(1);
   if (h === 'liquiditeit' || h === 'ads' || h === 'voorraad') show(h, false);
 })();
