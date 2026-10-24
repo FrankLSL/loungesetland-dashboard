@@ -54,11 +54,18 @@
     const mat = (r) => (/teak/i.test(r.naam || '') && !/alumin/i.test(r.naam || '') ? 'teak' : /alumin/i.test(r.naam || '') ? 'alu' : /rope|wicker/i.test(r.naam || '') ? 'rope' : '');
     const tel = new Map();
     const add = (k, r) => { const m = tel.get(k) || new Map(); const id = r.leverancier_id; const o = m.get(id) || { n: 0, naam: r.leverancier }; o.n += 1 + (Number(r.verkocht_52w) || 0); m.set(id, o); tel.set(k, m); };
-    for (const r of dk) if (!onbekendeLev(r) && r.leverancier_id != null) { const c = collectie(r).model; add(c + '|' + mat(r), r); add(c, r); }
+    const merkK = (r) => 'merk:' + (collectie(r).merk || r.merk || '').toLowerCase();
+    for (const r of dk) if (!onbekendeLev(r) && r.leverancier_id != null) { const c = collectie(r).model; add(c + '|' + mat(r), r); add(c, r); add(merkK(r), r); }
     for (const r of dk) {
-      if (r.lev_handmatig || !onbekendeLev(r) || (HERK[r.sku] && HERK[r.sku].leverancier)) continue;
+      if (r.lev_handmatig || !onbekendeLev(r)) continue;
+      if (HERK[r.sku] && HERK[r.sku].leverancier) { r.lev_origineel = r.leverancier; r.leverancier = HERK[r.sku].leverancier; r.lev_afgeleid = true; continue; } // Apple Bee containersheet
       if (/dienblad/i.test(r.naam || '')) continue; // losse accessoires: blijven bij Overige
-      const c = collectie(r).model; const m = tel.get(c + '|' + mat(r)) || tel.get(c); if (!m) continue;
+      const c = collectie(r).model; let m = tel.get(c + '|' + mat(r)) || tel.get(c);
+      if (!m) { // anders op merk, als één leverancier het merk duidelijk levert
+        const mm = tel.get(merkK(r)); if (!mm) continue;
+        const tot = [...mm.values()].reduce((t, o) => t + o.n, 0), best = [...mm.values()].sort((p, q) => q.n - p.n)[0];
+        if (best.n < tot * 0.8) continue; m = mm;
+      }
       const [id, o] = [...m.entries()].sort((p, q) => q[1].n - p[1].n)[0];
       r.lev_origineel = r.leverancier; r.leverancier = o.naam; r.leverancier_id = id; r.lev_afgeleid = true;
     }
