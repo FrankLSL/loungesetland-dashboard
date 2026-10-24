@@ -141,7 +141,7 @@
   let ABC = { rows: null, map: new Map() };
   function abInfo(sku) {
     const rs = rows('ab_portaal'); if (!rs) return null;
-    if (ABC.rows !== rs) { ABC = { rows: rs, map: new Map(rs.map((r) => [String(r.artikel), r])) }; ABC.sku = new Map(); }
+    if (ABC.rows !== rs || ABC.herk !== HERK) { ABC = { rows: rs, herk: HERK, map: new Map(rs.map((r) => [String(r.artikel), r])) }; ABC.sku = new Map(); }
     if (ABC.sku.has(sku)) return ABC.sku.get(sku);
     const h = HERK[sku]; let out = null;
     if (h && h.artikel) {
