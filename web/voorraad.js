@@ -513,10 +513,12 @@
     const excl = new Set(String(P.vr_cx || '').split(',').filter(Boolean));
     const items = all.filter((x) => ofLev(x) && (x.a.rank <= 2 || (x.cbm && x.r.verkocht_52w > 0 && x.a.perWk > 0))).map((x) => { const q0 = x.a.rank <= 2 ? x.a.qty : 0, uit = excl.has(x.r.sku); return { ...x, q0, uit, q: uit ? 0 : q0 }; });
     const tg = el('div', 'lw-mini');
-    const b1 = el('button', '', 'Alleen het advies'); b1.type = 'button'; b1.setAttribute('aria-pressed', String(!fill)); b1.addEventListener('click', () => dash.setParams({ vr_fill: null }));
-    const b2 = el('button', '', 'Container vol maken'); b2.type = 'button'; b2.setAttribute('aria-pressed', String(fill)); b2.addEventListener('click', () => dash.setParams({ vr_fill: 1 }));
+    const maxC = Number(P.vr_max) || 0;
+    const b1 = el('button', '', 'Alleen het advies'); b1.type = 'button'; b1.setAttribute('aria-pressed', String(!fill && !maxC)); b1.addEventListener('click', () => dash.setParams({ vr_fill: null, vr_max: null }));
+    const b2 = el('button', '', 'Container vol maken'); b2.type = 'button'; b2.setAttribute('aria-pressed', String(fill && !maxC)); b2.addEventListener('click', () => dash.setParams({ vr_fill: 1, vr_max: null }));
+    const bm = (n) => { const b = el('button', '', `Max ${n} × 40ft`); b.type = 'button'; b.title = `Wat gaat er mee als je maar ${n} container${n > 1 ? 's' : ''} (40ft HQ) bestelt: eerst wat het snelst op is, tot de container vol is`; b.setAttribute('aria-pressed', String(maxC === n)); b.addEventListener('click', () => dash.setParams({ vr_max: maxC === n ? null : n, vr_fill: null })); return b; };
     const b3 = el('button', 'vr-btn', 'Download als CSV'); b3.type = 'button'; b3.addEventListener('click', () => csv(items.filter((x) => x.q > 0), levName.get(id)));
-    tg.append(b1, b2, b3);
+    tg.append(b1, b2, bm(1), bm(2), b3);
     const parts = [tg];
     // per productielocatie een eigen container (fabrieken laden niet samen)
     const locOf = (x) => (HERK[x.r.sku] && HERK[x.r.sku].locatie) || '';
@@ -563,9 +565,32 @@
     const uitG = items.filter((x) => x.uit && x.q0 > 0);
     const g0 = items[0] ? items[0].g : '', loc0 = items[0] ? ((HERK[items[0].r.sku] || {}).locatie || '') : '', m20 = mag20(g0, loc0);
     let C = containers(fill ? T0 : uitG.length ? Tadv : T0, P, m20);
+    const maxC = Number(P.vr_max) || 0;
+    let maxNote = null;
+    if (maxC) {
+      // maximaal N containers: vullen op urgentie (steeds 1 stuk erbij van wat na aankomst het kortst dekt), eerst binnen het advies, daarna met wat het best verkoopt
+      const capM = maxC * num(P.vr_chq, 67);
+      for (const x of items) x.q = 0;
+      const cand = items.filter((x) => x.cbm && x.a.perWk > 0 && !x.uit);
+      let free = capM;
+      for (const fase of [1, 2]) {
+        for (let n = 0; n < 8000; n++) {
+          let best = null, bw = Infinity;
+          for (const x of cand) { if (x.cbm > free || (fase === 1 && x.q >= x.q0)) continue; const w = (Math.max(0, x.a.atArr) + x.q) / x.a.perWk; if (w < bw) { bw = w; best = x; } }
+          if (!best) break; best.q += 1; free -= best.cbm;
+        }
+      }
+      const T1 = items.reduce((t, x) => t + (x.cbm ? x.q * x.cbm : 0), 0);
+      const kort = items.filter((x) => x.q0 > 0 && x.q < x.q0 && !x.uit).sort((a, b) => (b.q0 - b.q) * (b.cbm || 0) - (a.q0 - a.q) * (a.cbm || 0));
+      const extra = items.filter((x) => x.q > x.q0);
+      maxNote = el('div', 'vr-uitnote');
+      maxNote.append(el('b', '', `Max ${maxC} × 40ft (${int.format(capM)} cbm): `), document.createTextNode(Tadv > capM
+        ? `het advies is ${n1.format(Tadv)} cbm, dus ${n1.format(Tadv - capM)} cbm past niet. Eerst meegenomen wat het snelst op is; ingekort: ` + kort.slice(0, 6).map((x) => `${vol(x.r.naam).split(' · ').slice(0, 2).join(' · ')} ${x.q} i.p.v. ${x.q0}`).join(', ') + (kort.length > 6 ? ` en ${kort.length - 6} meer` : '') + '. Wat niet mee kan, komt in de volgende bestelling terug.'
+        : `het advies (${n1.format(Tadv)} cbm) past; aangevuld tot ${n1.format(T1)} cbm met wat na aankomst het kortst toe kan` + (extra.length ? ': ' + extra.slice(0, 5).map((x) => `${vol(x.r.naam).split(' · ').slice(0, 2).join(' · ')} +${x.q - x.q0}`).join(', ') : '') + '.'));
+    }
     // container vol maken (of een product eruit gehaald): steeds 1 stuk erbij van het product dat na aankomst het kortst dekt, tot de container(s) vol zijn
     let added = 0;
-    if ((fill || uitG.length) && C.cap > 0) {
+    if (!maxC && (fill || uitG.length) && C.cap > 0) {
       let free = (fill ? C.cap : Tadv) - T0; const cand = items.filter((x) => x.cbm && x.a.perWk > 0 && !x.uit); // zonder 'vol maken': alleen de vrijgekomen ruimte opvullen
       for (let n = 0; n < 5000 && cand.length; n++) {
         let best = null, bw = Infinity;
@@ -573,7 +598,7 @@
         if (!best) break; best.q += 1; free -= best.cbm; added += best.cbm;
       }
     }
-    const T = T0 + added; C = containers(T, P, m20);
+    const T = maxC ? items.reduce((t, x) => t + (x.cbm ? x.q * x.cbm : 0), 0) : T0 + added; C = containers(T, P, maxC ? false : m20);
     const noCbm = items.filter((x) => !x.cbm && x.q > 0);
     const eur = items.reduce((t, x) => t + x.q * (x.r.kostprijs || 0), 0);
     const box = el('div', 'vr-cbox');
@@ -581,6 +606,7 @@
     const bar = el('div', 'vr-fill');
     let restT = T; for (const [k, cap] of C.list) { const d = el('div'); const f = Math.min(cap, restT); restT -= f; d.style.width = (cap / Math.max(C.cap, 1)) * 100 + '%'; d.style.background = `linear-gradient(90deg, #84bd3f ${(f / cap) * 100}%, transparent ${(f / cap) * 100}%)`; d.title = `${k}: ${n1.format(f)} van ${cap} cbm`; bar.append(d); }
     const parts = [box, bar];
+    if (maxNote) parts.push(maxNote);
     if (uitG.length) {
       const extra = items.filter((x) => x.q > x.q0).sort((a, b) => (b.q - b.q0) * (b.cbm || 0) - (a.q - a.q0) * (a.cbm || 0));
       const n = el('div', 'vr-uitnote');
@@ -595,13 +621,13 @@
     const tbl = el('table', 'lw-table lw-stocktable'); const th = el('thead'); const hr = el('tr');
     ['Product', 'SKU · art.nr leverancier', 'Status', 'Bestellen', 'CBM/stuk', 'CBM', 'Inkoop', 'Dekt na aankomst', ''].forEach((h, i) => hr.append(el('th', i >= 3 && i !== 7 && i !== 8 ? 'lw-num' : '', h))); th.append(hr); tbl.append(th);
     const tb = el('tbody');
-    for (const x of items.filter((x) => x.q > 0 || (x.uit && x.q0 > 0) || (x.q0 > 0 && !x.cbm)).sort((a, b) => a.uit - b.uit || a.a.rank - b.a.rank || b.q - a.q)) {
+    for (const x of items.filter((x) => x.q > 0 || (x.uit && x.q0 > 0) || (x.q0 > 0 && (!x.cbm || maxC))).sort((a, b) => a.uit - b.uit || a.a.rank - b.a.rank || b.q - a.q)) {
       const tr = el('tr', x.uit ? 'vr-uitrow' : '');
       const cbTd = el('td', 'lw-num');
       if (isAdmin()) { const i = el('input'); i.type = 'number'; i.step = '0.01'; i.min = 0; i.value = x.cbm ?? ''; i.placeholder = '?'; i.addEventListener('change', () => saveCbm(x.r.sku, i.value === '' ? null : Number(i.value))); cbTd.append(i); }
       else cbTd.textContent = x.cbm ? n2.format(x.cbm) : '?';
       const wk = x.a.perWk > 0 ? (Math.max(0, x.a.atArr) + x.q) / x.a.perWk : null;
-      tr.append(el('td', 'lw-wrap', vol(x.r.naam)), el('td', '', x.r.sku + (HERK[x.r.sku] ? ' · ' + HERK[x.r.sku].artikel : '')), el('td', '', x.a.status), el('td', 'lw-num', x.uit ? `(${int.format(x.q0)})` : int.format(x.q) + (x.q > x.q0 ? ` (+${x.q - x.q0})` : '')), cbTd,
+      tr.append(el('td', 'lw-wrap', vol(x.r.naam)), el('td', '', x.r.sku + (HERK[x.r.sku] ? ' · ' + HERK[x.r.sku].artikel : '')), el('td', '', x.a.status), el('td', 'lw-num', x.uit ? `(${int.format(x.q0)})` : int.format(x.q) + (x.q > x.q0 ? ` (+${x.q - x.q0})` : x.q < x.q0 ? ` (advies ${x.q0})` : '')), cbTd,
         el('td', 'lw-num', x.cbm ? n1.format(x.q * x.cbm) : '—'), el('td', 'lw-num', eur0.format(x.q * (x.r.kostprijs || 0))), el('td', '', x.uit ? 'eruit' : wk == null ? '—' : n1.format(wk) + ' wk'));
       const act = el('td'); const ab = el('button', 'vr-link', x.uit ? 'terugzetten' : 'eruit'); ab.type = 'button'; ab.title = x.uit ? 'Weer meenemen in dit voorstel' : 'Tijdelijk uit dit containervoorstel halen; de ruimte wordt aangevuld';
       ab.addEventListener('click', () => { const e = excl0(); if (x.uit) e.delete(x.r.sku); else e.add(x.r.sku); dash.setParams({ vr_cx: [...e].join(',') || null }); });
