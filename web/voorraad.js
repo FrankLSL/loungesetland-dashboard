@@ -484,6 +484,30 @@
     host.replaceChildren(...parts);
   }
 
+  // wanneer moet deze container verscheept worden (ETD): op tijd binnen voor het eerste product dat onder de veiligheidsvoorraad zakt
+  function verscheping(items) {
+    if (!items.length) return null;
+    const a0 = items[0].a, L = a0.L, land = a0.land, vaar = L - Math.round(L / 2);
+    const krit = items.filter((x) => x.a.bp || x.a.opDatum).sort((p, q) => ((p.a.bp || p.a.opDatum) < (q.a.bp || q.a.opDatum) ? -1 : 1))[0];
+    const nodig = krit ? (krit.a.bp || krit.a.opDatum) : null;
+    const nu = aankomstNa(today(), L, land), vroegETD = addD(nu.datum, -vaar * 7);
+    const box = el('div', 'vr-etd');
+    const regel = (l, v, sub) => { const d = el('div', 'vr-etd-r'); d.append(el('span', 'vr-etd-l', l), el('b', '', v)); if (sub) d.append(el('span', 'vr-etd-s', ' ' + sub)); box.append(d); };
+    if (!nodig) { regel('Verscheping (ETD):', 'zo snel als het kan', `klaar ± ${dNl(vroegETD)}, binnen ± ${dNl(nu.datum)}`); return box; }
+    const etd = addD(nodig, -vaar * 7);
+    const naam = vol(krit.r.naam).split(' · ').slice(0, 2).join(' · ');
+    const cnyIn = (d) => { const y = +d.slice(0, 4); return d >= `${y}-01-15` && d < `${y}-03-10`; };
+    if (etd < vroegETD) {
+      regel('Vraag verscheping (ETD):', 'zo snel mogelijk, ± ' + dNl(vroegETD), `binnen ± ${dNl(nu.datum)}, nodig vóór ${dNl(nodig)} (${naam}): ± ${Math.round((P0(nu.datum) - P0(nodig)) / DAY / 7)} weken te laat${a0.cny ? ' door Chinees Nieuwjaar' : a0.leb ? ' door Lebaran' : ''}`);
+    } else {
+      regel('Vraag verscheping (ETD) uiterlijk:', dNl(etd), `dan binnen ± ${dNl(nodig)}, op tijd voor ${naam} (zakt dan onder de veiligheidsvoorraad); eerder kan vanaf ± ${dNl(vroegETD)}`);
+      if (land === 'china' && cnyIn(etd)) regel('Let op:', 'valt in Chinees Nieuwjaar', `fabrieken dicht ± 15 jan – eind feb, eerste schepen ± 10 maart: vraag verscheping vóór ± 10 januari`);
+      if (land === 'indo' && LEBARAN[+etd.slice(0, 4)] && Math.abs(P0(etd) - P0(LEBARAN[+etd.slice(0, 4)])) / DAY <= 10) regel('Let op:', 'valt rond Lebaran', `fabrieken ± 2 weken dicht rond ${dNl(LEBARAN[+etd.slice(0, 4)])}: vraag verscheping een paar weken eerder`);
+    }
+    regel('Vaartijd en transport:', `± ${vaar} weken`, `helft van de levertijd (${L} wk); productie ± ${L - vaar} weken`);
+    return box;
+  }
+
   function group(items) {
     const P = dash.params(); const fill = !!P.vr_fill;
     const T0 = items.reduce((t, x) => t + (x.cbm ? x.q * x.cbm : 0), 0);
@@ -506,6 +530,8 @@
     const bar = el('div', 'vr-fill');
     let restT = T; for (const [k, cap] of C.list) { const d = el('div'); const f = Math.min(cap, restT); restT -= f; d.style.width = (cap / Math.max(C.cap, 1)) * 100 + '%'; d.style.background = `linear-gradient(90deg, #84bd3f ${(f / cap) * 100}%, transparent ${(f / cap) * 100}%)`; d.title = `${k}: ${n1.format(f)} van ${cap} cbm`; bar.append(d); }
     const parts = [box, bar];
+    const vs = verscheping(items.filter((x) => x.q > 0));
+    if (vs) parts.push(vs);
     if (noCbm.length) parts.push(el('p', 'lw-note lw-bad', `${noCbm.length} producten hebben nog geen CBM en tellen niet mee in de containers. Vul de CBM per stuk hieronder in${isAdmin() ? '' : ' (alleen een beheerder kan dat opslaan)'}.`));
     const tbl = el('table', 'lw-table lw-stocktable'); const th = el('thead'); const hr = el('tr');
     ['Product', 'SKU · art.nr leverancier', 'Status', 'Bestellen', 'CBM/stuk', 'CBM', 'Inkoop', 'Dekt na aankomst'].forEach((h, i) => hr.append(el('th', i >= 3 && i !== 7 ? 'lw-num' : '', h))); th.append(hr); tbl.append(th);
