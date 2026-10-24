@@ -3349,6 +3349,7 @@ window.bgEngine = (m, params, todayS) => {
     } catch (e) { rb.textContent = '↻ Dit dashboard verversen (mislukt, probeer opnieuw)'; rb.disabled = false; }
   });
   const h = location.hash.slice(1);
-  if (h === 'liquiditeit' || h === 'ads' || h === 'voorraad') show(h, false);
+  const t0 = ['liquiditeit', 'ads', 'voorraad'].includes(h) ? h : (dash.params().tab || '');
+  if (t0 === 'liquiditeit' || t0 === 'ads' || t0 === 'voorraad') show(t0, false); // ook na herladen op hetzelfde tabblad blijven
 })();
 </script>
