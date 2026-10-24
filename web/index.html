@@ -307,6 +307,12 @@
 #dash-root #dk-cbm-body input[type=text] { font: inherit; width: 5rem; text-align: right; padding: .1rem .35rem; border: 1px solid var(--ls-line, #e4dfd6); border-radius: 6px; }
 #dash-root #dk-cbm-body input.dk-cbm-leeg { background: #fff8e1; border-color: #f0b429; }
 #dash-root #dk-cbm-body .dk-cbm-top { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; font-size: .82rem; color: var(--color-fg-muted); margin-bottom: .5rem; }
+#dash-root .op-setbar { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1.6rem; background: #fff; border: 1px solid var(--ls-line, #e4dfd6); border-radius: 14px; padding: .7rem 1.2rem; margin-bottom: 1rem; font-size: .88rem; }
+#dash-root .op-setbar .op-set-t { font-weight: 700; color: var(--ls-green, #1f4b47); }
+#dash-root .op-setbar input { font: inherit; font-weight: 600; width: 5.5rem; margin: 0 .3rem; padding: .25rem .5rem; border: 1px solid #cfe3b4; border-radius: 8px; background: #f4f8ee; text-align: right; }
+#dash-root .op-setbar input:focus { outline: 2px solid #84bd3f; background: #fff; }
+#dash-root .op-set-s { color: var(--color-fg-muted); font-size: .8rem; }
+#dash-root .op-note { font-size: .78rem; margin-top: .8rem; }
 #dash-root .op-hero { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-bottom: 1.2rem; }
 @media (max-width: 900px) { #dash-root .op-hero { grid-template-columns: 1fr; } }
 #dash-root .op-k { background: #fff; border: 1px solid var(--ls-line, #e4dfd6); border-radius: 14px; padding: 1rem 1.2rem 1.1rem; display: flex; flex-direction: column; gap: .35rem; }
@@ -1045,20 +1051,20 @@
   </header>
 
   <section class="lw-section" id="vr-s-op">
+    <div class="op-setbar" id="vr-op-set">
+      <span class="op-set-t">Opslagruimte</span>
+      <label>Vloer hallen <input type="number" data-op="vr_m2" step="50" min="0"> m²</label>
+      <label>Stapelhoogte <input type="number" data-op="vr_hoog" step="0.1" min="0"> m</label>
+      <label>Vloer voor opslag <input type="number" data-op="vr_benut" step="5" min="0" max="100"> % <span class="op-set-s">(rest looppaden)</span></label>
+      <span class="op-set-s" id="op-set-sum"></span>
+    </div>
     <div class="op-hero" id="op-hero"></div>
     <div class="lw-card op-card">
       <div class="op-head"><h3>Bezetting per maand</h3><div class="op-legend" id="op-legend"></div></div>
       <div class="lw-chart" id="vr-op-chart"></div>
       <div class="lw-tablebox op-tbox"><table class="lw-table" id="vr-op-tbl"></table></div>
     </div>
-    <details class="ad-info op-set" id="op-set-d"><summary>⚙ Instellingen hallen <span id="op-set-sum"></span></summary>
-      <div class="vr-op-set" id="vr-op-set">
-        <label>Vloeroppervlak hallen (m²) <input type="number" data-op="vr_m2" step="50" min="0"></label>
-        <label>Stapelhoogte (m) <input type="number" data-op="vr_hoog" step="0.1" min="0"></label>
-        <label>Vloer voor opslag (%, rest looppaden) <input type="number" data-op="vr_benut" step="5" min="0" max="100"></label>
-      </div>
-      <p class="lw-note" id="vr-op-note"></p>
-    </details>
+    <p class="lw-note op-note" id="vr-op-note"></p>
   </section>
   </div>
   <div class="lw-page" id="pg-ads" hidden>

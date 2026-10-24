@@ -829,7 +829,7 @@
     document.querySelectorAll('#vr-op-set [data-op]').forEach((i) => {
       const d = { vr_m2: 1100, vr_hoog: 2.5, vr_benut: 60 }[i.dataset.op];
       if (document.activeElement !== i) i.value = num(P[i.dataset.op], d);
-      if (!i._op) { i._op = 1; i.addEventListener('change', () => dash.setParams({ [i.dataset.op]: i.value === '' ? null : Number(i.value) })); }
+      if (!i._op) { i._op = 1; const zet = () => { const v = i.value === '' ? null : Number(i.value); if (v === null || v > 0) dash.setParams({ [i.dataset.op]: v }); }; i.addEventListener('input', () => { clearTimeout(i._t); i._t = setTimeout(zet, 400); }); i.addEventListener('change', zet); }
     });
     const cap = m2 * hoog * benut / 100;
     const vloer = (c) => (hoog > 0 && benut > 0 ? c / hoog / (benut / 100) : 0); // m² hal nodig, inclusief looppaden
@@ -874,7 +874,7 @@
       kaart('Nu in de hallen', nu, `ruimte ${int.format(cap)} cbm (${int.format(m2)} m²)`, true),
       kaart('Drukste maand', pk.v, pk.m ? `eind ${mNl(pk.m)}` : '—', true),
       kaart('Komt eraan (12 mnd)', inTot, `${months.filter((m) => inM.get(m)[0] + inM.get(m)[1] > 0).length} maanden met containers (containerplanning)`, false));
-    const sum = document.getElementById('op-set-sum'); if (sum) sum.textContent = `${int.format(m2)} m² · ${n1.format(hoog)} m hoog · ${benut}% opslag`;
+    const sum = document.getElementById('op-set-sum'); if (sum) sum.textContent = `= ${int.format(cap)} cbm opslagruimte · voor iedereen opgeslagen`;
     document.getElementById('op-legend').innerHTML = `<span><i style="background:${KL['op-ok'][0]}"></i>tot 85%</span><span><i style="background:${KL['op-krap'][0]}"></i>85–100%</span><span><i style="background:${KL['op-over'][0]}"></i>te vol</span><span><i style="background:${KL['op-ok'][1]}"></i>lichter = geschatte cbm</span>`;
     // grafiek
     const box = document.getElementById('vr-op-chart'); box.replaceChildren();
