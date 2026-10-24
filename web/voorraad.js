@@ -643,21 +643,70 @@
     const opties = kandidaten.filter((x) => !inV.has(x.r.sku)).sort((a, b) => (b.r.omzet_52w || 0) - (a.r.omzet_52w || 0));
     const wrap = el('div', 'vr-add');
     if (!opties.length) return wrap;
-    const id = 'vr-add-' + Math.random().toString(36).slice(2, 8);
-    const dl = document.createElement('datalist'); dl.id = id;
-    for (const x of opties) { const o = document.createElement('option'); o.value = `${vol(x.r.naam)} — ${x.r.sku}`; dl.append(o); }
-    const inp = el('input', 'vr-add-in'); inp.type = 'search'; inp.placeholder = `+ Product toevoegen: typ titel of SKU (${opties.length} producten van deze leverancier)`; inp.setAttribute('list', id);
-    const voeg = () => {
-      const v = inp.value.trim(); if (!v) return;
-      const sku = v.includes(' — ') ? v.split(' — ').pop().trim() : v;
-      const x = opties.find((y) => y.r.sku === sku) || opties.find((y) => (vol(y.r.naam) + ' ' + y.r.sku).toLowerCase().includes(v.toLowerCase()));
-      if (!x) { inp.setCustomValidity('Niet gevonden'); inp.reportValidity(); return; }
-      const o = qoMap(); o.set(x.r.sku, Math.max(1, x.a.qtyNu || Math.round((x.a.perWk || 0) * 8) || 1)); qoSet(o);
-    };
-    inp.addEventListener('change', voeg); inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); voeg(); } });
-    inp.addEventListener('input', () => inp.setCustomValidity(''));
-    wrap.append(inp, dl, el('span', 'vr-po-s', 'Kies een product; het komt in de tabel met ± 8 weken verkoop, het aantal pas je daar aan.'));
+    const b = el('button', 'vr-add-btn', `+ Product toevoegen (${opties.length} producten van deze leverancier)`); b.type = 'button';
+    b.addEventListener('click', () => addPopup(opties));
+    wrap.append(b);
     return wrap;
+  }
+  const stdQ = (x) => Math.max(1, x.a.qtyNu || Math.round((x.a.perWk || 0) * 8) || 1);
+  // groot venster om producten van de leverancier te zoeken en toe te voegen aan het containervoorstel
+  function addPopup(opties) {
+    document.querySelectorAll('.vr-modal-bg').forEach((n) => n.remove());
+    const bg = el('div', 'vr-modal-bg lw'); const m = el('div', 'vr-modal'); bg.append(m);
+    const kop = el('div', 'vr-modal-kop');
+    kop.append(el('h3', '', 'Product toevoegen aan containervoorstel'));
+    const x0 = el('button', 'vr-modal-x', '×'); x0.type = 'button'; x0.title = 'Sluiten (Esc)'; kop.append(x0);
+    const q = el('input', 'vr-modal-q'); q.type = 'search'; q.placeholder = 'Zoek op titel of SKU, bijvoorbeeld “80 cm” of “daan tafel”';
+    const tel = el('div', 'vr-modal-tel');
+    const lijst = el('div', 'vr-modal-lijst');
+    const t = el('table', 'lw-table vr-modal-t'); const th = el('thead'); const hr = el('tr');
+    for (const [h, c] of [['Product', ''], ['Voorraad', 'lw-num'], ['Onderweg', 'lw-num'], ['Verkoop/wk', 'lw-num'], ['Voorraad tot', ''], ['CBM/stuk', 'lw-num'], ['Aantal', 'lw-num'], ['', '']]) hr.append(el('th', c, h));
+    th.append(hr); const tb = el('tbody'); t.append(th, tb); lijst.append(t);
+    const voet = el('div', 'vr-modal-voet');
+    const klaar = el('button', 'vr-btn', 'Klaar'); klaar.type = 'button';
+    const vInfo = el('span', 'vr-po-s', 'Toegevoegde producten komen in de tabel met dit aantal; daar kun je het nog aanpassen.');
+    voet.append(vInfo, klaar);
+    m.append(kop, q, tel, lijst, voet);
+    const toegevoegd = new Set();
+    const fmtWk = (v) => (v >= 10 ? int.format(Math.round(v)) : (Math.round(v * 10) / 10).toLocaleString('nl-NL'));
+    const teken = () => {
+      const w = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      const hits = opties.filter((x) => { const s = (vol(x.r.naam) + ' ' + x.r.sku).toLowerCase(); return w.every((z) => s.includes(z)); });
+      tel.textContent = w.length ? `${hits.length} van ${opties.length} producten` : `${opties.length} producten, best verkopend bovenaan`;
+      tb.replaceChildren();
+      if (!hits.length) { const tr = el('tr'); const td = el('td', 'vr-modal-leeg', 'Niets gevonden. Probeer een ander woord of een deel van de SKU.'); td.colSpan = 8; tr.append(td); tb.append(tr); return; }
+      for (const x of hits) {
+        const r = x.r, a = x.a, tr = el('tr'); const al = toegevoegd.has(r.sku); if (al) tr.className = 'vr-modal-ok';
+        const nm = el('td'); nm.append(el('div', 'vr-modal-nm', vol(r.naam)), el('div', 'dk-sku', r.sku));
+        const c = cbmOf(r.sku);
+        const inp = el('input', 'vr-qty'); inp.type = 'number'; inp.min = '1'; inp.value = String(al ? qoMap().get(r.sku) || stdQ(x) : stdQ(x));
+        const qtd = el('td', 'lw-num'); qtd.append(inp);
+        const knop = el('button', al ? 'vr-add-ja' : 'vr-btn vr-add-go', al ? '✓ toegevoegd · weghalen' : 'Toevoegen'); knop.type = 'button';
+        const doe = () => {
+          const o = qoMap();
+          if (toegevoegd.has(r.sku)) { o.delete(r.sku); toegevoegd.delete(r.sku); }
+          else { o.set(r.sku, Math.max(1, Math.round(Number(inp.value) || stdQ(x)))); toegevoegd.add(r.sku); }
+          qoSet(o); teken(); vInfo.textContent = toegevoegd.size ? `${toegevoegd.size} product(en) toegevoegd. Het voorstel achter dit venster is bijgewerkt.` : 'Toegevoegde producten komen in de tabel met dit aantal; daar kun je het nog aanpassen.';
+        };
+        knop.addEventListener('click', doe);
+        inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doe(); } });
+        inp.addEventListener('change', () => { if (toegevoegd.has(r.sku)) { const o = qoMap(); o.set(r.sku, Math.max(1, Math.round(Number(inp.value) || 1))); qoSet(o); } });
+        const kt = el('td', 'vr-modal-act'); kt.append(knop);
+        tr.append(nm, el('td', 'lw-num' + ((Number(r.voorraad) || 0) <= 0 ? ' lw-bad' : ''), int.format(Number(r.voorraad) || 0)),
+          el('td', 'lw-num', r.onderweg ? int.format(r.onderweg) : '—'), el('td', 'lw-num', a.perWk ? fmtWk(a.perWk) : '—'),
+          el('td', a.kortVoor ? 'lw-bad' : '', a.opDatum ? dNl(a.opDatum) : 'na 60 wk'), el('td', 'lw-num', c ? String(c).replace('.', ',') : '—'), qtd, kt);
+        tb.append(tr);
+      }
+    };
+    const sluit = () => { bg.remove(); document.removeEventListener('keydown', esc); };
+    const esc = (e) => { if (e.key === 'Escape') sluit(); };
+    document.addEventListener('keydown', esc);
+    x0.addEventListener('click', sluit); klaar.addEventListener('click', sluit);
+    bg.addEventListener('mousedown', (e) => { if (e.target === bg) sluit(); });
+    q.addEventListener('input', teken);
+    q.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const f = tb.querySelector('.vr-add-go'); if (f) { e.preventDefault(); f.click(); } } });
+    (document.getElementById('dash-root') || document.body).append(bg);
+    teken(); q.focus();
   }
   // concept-inkooporder in Sumtracker met de aantallen uit dit voorstel
   function poKnop(items) {

@@ -435,9 +435,27 @@
 #dash-root #vr-cont table td:last-child .vr-link { text-decoration: none; border: 1px solid var(--ls-line, #e4dfd6); background: #fff; border-radius: 999px; padding: .2rem .65rem; font-size: .74rem; }
 #dash-root #vr-cont table td:last-child .vr-link:hover { background: var(--ls-lime-soft, #e9f3dc); }
 #dash-root #vr-cont .lw-tablebox { max-height: 40rem; margin-top: .6rem; }
-#dash-root .vr-add { display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; margin-top: .8rem; }
-#dash-root .vr-add-in { font: inherit; font-size: .88rem; width: min(40rem, 100%); padding: .45rem .9rem; border: 1px dashed #b9d79a; border-radius: 999px; background: #f8fbf3; }
-#dash-root .vr-add-in:focus { outline: 2px solid #84bd3f; background: #fff; border-style: solid; }
+#dash-root .vr-add { margin-top: .9rem; }
+#dash-root .vr-add-btn { font: inherit; font-size: .9rem; font-weight: 600; color: #2f5d1c; padding: .55rem 1.1rem; border: 1px dashed #84bd3f; border-radius: 999px; background: #f8fbf3; cursor: pointer; }
+#dash-root .vr-add-btn:hover { background: #eef6e2; border-style: solid; }
+#dash-root .vr-modal-bg { position: fixed; inset: 0; z-index: 1000; background: rgba(20, 40, 30, .45); display: flex; align-items: flex-start; justify-content: center; padding: 4vh 16px; }
+#dash-root .vr-modal { background: #fff; border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.25); width: min(72rem, 100%); max-height: 92vh; display: flex; flex-direction: column; padding: 1.3rem 1.5rem 1rem; gap: .7rem; }
+#dash-root .vr-modal-kop { display: flex; align-items: center; justify-content: space-between; }
+#dash-root .vr-modal-kop h3 { margin: 0; font-size: 1.2rem; color: #1d4a3f; }
+#dash-root .vr-modal-x { font-size: 1.6rem; line-height: 1; border: 0; background: none; cursor: pointer; color: #555; padding: .1rem .5rem; }
+#dash-root .vr-modal-q { font: inherit; font-size: 1.05rem; padding: .75rem 1rem; border: 2px solid #84bd3f; border-radius: 10px; outline: none; }
+#dash-root .vr-modal-tel { font-size: .82rem; color: #667; }
+#dash-root .vr-modal-lijst { overflow: auto; flex: 1; min-height: 12rem; border: 1px solid #e3e8e0; border-radius: 10px; }
+#dash-root .vr-modal-t { width: 100%; }
+#dash-root .vr-modal-t thead th { position: sticky; top: 0; z-index: 1; }
+#dash-root .vr-modal-t td, #dash-root .vr-modal-t th { padding: .6rem .8rem; vertical-align: middle; }
+#dash-root .vr-modal-nm { font-weight: 500; }
+#dash-root .vr-modal-t .vr-qty { width: 5rem; }
+#dash-root .vr-modal-ok td { background: #eef6e2; }
+#dash-root .vr-modal-act { text-align: right; white-space: nowrap; }
+#dash-root .vr-add-ja { font: inherit; font-size: .82rem; border: 0; background: none; color: #2f5d1c; cursor: pointer; text-decoration: underline; }
+#dash-root .vr-modal-leeg { text-align: center; color: #667; padding: 2rem !important; }
+#dash-root .vr-modal-voet { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 #dash-root .vr-mkpo .vr-btn { font: inherit; font-size: .85rem; font-weight: 600; background: var(--ls-green, #1f4b47); color: #fff; border: 1px solid var(--ls-green, #1f4b47); border-radius: 999px; padding: .45rem 1.1rem; cursor: pointer; }
 #dash-root .vr-mkpo .vr-btn:hover { background: #2c625c; }
 #dash-root .vr-mkpo .vr-btn:disabled { opacity: .7; cursor: default; }
