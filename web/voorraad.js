@@ -137,7 +137,20 @@
     await db.doc('voorraad/cbm').set({ waarden: w, at: new Date().toISOString() });
     CBM = w; render();
   }
-  const cbmOf = (sku) => { const v = Number(CBM[sku]); return v > 0 ? v : null; };
+  // Apple Bee-portaal (dataset ab_portaal): magazijnvoorraad Dongen, prijs en volume per artikel; een SKU kan uit meerdere artikelen bestaan (a+b)
+  let ABC = { rows: null, map: new Map() };
+  function abInfo(sku) {
+    const rs = rows('ab_portaal'); if (!rs) return null;
+    if (ABC.rows !== rs) { ABC = { rows: rs, map: new Map(rs.map((r) => [String(r.artikel), r])) }; ABC.sku = new Map(); }
+    if (ABC.sku.has(sku)) return ABC.sku.get(sku);
+    const h = HERK[sku]; let out = null;
+    if (h && h.artikel) {
+      const parts = String(h.artikel).split('+').map((a) => ABC.map.get(a.trim())).filter(Boolean);
+      if (parts.length) out = { cbm: parts.reduce((t, p) => t + (Number(p.cbm) || 0), 0), mag: Math.min(...parts.map((p) => Number(p.magazijn) || 0)), prijs: parts.reduce((t, p) => t + (Number(p.prijs_magazijn) || 0), 0), fob: parts.reduce((t, p) => t + (Number(p.prijs_fob_usd) || 0), 0), moq: Math.max(...parts.map((p) => Number(p.moq_magazijn) || 1)), later: parts[0].magazijn_later || [], fabriek: parts[0].fabriek, artikel: h.artikel };
+    }
+    ABC.sku.set(sku, out); return out;
+  }
+  const cbmOf = (sku) => { const v = Number(CBM[sku]); if (v > 0) return v; const a = abInfo(sku); return a && a.cbm > 0 ? Math.round(a.cbm * 1000) / 1000 : null; };
 
   // ---------- levertijd per leverancier ----------
   // standaard: mediaan van (verwachte aankomst − besteldatum) van de eigen inkooporders, anders 13 weken (China) of 2 weken
@@ -422,6 +435,7 @@
       const st = el('td'); const h = holdOf(r.sku);
       if (h) st.append(el('span', 'lw-pill dk-hold', holdTxt(h))); else st.append(el('span', 'lw-pill' + stCls(a.status), a.status));
       if (x.mag && !h) { const m = el('div', 'vr-mag', `magazijn: ${int.format(x.mag)} st tot de container er is`); st.append(m); }
+      { const ai = abInfo(r.sku); if (ai) { const d = el('div', 'vr-mag' + (x.mag && ai.mag < x.mag ? ' lw-bad' : ''), `Dongen: ${ai.mag > 0 ? int.format(ai.mag) + ' st' : 'niet op voorraad'} · ${eur0.format(ai.prijs)}`); d.title = `Apple Bee-magazijn Dongen (portaal), artikel ${ai.artikel}. Magazijnprijs ${eur0.format(ai.prijs)}, FOB $ ${int.format(ai.fob)}${ai.moq > 1 ? ', min. ' + ai.moq + ' st' : ''}.`; st.append(d); } }
       const lnk = el('div', 'vr-acts');
       const mkl = (t, l) => { const b = el('button', 'vr-link', l); b.type = 'button'; b.addEventListener('click', () => saveStat(r.sku, t ? { type: t, tot: t === 'wacht' ? addD(today(), 28) : null, at: today() } : null)); return b; };
       if (h) lnk.append(mkl(null, 'weer meenemen')); else lnk.append(mkl('wacht', 'aankijken'), mkl('stop', 'niet meer bestellen'));
@@ -824,7 +838,7 @@
       const td = el('td', 'lw-num'); const inp = el('input'); inp.type = 'text'; inp.inputMode = 'decimal'; inp.placeholder = '—'; inp.value = c ? String(c).replace('.', ',') : ''; if (!c) inp.classList.add('dk-cbm-leeg'); inp.disabled = !isAdmin();
       inp.addEventListener('change', async () => { const v = Number(inp.value.replace(',', '.')); try { await saveCbm(r.sku, inp.value.trim() === '' || !(v > 0) ? null : v); inp.blur(); dkDecorate(); } catch (e) { inp.title = 'Opslaan mislukt: ' + e.message; inp.classList.add('dk-cbm-leeg'); } });
       td.append(inp);
-      const bron = c ? (HERK[r.sku] ? 'Apple Bee containersheet' : 'ingevuld') : 'ontbreekt';
+      const bron = c ? (Number(CBM[r.sku]) > 0 ? (HERK[r.sku] ? 'Apple Bee containersheet' : 'ingevuld') : 'Apple Bee-portaal') : 'ontbreekt';
       const fys = Math.max(0, Number(r.in_stock ?? r.voorraad) || 0);
       const levTd = el('td', '');
       if (isAdmin() && (onbekendeLev({ leverancier: r._l0 }) || r.lev_handmatig)) {
