@@ -590,7 +590,6 @@
     card('Voorraad tot', totTxt(ti), `scenario ${scenNaam(k)}` + (ti.tijdelijk ? ` · ${ti.nuOp ? 'nu op' : 'op vanaf ' + dNl(ti.van)}, weer binnen ${dNl(ti.terug)}` : '') + (ti.magTot ? ` · tot de container ${int.format(ti.magTot)} st uit het Apple Bee-magazijn` : ''), ti.tijdelijk ? 'dk-warnc' : '');
     card(actieTxt(x.a), x.a.rank <= 1 ? 'Nu bestellen' : x.a.bestelDatum ? 'uiterlijk ' + dNl(x.a.bestelDatum) : 'geen actie', x.a.qtyNu ? `advies ${int.format(x.a.qtyNu)} st · levertijd ${x.a.L} wk · bestel je nu, dan binnen ± ${dNl(x.a.aankomst)}${x.a.cny ? ' (incl. Chinees Nieuwjaar)' : x.a.leb ? ' (incl. Lebaran)' : ''}` + (x.mag ? ` · eerst ${int.format(x.mag)} st uit magazijn` : '') : `levertijd ${x.a.L} wk`, x.a.rank <= 1 ? 'dk-bad' : x.a.rank === 2 ? 'dk-warnc' : '');
     box.append(cards);
-    box.append(holdKnoppen(r.sku));
     // groei: standaard begroting, of 0%, of een eigen percentage
     const bar = el('div', 'lw-mini'); bar.append(el('span', 'dk-lbl', 'Verwachte groei:'));
     for (const [v, l] of [['b', 'Begroting'], [0, '0% (gelijk aan vorig seizoen)']]) { const b = el('button', '', l); b.type = 'button'; b.setAttribute('aria-pressed', String(String(k) === String(v))); b.addEventListener('click', (e) => { e.stopPropagation(); saveGroei(r.sku, v === 'b' ? null : v); }); bar.append(b); }
@@ -623,6 +622,7 @@
     rowOf('Voorraad eind maand', (m) => eind.get(m), 'dk-eind', false);
     mt.append(mtb); const mb = el('div', 'lw-tablebox'); mb.append(mt); box.append(mb);
     box.append(el('p', 'lw-note', `* rest van deze maand. Verwacht = ${r.vraag_eigen ? 'verkoop van dit product in dezelfde maand vorig seizoen' : 'gemiddelde verkoop per week (product loopt nog geen jaar) verdeeld volgens het seizoenspatroon van de winkel'} × (1 + groei). Maanden waarin het product uitverkocht was tellen als lage verkoop: kies dan een hoger scenario. Je keuze wordt per product opgeslagen en geldt ook voor de bestellijst.`));
+    box.append(holdKnoppen(r.sku));
     return box;
   }
   // uitleg bij het advies: waarom, wanneer we anders uitlopen en op welke aannames het rust
