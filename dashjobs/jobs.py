@@ -12,7 +12,7 @@ Taken (planning in scheduler.py):
 import os, re, io, json, csv, datetime, subprocess, tempfile, collections, sys
 from pathlib import Path
 import store
-from . import shopify, windsor, sumtracker, profitmetrics, onedrive
+from . import shopify, windsor, sumtracker, profitmetrics, onedrive, applebee
 from .common import today, yesterday, days_ago, num, r2, i0, http
 
 HERE = Path(__file__).parent
@@ -856,3 +856,29 @@ def voorraad_analyse():
     jaar = [r for r in out if r['periode'] == 'jaar' and r['dim'] == 'merk']
     o, k = sum(r['omzet'] for r in jaar), sum(r['kosten'] for r in jaar)
     return f'{len(rows)} producten, {tek} van top 40 met tekort; marge {td.year} {((o - k) / o * 100) if o else 0:.1f}%; {len(pos)} PO\'s'
+
+
+def applebee_portaal():
+    """Apple Bee-portaal: magazijnvoorraad Dongen, prijs magazijn (EUR) en FOB (USD), volume (cbm) per artikel
+    voor alle producten uit de Apple Bee-containersheet (voorraad/herkomst)."""
+    if not applebee.connected():
+        return 'niet gekoppeld'
+    herk = ((store.get_doc('voorraad/herkomst') or {}).get('data') or {}).get('waarden') or {}
+    arts = []
+    for sku, h in herk.items():
+        arts += [a.strip() for a in str(h.get('artikel') or '').split('+') if a.strip()]
+    info = applebee.article_info(arts)
+    rows = []
+    for a in info:
+        cen = ((a.get('deliveryEta') or {}).get('central') or [])
+        fob = ((a.get('deliveryEta') or {}).get('fob') or [])
+        pc, pf = (a.get('price') or {}).get('central') or {}, (a.get('price') or {}).get('fob') or {}
+        rows.append({'artikel': a.get('articleNo'), 'omschrijving': a.get('description'), 'cbm': a.get('volume'),
+                     'fabriek': (a.get('vendor') or {}).get('name'),
+                     'magazijn': (cen[0] or {}).get('available') if cen else None, 'magazijn_eta': (cen[0] or {}).get('eta') if cen else None,
+                     'magazijn_later': [c for c in cen[1:] if c],
+                     'fob_eta': (fob[0] or {}).get('eta') if fob else None, 'fob_locatie': (fob[0] or {}).get('location') if fob else None,
+                     'prijs_magazijn': pc.get('unitPrice'), 'moq_magazijn': pc.get('moq'), 'stap_magazijn': pc.get('orderIncrement'),
+                     'prijs_fob_usd': pf.get('unitPrice'), 'moq_fob': pf.get('moq')})
+    store.save_dataset('ab_portaal', rows)
+    return f'{len(rows)} artikelen uit het Apple Bee-portaal'

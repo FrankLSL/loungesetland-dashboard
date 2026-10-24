@@ -26,6 +26,7 @@ JOBS = {
     'weer': (jobs.weer, 'Weerverwachting', lambda: True),
     'containers': (jobs.containers, 'Containerplanning + koers', lambda: True),
     'shop_sku_weekly': (jobs.shop_sku_weekly, 'Verkoop per SKU per week', shopify.configured),
+    'applebee_portaal': (jobs.applebee_portaal, 'Apple Bee-portaal (magazijn Dongen, prijzen)', lambda: True),
     'voorraad_analyse': (jobs.voorraad_analyse, 'Voorraaddekking en marge per merk', lambda: sumtracker.configured() and shopify.configured()),
 }
 
@@ -52,6 +53,7 @@ SCHEDULE = [
     (['shop_open'], None, [8, 10, 12, 14, 16, 18, 20], 12),
     (['ads_daily', 'ads_campaigns', 'shop_sessions_recent', 'pm_daily', 'weer', 'gbp_daily', 'shop_search_month', 'meta_ads'], None, [0, 6, 12], 8),
     (['sumtracker_stock', 'shop_sku_weekly', 'voorraad_analyse'], None, [0, 6, 12], 1),
+    (['applebee_portaal'], None, [6, 10, 14, 18], 17),
     (['markt_kp'], [0], [6], 33),
     (['shop_sessions_daily', 'shop_fulfil_daily', 'shop_products_daily'], [0], [6], 41),
     (['containers'], None, list(range(7, 22)), 37),
@@ -87,7 +89,7 @@ PAGINA = {
     'week': ['shop_sales_recent', 'shop_products_recent', 'shop_open', 'shop_sessions_recent', 'pm_daily', 'ads_daily', 'sumtracker_stock', 'voorraad_analyse'],
     'liquiditeit': ['containers', 'shop_open', 'ontvangsten', 'shop_sales_recent', 'pm_daily'],
     'ads': ['ads_daily', 'ads_campaigns', 'meta_ads', 'gbp_daily', 'shop_search_month', 'shop_sessions_recent', 'shop_sales_recent', 'pm_daily', 'weer'],
-    'voorraad': ['sumtracker_stock', 'containers', 'shop_sku_weekly', 'voorraad_analyse'],
+    'voorraad': ['sumtracker_stock', 'containers', 'shop_sku_weekly', 'voorraad_analyse', 'applebee_portaal'],
     'opslag': ['sumtracker_stock', 'containers', 'shop_sku_weekly', 'voorraad_analyse'],
 }
 PENDING = set()

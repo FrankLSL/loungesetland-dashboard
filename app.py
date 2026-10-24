@@ -3,7 +3,7 @@
 Lokaal starten:  uvicorn app:app --reload   (zonder ADMIN_PASSWORD geen inlogscherm)
 Op Railway: zie DEPLOY.md.
 """
-import os, json, html, secrets, gzip
+import os, json, html, secrets, gzip, urllib.parse
 from pathlib import Path
 from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response, FileResponse
@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.gzip import GZipMiddleware
 
 import store, auth
-from dashjobs import scheduler, profitmetrics, onedrive, shopify, windsor, sumtracker
+from dashjobs import scheduler, profitmetrics, onedrive, shopify, windsor, sumtracker, applebee
 
 BASE = Path(__file__).parent
 WEB = BASE / 'web'
@@ -262,6 +262,14 @@ def status(request: Request, msg: str = ''):
         od = f'<p>{"Gekoppeld als " + html.escape(msu.get("mail") or "") + ". " if onedrive.connected() else ""}<a class="lsl-btn" href="/onedrive/login">{"Opnieuw koppelen" if onedrive.connected() else "Koppel OneDrive"}</a></p>'
     if adm and os.getenv('PROFITMETRICS_CLIENT_ID'):
         od += f'<p>{"ProfitMetrics is gekoppeld. " if store.kv_get("pm_refresh") else ""}<a class="lsl-btn" href="/profitmetrics/login">{"Opnieuw koppelen" if store.kv_get("pm_refresh") else "Koppel ProfitMetrics"}</a></p>'
+    if adm:
+        abu = store.kv_get('ab_user') or {}
+        if abu:
+            od += f'<p>Apple Bee-portaal: gekoppeld als {html.escape(abu.get("naam") or "")} ({html.escape(abu.get("bedrijf") or "")}), sessie geldig tot {html.escape((abu.get("tot") or "")[:10])}.</p>'
+        od += ('<h3 style="margin:14px 0 6px">Apple Bee-portaal koppelen</h3><p style="max-width:44rem">Inloggen gaat met een inloglink per mail. '
+               'Stap 1: vraag de link aan. Stap 2: open de mail van Apple Bee, kopieer de link (rechtsklik op de knop → link kopiëren) en plak hem hieronder. Klik de link zelf niet aan.</p>'
+               '<form method="post" action="/applebee/aanvragen" style="margin:6px 0"><input name="email" value="info@loungesetland.com" style="width:18rem"> <button class="lsl-btn">1. Stuur inloglink</button></form>'
+               '<form method="post" action="/applebee/koppel" style="margin:6px 0"><input name="link" placeholder="https://applebee.nl/api/auth/callback/…" style="width:30rem"> <button class="lsl-btn">2. Koppel</button></form>')
     last = {r['job']: r for r in store.last_runs_per_job()}
     jr = ''
     for name, (fn, label, ok) in scheduler.JOBS.items():
@@ -277,6 +285,31 @@ def status(request: Request, msg: str = ''):
 <h2>Koppelingen</h2><table class="lsl-table">{rows}</table>{od}
 <h2>Automatische taken</h2>{'<form method="post" action="/status/run-all" style="margin:0 0 10px"><button class="lsl-btn">↻ Alles nu verversen</button></form>' if adm else ''}<table class="lsl-table"><tr><th>Taak</th><th>Laatste keer</th><th></th></tr>{jr}</table>
 <h2>Bronnen</h2><table class="lsl-table"><tr><th>Bron</th><th>Bijgewerkt (UTC)</th></tr>{dr}</table>''')
+
+
+@app.post('/applebee/aanvragen')
+async def ab_aanvragen(request: Request):
+    _admin(request)
+    f = await request.form()
+    try:
+        applebee.start_login(str(f.get('email') or '').strip())
+        msg = 'Inloglink aangevraagd. Kijk in de mail van ' + str(f.get('email')) + ', kopieer de link en plak hem bij stap 2.'
+    except Exception as e:
+        msg = 'Mislukt: ' + str(e)
+    return RedirectResponse('/status?msg=' + urllib.parse.quote(msg), status_code=303)
+
+
+@app.post('/applebee/koppel')
+async def ab_koppel(request: Request):
+    _admin(request)
+    f = await request.form()
+    try:
+        info = applebee.finish_login(str(f.get('link') or ''))
+        scheduler.run_async(['applebee_portaal'], request.state.user['u'])
+        msg = 'Apple Bee-portaal gekoppeld als ' + (info.get('user') or {}).get('name', '') + '. Magazijnvoorraad wordt nu opgehaald.'
+    except Exception as e:
+        msg = 'Koppelen mislukt: ' + str(e)
+    return RedirectResponse('/status?msg=' + urllib.parse.quote(msg), status_code=303)
 
 
 @app.post('/status/run-all')
