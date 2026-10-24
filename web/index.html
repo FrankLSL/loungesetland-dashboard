@@ -302,6 +302,9 @@
 #dash-root .dk-box td.dk-pos { background: #eef5e4 !important; }
 #dash-root .dk-box td.dk-low { background: #fdf3dc !important; }
 #dash-root .dk-box td.dk-neg { background: #fbe3e0 !important; color: #c0392b; }
+#dash-root .lw-pill.dk-hold { border-color: #9aa7a4; color: #6f7f7c; }
+#dash-root .vr-acts { margin-top: .15rem; }
+#dash-root .vr-link { font: inherit; font-size: .72rem; color: var(--ls-green, #1f4b47); background: none; border: 0; padding: 0 .5rem 0 0; cursor: pointer; text-decoration: underline; }
 #dash-root h3.vr-loc { margin: 1.2rem 0 .2rem; font-size: 1rem; }
 #dash-root .vr-sub th { background: var(--ls-lime-soft, #eef5e4); color: var(--ls-green, #1f4b47); }
 #dash-root #vr-lev tbody tr[aria-pressed="true"] td { background: var(--ls-lime-soft); }
@@ -899,7 +902,7 @@
         <label>40ft container (cbm)<input type="number" min="1" step="1" data-vrp="vr_c40"></label>
         <label>40ft HQ container (cbm)<input type="number" min="1" step="1" data-vrp="vr_chq"></label>
       </div>
-      <p class="lw-note">Levertijd = weken van bestellen tot binnen in Ridderkerk (± de helft productie, de rest verschepen en varen). Voor Chinese leveranciers (MOD, Tierra, Apple Bee-locaties in China) rekent het dashboard met Chinees Nieuwjaar: productie stopt ± 15 januari en start ± 28 februari, de eerste verschepingen vertrekken ± 10 maart. Een bestelling die daardoor later binnenkomt, schuift het bestelmoment naar voren. Standaard de mediaan van jullie eigen inkooporders (besteldatum → verwachte aankomst); vul een getal in om dat te overschrijven. Alles wordt gedeeld opgeslagen.</p>
+      <p class="lw-note">Levertijd = weken van bestellen tot binnen in Ridderkerk (± de helft productie, de rest verschepen en varen). Voor Chinese leveranciers (MOD, Tierra, Apple Bee-locaties in China) rekent het dashboard met Chinees Nieuwjaar: productie stopt ± 15 januari en start ± 28 februari, de eerste verschepingen vertrekken ± 10 maart. Wie na ± 1 december bestelt, mist de eerste schepen na Nieuwjaar (iedereen wil dan tegelijk verschepen) en vertrekt ± 3 weken later. Voor Indonesië (Republic, Apple Bee locatie A en B) rekent het met Lebaran: fabrieken ± 2 weken dicht rond Idul Fitri (2027: ± 10 maart). Een bestelling die daardoor later binnenkomt, schuift het bestelmoment naar voren. Standaard de mediaan van jullie eigen inkooporders (besteldatum → verwachte aankomst); vul een getal in om dat te overschrijven. Alles wordt gedeeld opgeslagen.</p>
       <div class="lw-tablebox"><table class="lw-table" id="vr-lt"><thead><tr><th>Leverancier</th><th class="lw-num">Historisch</th><th class="lw-num">Levertijd (weken)</th></tr></thead><tbody></tbody></table></div>
     </details>
     <div class="lw-tiles" id="vr-tiles"></div>
