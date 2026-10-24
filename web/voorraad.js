@@ -283,7 +283,10 @@
     // bestellijst
     let list = (P.vr_uit ? uit : all).filter(inLev);
     if (fSt === 'laat') list = list.filter((x) => x.a.rank === 0); else if (fSt === 'nu') list = list.filter((x) => x.a.rank === 1); else if (fSt === '4w') list = list.filter((x) => x.a.rank === 2); else list = list.filter((x) => x.a.rank <= 3);
-    list.sort((a, b) => a.a.rank - b.a.rank || (b.r.omzet_52w || 0) - (a.r.omzet_52w || 0) || (b.r.waarde_52w || 0) - (a.r.waarde_52w || 0)); // per status: hoogste omzet (12 mnd) eerst
+    // belangrijkheid = omzet 12 mnd van de hele collectie (bv. alle Lotte-delen samen), daarna van het product zelf
+    const colOmz = new Map(); for (const r of dk) { const m = collectie(r).model; colOmz.set(m, (colOmz.get(m) || 0) + (Number(r.omzet_52w) || 0)); }
+    const imp = (x) => colOmz.get(collectie(x.r).model) || 0;
+    list.sort((a, b) => a.a.rank - b.a.rank || imp(b) - imp(a) || (b.r.omzet_52w || 0) - (a.r.omzet_52w || 0)); // per status: belangrijkste collectie eerst
     document.getElementById('vr-best-t').textContent = `Bestellijst${fLev ? ' · ' + (levName.get(fLev) || '') : ''} (${list.length})`;
     const inact = document.getElementById('vr-inact');
     inact.replaceChildren();
