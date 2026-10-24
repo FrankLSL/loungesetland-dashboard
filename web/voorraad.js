@@ -868,39 +868,50 @@
     const shift = (m, n) => { const d = new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1 + n, 1)); return d.toISOString().slice(0, 7); };
     const months = Array.from({ length: 13 }, (_, i) => shift(m0, i));
     const eind = new Map(months.map((m) => [m, [0, 0]])), inM = new Map(months.map((m) => [m, [0, 0]]));
-    let nuK = 0, nuS = 0, stK = 0, stS = 0; const POS = [];
+    let nuK = 0, nuS = 0, stK = 0, stS = 0; const ALL = [];
     for (const r of dk) {
       const [c, est] = cb(r); if (!c) continue;
       const fys = Math.max(0, Number(r.in_stock ?? r.voorraad) || 0);
-      if (fys) POS.push({ r, c, est, fys, cbm: fys * c, inc: (r.leveringen || []).reduce((t, l) => t + (Number(l.stuks) || 0), 0) * c });
       if (est) { nuS += fys * c; if (fys) stS += fys; } else { nuK += fys * c; if (fys) stK += fys; }
-      for (const l of r.leveringen || []) { const m = etaOf(l).slice(0, 7); if (inM.has(m)) inM.get(m)[est ? 1 : 0] += (Number(l.stuks) || 0) * c; }
+      const incM = new Map();
+      for (const l of r.leveringen || []) { const m = etaOf(l).slice(0, 7); if (inM.has(m)) inM.get(m)[est ? 1 : 0] += (Number(l.stuks) || 0) * c; incM.set(m, (incM.get(m) || 0) + (Number(l.stuks) || 0)); }
       const ab = grpProd(r) === 'ab' && !!HERK[r.sku];
       const p = projectie(r, window.vrVraag(r), ab);
       const per = new Map(); for (let i = 0; i < p.proj.length; i++) per.set(addD(p.wk(i), 6).slice(0, 7), Math.max(0, p.proj[i]));
       const res = Math.max(0, (Number(r.in_stock ?? r.voorraad) || 0) - (Number(r.voorraad) || 0)); // al verkocht, nog niet geleverd
-      for (const m of months) { let v = per.has(m) ? per.get(m) : null; if (v == null) continue; if (m === m0) v += res; eind.get(m)[est ? 1 : 0] += v * c; }
+      const sm = new Map();
+      for (const m of months) { let v = per.has(m) ? per.get(m) : null; if (v == null) continue; if (m === m0) v += res; eind.get(m)[est ? 1 : 0] += v * c; sm.set(m, v); }
+      ALL.push({ r, c, est, fys, sm, incM });
     }
     const nu = nuK + nuS;
-    // grootste posities: per collectie (openklikbaar) of per product, van groot naar klein
+    // grootste posities in een gekozen maand: per collectie (openklikbaar) of per product, van groot naar klein
     {
+      const sel = months.includes(P.op_m) ? P.op_m : m0;
       const per = P.op_per === 'p' ? 'p' : 'c';
       const tg = document.getElementById('op-pos-t');
       const mkb = (k, l) => { const b = el('button', '', l); b.type = 'button'; b.setAttribute('aria-pressed', String(per === k)); b.addEventListener('click', () => dash.setParams({ op_per: k === 'c' ? null : k })); return b; };
       tg.replaceChildren(mkb('c', 'Per collectie'), mkb('p', 'Per product'));
+      const mb = document.getElementById('op-pos-m');
+      mb.replaceChildren(el('span', 'op-m-l', 'Bekijk maand:'), ...months.map((m) => { const tot = m === m0 ? nu : eind.get(m)[0] + eind.get(m)[1]; const b = el('button', 'op-m-b ' + (tot > cap ? 'op-over' : tot > cap * 0.85 ? 'op-krap' : '')); b.type = 'button'; b.setAttribute('aria-pressed', String(m === sel)); b.append(el('b', '', m === m0 ? 'nu' : mNl(m).replace(' 20', " '")), el('span', '', pct0.format(tot / cap))); b.addEventListener('click', () => dash.setParams({ op_m: m === m0 ? null : m })); return b; }));
+      const isNu = sel === m0;
+      const inNa = (x) => [...x.incM.entries()].filter(([m]) => m > sel).reduce((t, [, q]) => t + q, 0) * x.c;
+      const POS = ALL.map((x) => { const st = isNu ? x.fys : (x.sm.get(sel) || 0); return { ...x, st, cbm: st * x.c, d: (st - x.fys) * x.c, inc: inNa(x) }; }).filter((x) => x.st > 0.5);
       const tot = POS.reduce((t, x) => t + x.cbm, 0) || 1;
       let groepen;
-      if (per === 'p') groepen = POS.map((x) => ({ naam: vol(x.r.naam), sub: x.r.sku, lev: x.r.leverancier, stuks: x.fys, cbm: x.cbm, inc: x.inc, est: x.est, items: null }));
+      if (per === 'p') groepen = POS.map((x) => ({ naam: vol(x.r.naam), sub: x.r.sku, lev: x.r.leverancier, stuks: x.st, cbm: x.cbm, d: x.d, inc: x.inc, est: x.est, items: null }));
       else {
         const m = new Map();
-        for (const x of POS) { const k = collectie(x.r).col || vol(x.r.naam); const g = m.get(k) || { naam: k, lev: x.r.leverancier, stuks: 0, cbm: 0, inc: 0, estC: 0, items: [] }; g.stuks += x.fys; g.cbm += x.cbm; g.inc += x.inc; if (x.est) g.estC += x.cbm; g.items.push(x); m.set(k, g); }
+        for (const x of POS) { const k = collectie(x.r).col || vol(x.r.naam); const g = m.get(k) || { naam: k, lev: x.r.leverancier, stuks: 0, cbm: 0, d: 0, inc: 0, estC: 0, items: [] }; g.stuks += x.st; g.cbm += x.cbm; g.d += x.d; g.inc += x.inc; if (x.est) g.estC += x.cbm; g.items.push(x); m.set(k, g); }
         groepen = [...m.values()].map((g) => ({ ...g, est: g.estC > g.cbm / 2, sub: `${g.items.length} ${g.items.length === 1 ? 'product' : 'producten'}` }));
       }
       groepen.sort((a, b) => b.cbm - a.cbm);
       const max = groepen[0] ? groepen[0].cbm : 1;
       const OPG = renderOpslag.open || (renderOpslag.open = new Set());
+      const dTxt = (v) => (Math.abs(v) < 0.05 ? '' : (v > 0 ? '+' : '−') + n1.format(Math.abs(v)));
+      const lastH = isNu ? 'Komt erbij' : 't.o.v. nu';
+      const lastV = (g) => (isNu ? (g.inc ? '+' + n1.format(g.inc) : '') : dTxt(g.d));
       const t2 = document.getElementById('op-pos'); const th2 = el('thead'); const hr2 = el('tr');
-      ['#', per === 'p' ? 'Product' : 'Collectie', 'Leverancier', 'Stuks', 'cbm', 'm² hal', 'Aandeel', '', 'Komt erbij'].forEach((h, i) => hr2.append(el('th', i === 0 || (i >= 3 && i !== 7) ? 'lw-num' : '', h))); th2.append(hr2);
+      ['#', per === 'p' ? 'Product' : 'Collectie', 'Leverancier', 'Stuks', 'cbm', 'm² hal', '% van de hal', '', lastH].forEach((h, i) => hr2.append(el('th', i === 0 || (i >= 3 && i !== 7) ? 'lw-num' : '', h))); th2.append(hr2);
       const tb2 = el('tbody'); let cum = 0;
       groepen.slice(0, P.op_alles ? 300 : 20).forEach((g, i) => {
         cum += g.cbm;
@@ -908,20 +919,20 @@
         const nm = el('td', 'lw-wrap'); if (g.items) nm.append(el('span', 'dk-caret', OPG.has(g.naam) ? '▾ ' : '▸ ')); nm.append(document.createTextNode(g.naam + (g.est ? ' *' : '')), el('div', 'dk-sku', g.sub));
         const bc = el('td', 'op-barcel'); const pb = el('div', 'op-pbar'); const f = el('div', g.est ? 'op-est' : ''); f.style.width = (g.cbm / max) * 100 + '%'; pb.append(f); bc.append(pb);
         tr.append(el('td', 'lw-num', String(i + 1)), nm, el('td', '', g.lev || ''), el('td', 'lw-num', int.format(g.stuks)), el('td', 'lw-num', n1.format(g.cbm)), el('td', 'lw-num', int.format(vloer(g.cbm))),
-          el('td', 'lw-num', pct0.format(g.cbm / tot)), bc, el('td', 'lw-num', g.inc ? '+' + n1.format(g.inc) : ''));
-        tr.title = `Samen met de posities hierboven ${pct0.format(cum / tot)} van alle voorraad in de hallen`;
+          el('td', 'lw-num', pct0.format(g.cbm / cap)), bc, el('td', 'lw-num' + (!isNu && g.d > 0 ? ' op-up' : !isNu && g.d < 0 ? ' op-down' : ''), lastV(g)));
+        tr.title = `Samen met de posities hierboven ${pct0.format(cum / tot)} van alle voorraad`;
         if (g.items) tr.addEventListener('click', () => { if (OPG.has(g.naam)) OPG.delete(g.naam); else OPG.add(g.naam); renderOpslag(); });
         tb2.append(tr);
         if (g.items && OPG.has(g.naam)) for (const x of g.items.slice().sort((a, b) => b.cbm - a.cbm)) {
           const s2 = el('tr', 'op-sub'); const nm2 = el('td', 'lw-wrap'); nm2.append(document.createTextNode(vol(x.r.naam) + (x.est ? ' *' : '')), el('div', 'dk-sku', x.r.sku + (x.est ? ' · cbm geschat' : ` · ${String(x.c).replace('.', ',')} cbm/st`)));
-          s2.append(el('td', ''), nm2, el('td', '', x.r.leverancier || ''), el('td', 'lw-num', int.format(x.fys)), el('td', 'lw-num', n1.format(x.cbm)), el('td', 'lw-num', int.format(vloer(x.cbm))), el('td', 'lw-num', pct0.format(x.cbm / tot)), el('td', ''), el('td', 'lw-num', x.inc ? '+' + n1.format(x.inc) : ''));
+          s2.append(el('td', ''), nm2, el('td', '', x.r.leverancier || ''), el('td', 'lw-num', int.format(x.st)), el('td', 'lw-num', n1.format(x.cbm)), el('td', 'lw-num', int.format(vloer(x.cbm))), el('td', 'lw-num', pct0.format(x.cbm / cap)), el('td', ''), el('td', 'lw-num', lastV(x)));
           tb2.append(s2);
         }
       });
       if (groepen.length > 20) { const tr = el('tr'); const td = el('td'); td.colSpan = 9; const b = el('button', 'vr-link', P.op_alles ? 'alleen top 20 tonen' : `alle ${groepen.length} tonen`); b.type = 'button'; b.addEventListener('click', () => dash.setParams({ op_alles: P.op_alles ? null : 1 })); td.append(b); tr.append(td); tb2.append(tr); }
       t2.replaceChildren(th2, tb2);
       const top20 = groepen.slice(0, 20).reduce((t, g) => t + g.cbm, 0);
-      document.getElementById('op-pos-h').textContent = `Top 20 grootste posities in de hallen · samen ${pct0.format(top20 / tot)} van de voorraad`;
+      document.getElementById('op-pos-h').textContent = `Top 20 grootste posities · ${isNu ? 'nu' : 'eind ' + mNl(sel)} · hal ${pct0.format(tot / cap)} vol · top 20 = ${pct0.format(top20 / tot)} van de voorraad`;
     }
     const pk = months.slice(1).reduce((b, m) => { const v = eind.get(m)[0] + eind.get(m)[1]; return v > b.v ? { m, v } : b; }, { m: null, v: 0 });
     const inTot = months.reduce((a, m) => a + inM.get(m)[0] + inM.get(m)[1], 0);
@@ -958,7 +969,8 @@
       svg.append('rect').attr('x', bx).attr('width', bw).attr('y', y(v.k)).attr('height', Math.max(0, bot - y(v.k))).attr('rx', 4).attr('fill', c1);
       svg.append('text').attr('x', bx + bw / 2).attr('y', y(tot) - 6).attr('text-anchor', 'middle').attr('font-size', 11).attr('font-weight', 600).attr('fill', c1).text(pct0.format(tot / cap));
       svg.append('text').attr('x', bx + bw / 2).attr('y', H - 8).attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', v.m === m0 ? '#1f4b47' : '#8a877f').attr('font-weight', v.m === m0 ? 600 : 400).text(mnd(v.m));
-      svg.append('rect').attr('x', bx - 4).attr('width', bw + 8).attr('y', top).attr('height', bot - top).attr('fill', 'transparent').append('title').text(`${mnd(v.m)}: ${int.format(tot)} cbm (± ${int.format(vloer(tot))} m²), ${pct0.format(tot / cap)} vol${v.i ? ` · binnen: ${int.format(v.i)} cbm` : ''}`);
+      if (v.m === (months.includes(P.op_m) ? P.op_m : m0)) svg.append('rect').attr('x', bx - 6).attr('width', bw + 12).attr('y', top - 18).attr('height', bot - top + 18).attr('rx', 6).attr('fill', 'none').attr('stroke', '#84bd3f').attr('stroke-width', 2);
+      svg.append('rect').attr('x', bx - 4).attr('width', bw + 8).attr('y', top).attr('height', bot - top).attr('fill', 'transparent').style('cursor', 'pointer').on('click', () => dash.setParams({ op_m: v.m === m0 ? null : v.m })).append('title').text(`${mnd(v.m)}: ${int.format(tot)} cbm (± ${int.format(vloer(tot))} m²), ${pct0.format(tot / cap)} vol${v.i ? ` · binnen: ${int.format(v.i)} cbm` : ''}`);
     }
     svg.append('line').attr('x1', left).attr('x2', W - 6).attr('y1', y(cap)).attr('y2', y(cap)).attr('stroke', '#c0392b').attr('stroke-width', 1.5).attr('stroke-dasharray', '5 4');
     svg.append('text').attr('x', W - 8).attr('y', y(cap) - 6).attr('text-anchor', 'end').attr('font-size', 11).attr('fill', '#c0392b').text(`vol: ${int.format(cap)} cbm (${int.format(m2)} m²)`);

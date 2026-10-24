@@ -337,6 +337,15 @@
 #dash-root .op-pill { display: inline-block; min-width: 3.2rem; padding: .1rem .5rem; border-radius: 999px; font-weight: 600; font-size: .78rem; }
 #dash-root .op-pill.op-ok { background: #eef5e4; } #dash-root .op-pill.op-krap { background: #fdf3dc; } #dash-root .op-pill.op-over { background: #fbe3e0; }
 #dash-root .op-pos { margin-top: 1.2rem; }
+#dash-root .op-months { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin: .8rem 0 .9rem; }
+#dash-root .op-m-l { font-size: .8rem; color: var(--color-fg-muted); margin-right: .3rem; }
+#dash-root .op-m-b { font: inherit; font-size: .78rem; border: 1px solid var(--ls-line, #e4dfd6); background: #fff; border-radius: 10px; padding: .25rem .6rem; cursor: pointer; display: flex; flex-direction: column; align-items: center; line-height: 1.2; min-width: 3.6rem; }
+#dash-root .op-m-b b { font-weight: 600; color: var(--ls-green, #1f4b47); }
+#dash-root .op-m-b span { font-size: .72rem; color: #3f7a1f; }
+#dash-root .op-m-b.op-krap span { color: #a36a00; } #dash-root .op-m-b.op-over span { color: #c0392b; font-weight: 700; }
+#dash-root .op-m-b[aria-pressed="true"] { background: var(--ls-green, #1f4b47); border-color: var(--ls-green, #1f4b47); }
+#dash-root .op-m-b[aria-pressed="true"] b, #dash-root .op-m-b[aria-pressed="true"] span { color: #fff; }
+#dash-root #op-pos td.op-up { color: #c0392b; } #dash-root #op-pos td.op-down { color: #3f7a1f; }
 #dash-root .op-posbox { max-height: 34rem; }
 #dash-root #op-pos td.op-barcel { width: 28%; }
 #dash-root .op-pbar { height: 10px; border-radius: 999px; background: #eef0ea; overflow: hidden; }
@@ -1078,6 +1087,7 @@
     </div>
     <div class="lw-card op-card op-pos">
       <div class="op-head"><h3 id="op-pos-h">Grootste posities in de hallen</h3><div class="lw-mini" id="op-pos-t"></div></div>
+      <div class="op-months" id="op-pos-m"></div>
       <div class="lw-tablebox op-posbox"><table class="lw-table" id="op-pos"></table></div>
     </div>
     <p class="lw-note op-note" id="vr-op-note"></p>
