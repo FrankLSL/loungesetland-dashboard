@@ -317,7 +317,7 @@
     tt.textContent = 'Containervoorstel · ' + (levName.get(id) || '');
     const fill = !!P.vr_fill;
     if (fLev === 'overig') { host.replaceChildren(el('p', 'lw-note', 'Geen containervoorstel voor de overige leveranciers; kies MOD Outdoor, Apple Bee, Tierra Outdoor of Republic.')); return; }
-    const ofLev = (x) => x.g === fLev;
+    const ofLev = (x) => x.g === fLev && (fLev !== 'ab' || x.origine);
     const items = all.filter((x) => ofLev(x) && (x.a.rank <= 2 || (fill && x.cbm && x.a.qtyNu >= 0 && x.r.verkocht_52w > 0))).map((x) => ({ ...x, q: x.a.rank <= 2 ? x.a.qty : 0 }));
     const tg = el('div', 'lw-mini');
     const b1 = el('button', '', 'Alleen het advies'); b1.type = 'button'; b1.setAttribute('aria-pressed', String(!fill)); b1.addEventListener('click', () => dash.setParams({ vr_fill: null }));
