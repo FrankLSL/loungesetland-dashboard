@@ -720,7 +720,6 @@
     mt.append(mtb); const mb = el('div', 'lw-tablebox'); mb.append(mt); box.append(mb);
     box.append(el('p', 'lw-note', `* rest van deze maand. Verwacht = ${r.vraag_eigen ? 'verkoop van dit product in dezelfde maand vorig seizoen' : 'gemiddelde verkoop per week (product loopt nog geen jaar) verdeeld volgens het seizoenspatroon van de winkel'} × (1 + groei). Maanden waarin het product uitverkocht was tellen als lage verkoop: kies dan een hoger scenario. Je keuze wordt per product opgeslagen en geldt ook voor de bestellijst.`));
     box.append(holdKnoppen(r.sku));
-    if (metWaarom) box.append(waarom(r, x));
     return box;
   }
   // uitleg bij het advies: waarom, wanneer we anders uitlopen en op welke aannames het rust
