@@ -469,7 +469,7 @@
     let list = fSt ? inQ.filter(cat[fSt]) : inQ;
     const colNaam = fCol ? fCol.slice(2) + (fCol.startsWith('m:') ? ' (alle kleuren)' : '') : '';
     const omz = list.reduce((t, x) => t + (x.r.omzet_52w || 0), 0);
-    document.getElementById('dk-title').textContent = [fLev ? GNAAM[fLev] : 'Alle leveranciers', colNaam, fSt ? defs.find((d) => d[0] === fSt)[1] : ''].filter(Boolean).join(' · ') + ` (${list.length} producten, ${pct0.format(omz / totOmzet)} van de omzet)`;
+    document.getElementById('dk-title').textContent = [fLev ? GNAAM[fLev] : 'Alle leveranciers', colNaam, fSt ? defs.find((d) => d[0] === fSt)[1] : ''].filter(Boolean).join(' · ') + ` (${list.length} producten)`;
     if (!tb._vrClick) {
       tb._vrClick = true;
       tb.addEventListener('click', (e) => {
@@ -493,10 +493,10 @@
       if (ti.tijdelijk) tot.append(el('div', 'vr-mag', `${ti.nuOp ? 'nu op' : 'op vanaf ' + dNl(ti.van)}, weer binnen ${dNl(ti.terug)}`));
       const best = el('td', a.rank <= 1 ? 'lw-bad dk-strong' : a.rank === 2 ? 'dk-warn' : '', a.rank <= 1 ? 'nu' : a.bestelDatum ? dNl(a.bestelDatum) : '—');
       const act = el('td'); act.append(el('span', 'lw-pill' + stCls2(actieTxt(a)), actieTxt(a))); if (x.mag) act.append(el('div', 'vr-mag', `magazijn: ${int.format(x.mag)} st tot de container er is`));
-      tr.append(el('td', 'lw-num', String(x.rang)), nm, om, el('td', 'lw-num' + ((Number(r.voorraad) || 0) <= 0 ? ' lw-bad' : ''), int.format(r.voorraad)), inc, tot, best,
+      tr.append(el('td', 'lw-num', String(x.rang)), nm, el('td', 'lw-num' + ((Number(r.voorraad) || 0) <= 0 ? ' lw-bad' : ''), int.format(r.voorraad)), inc, tot, best,
         el('td', 'lw-num', a.qty ? int.format(a.qty) : '—'), act);
       out.push(tr);
-      if (OPEN.has(r.sku)) { const d = el('tr', 'dk-detail'); const td = el('td'); td.colSpan = 9; td.append(detail(r, x)); d.append(td); out.push(d); }
+      if (OPEN.has(r.sku)) { const d = el('tr', 'dk-detail'); const td = el('td'); td.colSpan = 8; td.append(detail(r, x)); d.append(td); out.push(d); }
     }
     tb.replaceChildren(...out);
   }
