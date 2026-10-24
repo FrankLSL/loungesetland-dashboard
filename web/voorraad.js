@@ -926,10 +926,10 @@
     // grootste posities in een gekozen maand: per collectie (openklikbaar) of per product, van groot naar klein
     {
       const sel = months.includes(P.op_m) ? P.op_m : m0;
-      const per = P.op_per === 'p' ? 'p' : 'c';
+      const per = ['p', 'l', 'm'].includes(P.op_per) ? P.op_per : 'c';
       const tg = document.getElementById('op-pos-t');
       const mkb = (k, l) => { const b = el('button', '', l); b.type = 'button'; b.setAttribute('aria-pressed', String(per === k)); b.addEventListener('click', () => dash.setParams({ op_per: k === 'c' ? null : k })); return b; };
-      tg.replaceChildren(mkb('c', 'Per collectie'), mkb('p', 'Per product'));
+      tg.replaceChildren(mkb('l', 'Per leverancier'), mkb('m', 'Per merk'), mkb('c', 'Per collectie'), mkb('p', 'Per product'));
       const mb = document.getElementById('op-pos-m');
       mb.replaceChildren(el('span', 'op-m-l', 'Bekijk maand:'), ...months.map((m) => { const tot = m === m0 ? nu : eind.get(m)[0] + eind.get(m)[1]; const b = el('button', 'op-m-b ' + (tot > cap ? 'op-over' : tot > cap * 0.85 ? 'op-krap' : '')); b.type = 'button'; b.setAttribute('aria-pressed', String(m === sel)); b.append(el('b', '', m === m0 ? 'nu' : mNl(m).replace(' 20', " '")), el('span', '', pct0.format(tot / cap))); b.addEventListener('click', () => dash.setParams({ op_m: m === m0 ? null : m })); return b; }));
       const isNu = sel === m0;
@@ -937,10 +937,15 @@
       const POS = ALL.map((x) => { const st = isNu ? x.fys : (x.sm.get(sel) || 0); return { ...x, st, cbm: st * x.c, d: (st - x.fys) * x.c, inc: inNa(x) }; }).filter((x) => x.st > 0.5);
       const tot = POS.reduce((t, x) => t + x.cbm, 0) || 1;
       let groepen;
-      if (per === 'p') groepen = POS.map((x) => ({ naam: vol(x.r.naam), sub: x.r.sku, lev: x.r.leverancier, stuks: x.st, cbm: x.cbm, d: x.d, inc: x.inc, est: x.est, items: null }));
+      const wrd = (x) => x.st * (Number(x.r.kostprijs) || 0);
+      const totW = POS.reduce((t, x) => t + wrd(x), 0) || 1;
+      const merkVan = (r) => { const m = (collectie(r).merk || r.merk || '').replace(/®/g, '').trim(); return /^belito/i.test(m) ? 'Belito' : /aerocover/i.test(m) ? 'Platinum' : m || 'Overig'; };
+      if (per === 'p') groepen = POS.map((x) => ({ naam: vol(x.r.naam), sub: x.r.sku, lev: x.r.leverancier, stuks: x.st, cbm: x.cbm, d: x.d, inc: x.inc, est: x.est, w: wrd(x), items: null }));
       else {
         const m = new Map();
-        for (const x of POS) { const k = collectie(x.r).col || vol(x.r.naam); const g = m.get(k) || { naam: k, lev: x.r.leverancier, stuks: 0, cbm: 0, d: 0, inc: 0, estC: 0, items: [] }; g.stuks += x.st; g.cbm += x.cbm; g.d += x.d; g.inc += x.inc; if (x.est) g.estC += x.cbm; g.items.push(x); m.set(k, g); }
+        const keyOf = (x) => (per === 'l' ? x.r.leverancier || 'Onbekend' : per === 'm' ? merkVan(x.r) : collectie(x.r).col || vol(x.r.naam));
+        for (const x of POS) { const k = keyOf(x); const g = m.get(k) || { naam: k, lev: per === 'l' ? '' : per === 'm' ? '' : x.r.leverancier, stuks: 0, cbm: 0, d: 0, inc: 0, estC: 0, w: 0, items: [] }; g.stuks += x.st; g.cbm += x.cbm; g.d += x.d; g.inc += x.inc; g.w += wrd(x); if (x.est) g.estC += x.cbm; g.items.push(x); m.set(k, g); }
+        if (per === 'm') for (const g of m.values()) { const lv = {}; for (const x of g.items) lv[x.r.leverancier] = (lv[x.r.leverancier] || 0) + x.cbm; g.lev = Object.entries(lv).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([n]) => n).join(', '); }
         groepen = [...m.values()].map((g) => ({ ...g, est: g.estC > g.cbm / 2, sub: `${g.items.length} ${g.items.length === 1 ? 'product' : 'producten'}` }));
       }
       groepen.sort((a, b) => b.cbm - a.cbm);
@@ -950,7 +955,7 @@
       const lastH = isNu ? 'Komt erbij' : 't.o.v. nu';
       const lastV = (g) => (isNu ? (g.inc ? '+' + n1.format(g.inc) : '') : dTxt(g.d));
       const t2 = document.getElementById('op-pos'); const th2 = el('thead'); const hr2 = el('tr');
-      ['#', per === 'p' ? 'Product' : 'Collectie', 'Leverancier', 'Stuks', 'cbm', 'm² hal', '% van de hal', '', lastH].forEach((h, i) => hr2.append(el('th', i === 0 || (i >= 3 && i !== 7) ? 'lw-num' : '', h))); th2.append(hr2);
+      ['#', { p: 'Product', c: 'Collectie', l: 'Leverancier', m: 'Merk' }[per], per === 'm' ? 'Leveranciers' : per === 'l' ? '' : 'Leverancier', 'Stuks', 'cbm', 'm² hal', '% van de hal', 'Aandeel cbm', 'Inkoopwaarde', 'Aandeel waarde', '', lastH].forEach((h, i) => hr2.append(el('th', i === 0 || (i >= 3 && i !== 10) ? 'lw-num' : '', h))); th2.append(hr2);
       const tb2 = el('tbody'); let cum = 0;
       groepen.slice(0, P.op_alles ? 300 : 20).forEach((g, i) => {
         cum += g.cbm;
@@ -958,17 +963,17 @@
         const nm = el('td', 'lw-wrap'); if (g.items) nm.append(el('span', 'dk-caret', OPG.has(g.naam) ? '▾ ' : '▸ ')); nm.append(document.createTextNode(g.naam + (g.est ? ' *' : '')), el('div', 'dk-sku', g.sub));
         const bc = el('td', 'op-barcel'); const pb = el('div', 'op-pbar'); const f = el('div', g.est ? 'op-est' : ''); f.style.width = (g.cbm / max) * 100 + '%'; pb.append(f); bc.append(pb);
         tr.append(el('td', 'lw-num', String(i + 1)), nm, el('td', '', g.lev || ''), el('td', 'lw-num', int.format(g.stuks)), el('td', 'lw-num', n1.format(g.cbm)), el('td', 'lw-num', int.format(vloer(g.cbm))),
-          el('td', 'lw-num', pct0.format(g.cbm / cap)), bc, el('td', 'lw-num' + (!isNu && g.d > 0 ? ' op-up' : !isNu && g.d < 0 ? ' op-down' : ''), lastV(g)));
+          el('td', 'lw-num', pct0.format(g.cbm / cap)), el('td', 'lw-num', pct0.format(g.cbm / tot)), el('td', 'lw-num', eur0.format(g.w)), el('td', 'lw-num', pct0.format(g.w / totW)), bc, el('td', 'lw-num' + (!isNu && g.d > 0 ? ' op-up' : !isNu && g.d < 0 ? ' op-down' : ''), lastV(g)));
         tr.title = `Samen met de posities hierboven ${pct0.format(cum / tot)} van alle voorraad`;
         if (g.items) tr.addEventListener('click', () => { if (OPG.has(g.naam)) OPG.delete(g.naam); else OPG.add(g.naam); renderOpslag(); });
         tb2.append(tr);
         if (g.items && OPG.has(g.naam)) for (const x of g.items.slice().sort((a, b) => b.cbm - a.cbm)) {
           const s2 = el('tr', 'op-sub'); const nm2 = el('td', 'lw-wrap'); nm2.append(document.createTextNode(vol(x.r.naam) + (x.est ? ' *' : '')), el('div', 'dk-sku', x.r.sku + (x.est ? ' · cbm geschat' : ` · ${String(x.c).replace('.', ',')} cbm/st`)));
-          s2.append(el('td', ''), nm2, el('td', '', x.r.leverancier || ''), el('td', 'lw-num', int.format(x.st)), el('td', 'lw-num', n1.format(x.cbm)), el('td', 'lw-num', int.format(vloer(x.cbm))), el('td', 'lw-num', pct0.format(x.cbm / cap)), el('td', ''), el('td', 'lw-num', lastV(x)));
+          s2.append(el('td', ''), nm2, el('td', '', x.r.leverancier || ''), el('td', 'lw-num', int.format(x.st)), el('td', 'lw-num', n1.format(x.cbm)), el('td', 'lw-num', int.format(vloer(x.cbm))), el('td', 'lw-num', pct0.format(x.cbm / cap)), el('td', 'lw-num', pct0.format(x.cbm / tot)), el('td', 'lw-num', eur0.format(wrd(x))), el('td', 'lw-num', pct0.format(wrd(x) / totW)), el('td', ''), el('td', 'lw-num', lastV(x)));
           tb2.append(s2);
         }
       });
-      if (groepen.length > 20) { const tr = el('tr'); const td = el('td'); td.colSpan = 9; const b = el('button', 'vr-link', P.op_alles ? 'alleen top 20 tonen' : `alle ${groepen.length} tonen`); b.type = 'button'; b.addEventListener('click', () => dash.setParams({ op_alles: P.op_alles ? null : 1 })); td.append(b); tr.append(td); tb2.append(tr); }
+      if (groepen.length > 20) { const tr = el('tr'); const td = el('td'); td.colSpan = 12; const b = el('button', 'vr-link', P.op_alles ? 'alleen top 20 tonen' : `alle ${groepen.length} tonen`); b.type = 'button'; b.addEventListener('click', () => dash.setParams({ op_alles: P.op_alles ? null : 1 })); td.append(b); tr.append(td); tb2.append(tr); }
       t2.replaceChildren(th2, tb2);
       const top20 = groepen.slice(0, 20).reduce((t, g) => t + g.cbm, 0);
       document.getElementById('op-pos-h').textContent = `Top 20 grootste posities · ${isNu ? 'nu' : 'eind ' + mNl(sel)} · hal ${pct0.format(tot / cap)} vol · top 20 = ${pct0.format(top20 / tot)} van de voorraad`;
