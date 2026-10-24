@@ -283,7 +283,7 @@
     // bestellijst
     let list = (P.vr_uit ? uit : all).filter(inLev);
     if (fSt === 'laat') list = list.filter((x) => x.a.rank === 0); else if (fSt === 'nu') list = list.filter((x) => x.a.rank === 1); else if (fSt === '4w') list = list.filter((x) => x.a.rank === 2); else list = list.filter((x) => x.a.rank <= 3);
-    list.sort((a, b) => a.a.rank - b.a.rank || (a.a.bestelDatum || '9999').localeCompare(b.a.bestelDatum || '9999') || b.r.waarde_52w - a.r.waarde_52w);
+    list.sort((a, b) => a.a.rank - b.a.rank || (b.r.omzet_52w || 0) - (a.r.omzet_52w || 0) || (b.r.waarde_52w || 0) - (a.r.waarde_52w || 0)); // per status: hoogste omzet (12 mnd) eerst
     document.getElementById('vr-best-t').textContent = `Bestellijst${fLev ? ' · ' + (levName.get(fLev) || '') : ''} (${list.length})`;
     const inact = document.getElementById('vr-inact');
     inact.replaceChildren();
