@@ -307,6 +307,31 @@
 #dash-root #dk-cbm-body input[type=text] { font: inherit; width: 5rem; text-align: right; padding: .1rem .35rem; border: 1px solid var(--ls-line, #e4dfd6); border-radius: 6px; }
 #dash-root #dk-cbm-body input.dk-cbm-leeg { background: #fff8e1; border-color: #f0b429; }
 #dash-root #dk-cbm-body .dk-cbm-top { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; font-size: .82rem; color: var(--color-fg-muted); margin-bottom: .5rem; }
+#dash-root .op-hero { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-bottom: 1.2rem; }
+@media (max-width: 900px) { #dash-root .op-hero { grid-template-columns: 1fr; } }
+#dash-root .op-k { background: #fff; border: 1px solid var(--ls-line, #e4dfd6); border-radius: 14px; padding: 1rem 1.2rem 1.1rem; display: flex; flex-direction: column; gap: .35rem; }
+#dash-root .op-k-l { font-size: .8rem; color: var(--color-fg-muted); text-transform: uppercase; letter-spacing: .04em; }
+#dash-root .op-k-v { font-size: 2rem; font-weight: 700; color: var(--ls-green, #1f4b47); line-height: 1.1; }
+#dash-root .op-k-v small { font-size: 1rem; font-weight: 500; color: var(--color-fg-muted); margin-left: .35rem; }
+#dash-root .op-k-s { font-size: .82rem; color: var(--color-fg-muted); }
+#dash-root .op-bar { position: relative; height: 12px; border-radius: 999px; background: #eef0ea; overflow: hidden; margin-top: .3rem; }
+#dash-root .op-bar > div { height: 100%; border-radius: 999px; }
+#dash-root .op-pct { font-weight: 700; }
+#dash-root .op-ok { color: #3f7a1f; } #dash-root .op-krap { color: #a36a00; } #dash-root .op-over { color: #c0392b; }
+#dash-root .op-card { padding-top: 1rem; }
+#dash-root .op-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .5rem; }
+#dash-root .op-head h3 { margin: 0; }
+#dash-root .op-legend { display: flex; gap: 1rem; font-size: .78rem; color: var(--color-fg-muted); flex-wrap: wrap; }
+#dash-root .op-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: .35rem; vertical-align: -1px; }
+#dash-root .op-tbox { max-height: none; }
+#dash-root #vr-op-tbl th, #dash-root #vr-op-tbl td { text-align: center; }
+#dash-root #vr-op-tbl td:first-child, #dash-root #vr-op-tbl th:first-child { text-align: left; white-space: nowrap; }
+#dash-root #vr-op-tbl td small { display: block; font-size: .72rem; color: var(--color-fg-muted); }
+#dash-root .op-pill { display: inline-block; min-width: 3.2rem; padding: .1rem .5rem; border-radius: 999px; font-weight: 600; font-size: .78rem; }
+#dash-root .op-pill.op-ok { background: #eef5e4; } #dash-root .op-pill.op-krap { background: #fdf3dc; } #dash-root .op-pill.op-over { background: #fbe3e0; }
+#dash-root .op-set { margin-top: 1.2rem; }
+#dash-root .op-set summary span { color: var(--color-fg-muted); font-weight: 400; margin-left: .4rem; }
+#dash-root .op-set .vr-op-set { margin-top: .8rem; }
 #dash-root .dk-why { background: #fff; border: 1px solid var(--ls-line, #e4dfd6); border-radius: 10px; padding: .7rem 1rem; font-size: .85rem; max-width: 60rem; }
 #dash-root .dk-why h4 { margin: 0 0 .4rem; font-size: .9rem; }
 #dash-root .dk-why ol { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: .35rem; }
@@ -1020,18 +1045,20 @@
   </header>
 
   <section class="lw-section" id="vr-s-op">
-    <h2>Ruimte in de hallen</h2>
-    <div class="lw-card">
+    <div class="op-hero" id="op-hero"></div>
+    <div class="lw-card op-card">
+      <div class="op-head"><h3>Bezetting per maand</h3><div class="op-legend" id="op-legend"></div></div>
+      <div class="lw-chart" id="vr-op-chart"></div>
+      <div class="lw-tablebox op-tbox"><table class="lw-table" id="vr-op-tbl"></table></div>
+    </div>
+    <details class="ad-info op-set" id="op-set-d"><summary>⚙ Instellingen hallen <span id="op-set-sum"></span></summary>
       <div class="vr-op-set" id="vr-op-set">
         <label>Vloeroppervlak hallen (m²) <input type="number" data-op="vr_m2" step="50" min="0"></label>
-        <label>Gemiddelde stapelhoogte (m) <input type="number" data-op="vr_hoog" step="0.1" min="0"></label>
-        <label>Benutting (% vloer voor opslag, rest looppaden) <input type="number" data-op="vr_benut" step="5" min="0" max="100"></label>
+        <label>Stapelhoogte (m) <input type="number" data-op="vr_hoog" step="0.1" min="0"></label>
+        <label>Vloer voor opslag (%, rest looppaden) <input type="number" data-op="vr_benut" step="5" min="0" max="100"></label>
       </div>
-      <div class="lw-tiles" id="vr-op-tiles"></div>
-      <div class="lw-chart" id="vr-op-chart"></div>
-      <div class="lw-tablebox"><table class="lw-table" id="vr-op-tbl"></table></div>
       <p class="lw-note" id="vr-op-note"></p>
-    </div>
+    </details>
   </section>
   </div>
   <div class="lw-page" id="pg-ads" hidden>
