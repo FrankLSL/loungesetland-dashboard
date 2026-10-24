@@ -36,3 +36,21 @@ def paged(path, params=None, max_pages=200):
         out += data.get('results', [])
         n += 1
     return out
+
+
+def _req(method, path, json_body=None):
+    if not _prefix[0]:
+        _get('purchases/contacts/', {'limit': 1})
+    key = os.getenv('SUMTRACKER_API_KEY', '').strip()
+    url = path if path.startswith('http') else BASE + path.lstrip('/')
+    pre = _prefix[0] or 'Api-Key'
+    r = http(method, url, json=json_body, headers={'Authorization': f'{pre} {key}', 'Accept': 'application/json'}, tries=1)
+    return r
+
+
+def options(path):
+    r = _req('OPTIONS', path)
+    try:
+        return r.status_code, r.json()
+    except Exception:
+        return r.status_code, r.text[:2000]

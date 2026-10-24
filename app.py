@@ -312,6 +312,15 @@ async def ab_koppel(request: Request):
     return RedirectResponse('/status?msg=' + urllib.parse.quote(msg), status_code=303)
 
 
+@app.get('/api/st-options')
+def st_options(request: Request, path: str):
+    _admin(request)
+    if not path.startswith('purchases/'):
+        raise HTTPException(400)
+    code, body = sumtracker.options(path)
+    return {'status': code, 'body': body}
+
+
 @app.post('/status/run-all')
 def status_run_all(request: Request):
     _admin(request)
