@@ -362,7 +362,10 @@
 #dash-root .vr-tot input { font: inherit; font-size: .82rem; padding: .2rem .5rem; border: 1px solid var(--ls-line, #e4dfd6); border-radius: 999px; }
 #dash-root input.vr-qty { font: inherit; width: 4.2rem; text-align: right; padding: .1rem .3rem; border: 1px solid var(--ls-line, #e4dfd6); border-radius: 6px; }
 #dash-root .vr-qty-s { font-size: .7rem; color: var(--color-fg-muted); }
-#dash-root .vr-po { display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; margin-top: .9rem; }
+#dash-root td.ab-dongen b { font-weight: 600; }
+#dash-root td.ab-dongen small { display: block; font-size: .72rem; color: var(--color-fg-muted); }
+#dash-root td.ab-dongen.ab-kort b { color: #c0392b; }
+#dash-root .vr-mkpo { display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; margin-top: .9rem; }
 #dash-root .vr-po-s { font-size: .82rem; color: var(--color-fg-muted); }
 #dash-root .vr-btn-warn { background: #c98a00 !important; border-color: #c98a00 !important; }
 #dash-root .vr-uitnote { background: #fdf3dc; border: 1px solid #f0d79a; border-radius: 10px; padding: .5rem .9rem; margin: .6rem 0; font-size: .84rem; }
@@ -1007,8 +1010,8 @@
       <h3 id="vr-best-t">Bestellijst</h3>
       <p class="lw-note" id="vr-inact"></p>
       <div class="lw-tablebox vr-bestbox"><table class="lw-table lw-stocktable" id="vr-tbl"><thead><tr>
-        <th>Product</th><th>Leverancier</th><th class="lw-num">Voorraad</th><th class="lw-num">Onderweg</th><th title="Tot wanneer de voorraad (incl. wat onderweg is) genoeg is zonder nieuwe bestelling">Voorraad tot</th><th class="lw-num">Levertijd</th><th>Bestellen uiterlijk</th><th class="lw-num">Advies</th><th class="lw-num">CBM</th><th class="lw-num">Inkoop</th><th>Status</th>
-      </tr></thead><tbody></tbody><tfoot><tr><td id="vr-ft-l">Totaal</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="lw-num" id="vr-ft-q">—</td><td class="lw-num" id="vr-ft-c">—</td><td class="lw-num" id="vr-ft-e">—</td><td></td></tr></tfoot></table></div>
+        <th>Product</th><th>Leverancier</th><th class="lw-num">Voorraad</th><th class="lw-num">Onderweg</th><th title="Tot wanneer de voorraad (incl. wat onderweg is) genoeg is zonder nieuwe bestelling">Voorraad tot</th><th class="vr-dongen" title="Voorraad in het Apple Bee-magazijn in Dongen (portaal)" hidden>Dongen</th><th class="lw-num">Levertijd</th><th>Bestellen uiterlijk</th><th class="lw-num">Advies</th><th class="lw-num">CBM</th><th class="lw-num">Inkoop</th><th>Status</th>
+      </tr></thead><tbody></tbody><tfoot><tr><td id="vr-ft-l">Totaal</td><td></td><td></td><td></td><td></td><td class="vr-dongen" hidden></td><td></td><td></td><td class="lw-num" id="vr-ft-q">—</td><td class="lw-num" id="vr-ft-c">—</td><td class="lw-num" id="vr-ft-e">—</td><td></td></tr></tfoot></table></div>
     </div>
   </section>
 
@@ -1050,6 +1053,7 @@
               <th class="lw-num">Voorraad nu</th>
               <th class="lw-num">Inkomend</th>
               <th>Voorraad tot</th>
+              <th class="dk-dongen" title="Voorraad in het Apple Bee-magazijn in Dongen (portaal)" hidden>Dongen</th>
               <th>Bestellen uiterlijk</th>
               <th class="lw-num">Advies</th>
               <th>Actie</th>

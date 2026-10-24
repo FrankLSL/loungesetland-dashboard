@@ -150,6 +150,17 @@
     }
     ABC.sku.set(sku, out); return out;
   }
+  // cel 'Dongen': voorraad Apple Bee-magazijn, prijs, en wanneer er weer iets komt; rood als het niet genoeg is om het gat tot de container te dichten
+  function dongenCel(r, nodig) {
+    const td = el('td', 'ab-dongen'); const ai = abInfo(r.sku);
+    if (!ai) { td.textContent = HERK[r.sku] || /^AB-/.test(r.sku) ? '—' : ''; td.title = HERK[r.sku] ? 'Nog geen gegevens uit het Apple Bee-portaal' : ''; return td; }
+    if (nodig && ai.mag < nodig) td.classList.add('ab-kort');
+    td.append(el('b', '', ai.mag > 0 ? `${int.format(ai.mag)} st` : 'op'));
+    const later = (ai.later || []).find((l) => l && l.available > 0);
+    td.append(el('small', '', `${eur0.format(ai.prijs)}${later ? ` · +${int.format(later.available)} op ${dNl(later.eta)}` : ''}`));
+    td.title = `Apple Bee-magazijn Dongen, artikel ${ai.artikel}. Magazijnprijs ${eur0.format(ai.prijs)}, FOB $ ${int.format(ai.fob)}${ai.moq > 1 ? ', min. ' + ai.moq + ' st' : ''}${nodig ? `. Nodig tot de container: ${int.format(nodig)} st` : ''}.`;
+    return td;
+  }
   const cbmOf = (sku) => { const v = Number(CBM[sku]); if (v > 0) return v; const a = abInfo(sku); return a && a.cbm > 0 ? Math.round(a.cbm * 1000) / 1000 : null; };
 
   // ---------- levertijd per leverancier ----------
@@ -419,6 +430,7 @@
     if (uit.length) { const b = el('button', 'vr-link', P.vr_uit ? 'terug naar de bestellijst' : `${uit.length} producten uitgezet (niet meer bestellen of aankijken) — bekijk`); b.type = 'button'; b.addEventListener('click', () => dash.setParams({ vr_uit: P.vr_uit ? null : 1 })); inact.append(b, document.createTextNode(' ')); }
     if (nonActief) inact.append(document.createTextNode(`${nonActief} producten staan niet in de lijst: uitlopend, of zonder voorraad, inkooporder en verkoop in de laatste 13 weken.`));
     const tb = document.querySelector('#vr-tbl tbody');
+    const metDongen = fLev === 'ab'; document.querySelectorAll('#vr-tbl .vr-dongen').forEach((e) => { e.hidden = !metDongen; });
     const stCls = (s) => (s === 'Te laat' ? ' lw-bad' : s === 'Nu bestellen' || s === 'Binnen 4 weken' || s === 'Tekort tot levering' ? ' lw-warn' : ' lw-ok');
     if (!tb._vrClick) { tb._vrClick = true; tb.addEventListener('click', (e) => { if (e.target.closest('.dk-detail, button, input, select')) return; const tr = e.target.closest('tr.dk-row'); if (!tr) return; const k = tr.dataset.key; const was = OPENB.has(k); const top = tr.getBoundingClientRect().top; OPENB.clear(); if (!was) OPENB.add(k); render(); const n = tb.querySelector(`tr.dk-row[data-key="${CSS.escape(k)}"]`); if (n) window.scrollBy(0, n.getBoundingClientRect().top - top); }); }
     if (tb.closest('.lw-tablebox')) tb.closest('.lw-tablebox').classList.toggle('dk-open', OPENB.size > 0);
@@ -428,20 +440,20 @@
       const ond = el('td', 'lw-num', r.onderweg ? int.format(r.onderweg) : '—'); if (r.leveringen && r.leveringen.length) ond.title = r.leveringen.map((l) => { const e = CPETA.get(pon(l.po)) || l.datum; return `${l.po}: ${int.format(l.stuks)} op ${dNl(e)}`; }).join('\n');
       const levTd = el('td', '', r.leverancier + (r.lev_afgeleid ? ' *' : '')); if (r.lev_afgeleid) levTd.title = `In Sumtracker zonder leverancier (${r.lev_origineel || 'onbekend'}); afgeleid van de andere producten uit deze collectie. Zet de leverancier in Sumtracker om dit vast te leggen.`;
       tr.append(nm, levTd, el('td', 'lw-num', int.format(r.voorraad)), ond,
-        el('td', a.kortVoor ? 'lw-bad' : '', a.opDatum ? dNl(a.opDatum) + (a.kortVoor && r.onderweg ? ' (tijdelijk op tot levering)' : '') : 'na 60 wk'), el('td', 'lw-num', a.L + ' wk'),
+        el('td', a.kortVoor ? 'lw-bad' : '', a.opDatum ? dNl(a.opDatum) + (a.kortVoor && r.onderweg ? ' (tijdelijk op tot levering)' : '') : 'na 60 wk'), ...(metDongen ? [dongenCel(r, x.mag)] : []), el('td', 'lw-num', a.L + ' wk'),
         el('td', a.rank <= 1 ? 'lw-bad' : '', a.bestelDatum ? (a.orderBy <= 0 ? 'nu' : dNl(a.bestelDatum)) : '—'),
         el('td', 'lw-num', a.qty ? int.format(a.qty) : '—'), el('td', 'lw-num', x.cbm && a.qty ? n1.format(a.qty * x.cbm) : x.cbm ? '' : '?'),
         el('td', 'lw-num', a.qty ? eur0.format(a.qty * (r.kostprijs || 0)) : '—'));
       const st = el('td'); const h = holdOf(r.sku);
       if (h) st.append(el('span', 'lw-pill dk-hold', holdTxt(h))); else st.append(el('span', 'lw-pill' + stCls(a.status), a.status));
       if (x.mag && !h) { const m = el('div', 'vr-mag', `magazijn: ${int.format(x.mag)} st tot de container er is`); st.append(m); }
-      { const ai = abInfo(r.sku); if (ai) { const d = el('div', 'vr-mag' + (x.mag && ai.mag < x.mag ? ' lw-bad' : ''), `Dongen: ${ai.mag > 0 ? int.format(ai.mag) + ' st' : 'niet op voorraad'} · ${eur0.format(ai.prijs)}`); d.title = `Apple Bee-magazijn Dongen (portaal), artikel ${ai.artikel}. Magazijnprijs ${eur0.format(ai.prijs)}, FOB $ ${int.format(ai.fob)}${ai.moq > 1 ? ', min. ' + ai.moq + ' st' : ''}.`; st.append(d); } }
+      if (!metDongen) { const ai = abInfo(r.sku); if (ai) { const d = el('div', 'vr-mag' + (x.mag && ai.mag < x.mag ? ' lw-bad' : ''), `Dongen: ${ai.mag > 0 ? int.format(ai.mag) + ' st' : 'niet op voorraad'} · ${eur0.format(ai.prijs)}`); d.title = `Apple Bee-magazijn Dongen (portaal), artikel ${ai.artikel}. Magazijnprijs ${eur0.format(ai.prijs)}, FOB $ ${int.format(ai.fob)}${ai.moq > 1 ? ', min. ' + ai.moq + ' st' : ''}.`; st.append(d); } }
       const lnk = el('div', 'vr-acts');
       const mkl = (t, l) => { const b = el('button', 'vr-link', l); b.type = 'button'; b.addEventListener('click', () => saveStat(r.sku, t ? { type: t, tot: t === 'wacht' ? addD(today(), 28) : null, at: today() } : null)); return b; };
       if (h) lnk.append(mkl(null, 'weer meenemen')); else lnk.append(mkl('wacht', 'aankijken'), mkl('stop', 'niet meer bestellen'));
       st.append(lnk); tr.append(st);
       if (!OPENB.has(r.sku)) return [tr];
-      const d = el('tr', 'dk-detail'); const td = el('td'); td.colSpan = 11; td.append(detail(r, x, true)); d.append(td);
+      const d = el('tr', 'dk-detail'); const td = el('td'); td.colSpan = metDongen ? 12 : 11; td.append(detail(r, x, true)); d.append(td);
       return [tr, d];
     }));
     const sq = list.reduce((t, x) => t + x.a.qty, 0), sc = list.reduce((t, x) => t + (x.cbm ? x.a.qty * x.cbm : 0), 0), se = list.reduce((t, x) => t + x.a.qty * (x.r.kostprijs || 0), 0);
@@ -616,7 +628,7 @@
   }
   // concept-inkooporder in Sumtracker met de aantallen uit dit voorstel
   function poKnop(items) {
-    const wrap = el('div', 'vr-po');
+    const wrap = el('div', 'vr-mkpo');
     const regels = items.filter((x) => x.q > 0 && !x.uit && x.r.pid);
     if (!regels.length) return wrap;
     const ids = {}; for (const x of regels) { const id = x.origine ? 20084 : x.r.leverancier_id; if (id != null) ids[id] = (ids[id] || 0) + x.q; }
@@ -829,6 +841,7 @@
       });
     }
     if (tbl.parentElement) tbl.parentElement.classList.toggle('dk-open', OPEN.size > 0);
+    const metD = fLev === 'ab'; tbl.querySelectorAll('th.dk-dongen').forEach((e) => { e.hidden = !metD; });
     const out = [];
     for (const x of list.slice(0, 500)) {
       const r = x.r, a = x.a, k = keuze(r.sku), ti = x.ti;
@@ -844,10 +857,10 @@
       if (ti.magTot) tot.append(el('div', 'vr-mag', `tot de container ${int.format(ti.magTot)} st uit het Apple Bee-magazijn`));
       const best = el('td', a.rank <= 1 ? 'lw-bad dk-strong' : a.rank === 2 ? 'dk-warn' : '', a.rank <= 1 ? 'nu' : a.bestelDatum ? dNl(a.bestelDatum) : '—');
       const hh = holdOf(r.sku); const act = el('td'); if (hh) act.append(el('span', 'lw-pill dk-hold', holdTxt(hh))); else { act.append(el('span', 'lw-pill' + stCls2(actieTxt(a)), actieTxt(a))); if (x.mag) act.append(el('div', 'vr-mag', `magazijn: ${int.format(x.mag)} st tot de container er is`)); }
-      tr.append(el('td', 'lw-num', String(x.rang)), nm, el('td', 'lw-num' + ((Number(r.voorraad) || 0) <= 0 ? ' lw-bad' : ''), int.format(r.voorraad)), inc, tot, best,
+      tr.append(el('td', 'lw-num', String(x.rang)), nm, el('td', 'lw-num' + ((Number(r.voorraad) || 0) <= 0 ? ' lw-bad' : ''), int.format(r.voorraad)), inc, tot, ...(metD ? [dongenCel(r, ti.magTot || x.mag)] : []), best,
         el('td', 'lw-num', a.qty && !hh ? int.format(a.qty) : '—'), act);
       out.push(tr);
-      if (OPEN.has(r.sku)) { const d = el('tr', 'dk-detail'); const td = el('td'); td.colSpan = 8; td.append(detail(r, x)); d.append(td); out.push(d); }
+      if (OPEN.has(r.sku)) { const d = el('tr', 'dk-detail'); const td = el('td'); td.colSpan = metD ? 9 : 8; td.append(detail(r, x)); d.append(td); out.push(d); }
     }
     tb.replaceChildren(...out);
     cbmPaneel(list);
